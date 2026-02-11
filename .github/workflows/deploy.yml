@@ -37,6 +37,7 @@ jobs:
           GH_SECRET_VITE_FIREBASE_PROJECT_ID: "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
           BYPASS_GH_SECRET_TOKEN: "${{ secrets.VITE_FIREBASE_APP_CHECK_DEBUG_TOKEN }}"
         run: |
+          echo "Testing protocol reset — passWithNoTests enabled in vitest.config.ts"
           VITE_API_KEY="$GH_SECRET_VITE_API_KEY" \
           VITE_VERTEX_PROJECT_ID="$GH_SECRET_VITE_VERTEX_PROJECT_ID" \
           VITE_VERTEX_LOCATION="$GH_SECRET_VITE_VERTEX_LOCATION" \
