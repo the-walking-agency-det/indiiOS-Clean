@@ -1336,14 +1336,12 @@ export class FirebaseAIService {
             if (import.meta.env.DEV) {
                 console.error('[FirebaseAIService] Permission Error Detail:', msg); // Log raw message only in DEV
             }
-            if (this.useFallbackMode) {
-                return new AppException(
-                    AppErrorCode.UNAUTHORIZED,
-                    'AI Verification Failed',
-                    { retryable: false }
-                );
-            }
-            return new AppException(AppErrorCode.UNAUTHORIZED, 'AI Verification Failed (App Check/Auth)', { retryable: false });
+            // Sanitize all permission errors to prevent leaking internal details (App Check, Auth status, etc.)
+            return new AppException(
+                AppErrorCode.UNAUTHORIZED,
+                'AI Verification Failed',
+                { retryable: false }
+            );
         }
         if (msg.includes('Recaptcha')) {
             return new AppException(AppErrorCode.UNAUTHORIZED, 'Client Verification Failed (ReCaptcha)');
