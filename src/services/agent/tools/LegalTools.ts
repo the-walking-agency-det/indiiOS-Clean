@@ -88,18 +88,10 @@ Key Terms: ${args.terms}`;
             throw new Error("Validation Error: 'contractId' is required.");
         }
 
-        export_contract_pdf: wrapTool('export_contract_pdf', async (args: {
-            contractId: string;
-        }) => {
-            if (!args.contractId) {
-                throw new Error("Validation Error: 'contractId' is required.");
-            }
-
-            const success = await LegalService.exportContractToPDF(args.contractId);
-            if (!success) {
-                throw new Error("PDF generation was cancelled or failed.");
-            }
-            return toolSuccess({}, "Contract PDF has been generated and saved locally.");
-        })
+        const success = await LegalService.exportContractToPDF(args.contractId);
+        if (!success) {
+            throw new Error("PDF generation was cancelled or failed.");
+        }
+        return toolSuccess({}, "Contract PDF has been generated and saved locally.");
     })
 };

@@ -17,6 +17,16 @@ import { LegalContract, ContractStatus } from '@/modules/legal/types';
 
 export class LegalService {
 
+    private static escapeHtml(text: string): string {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     /**
      * Save a new contract draft
      */

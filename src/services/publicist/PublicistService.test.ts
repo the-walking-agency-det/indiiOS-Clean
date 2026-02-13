@@ -43,12 +43,14 @@ describe('PublicistService Integration Tests', () => {
                             id: 'camp-1',
                             data: () => ({
                                 name: 'Test Campaign',
+                                title: 'Test Release',
+                                artist: 'Test Artist',
                                 status: 'Draft',
                                 budget: 1000,
                                 userId: mockUserId,
-                                type: 'Album Launch', // valid type from schema
-                                startDate: { toDate: () => new Date() },
-                                endDate: { toDate: () => new Date() },
+                                type: 'Album',
+                                releaseDate: new Date().toISOString(),
+                                progress: 0,
                                 openRate: 0,
                                 clickRate: 0
                             })
