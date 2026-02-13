@@ -28,11 +28,6 @@ if [ -z "$KEY" ]; then
         # Fallback to VITE_API_KEY if GEMINI_API_KEY not found
         if [ -z "$DETECTED_KEY" ]; then
             DETECTED_KEY=$(grep -E "^VITE_API_KEY=" .env | head -1 | sed 's/^VITE_API_KEY=//' | sed "s/^['\"]//; s/['\"]$//")
-        DETECTED_KEY=$(grep -E "^GEMINI_API_KEY=" .env | head -1 | sed 's/^GEMINI_API_KEY=//')
-
-        # Fallback to VITE_API_KEY if GEMINI_API_KEY not found
-        if [ -z "$DETECTED_KEY" ]; then
-            DETECTED_KEY=$(grep -E "^VITE_API_KEY=" .env | head -1 | sed 's/^VITE_API_KEY=//' | sed "s/^['\"]//; s/['\"]$//")
         fi
 
         if [ -n "$DETECTED_KEY" ]; then
