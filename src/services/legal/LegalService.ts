@@ -65,6 +65,18 @@ export class LegalService {
 
         const docRef = doc(db, 'contracts', id);
 
+        // Security Check: Verify ownership before update
+        const snapshot = await getDoc(docRef);
+        if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.userId !== userProfile.id) {
+                throw new AppException(
+                    AppErrorCode.UNAUTHORIZED,
+                    'You do not have permission to update this contract'
+                );
+            }
+        }
+
         await updateDoc(docRef, {
             ...updates,
             updatedAt: serverTimestamp()
@@ -135,6 +147,11 @@ export class LegalService {
             <div><strong>Parties:</strong> ${contract.parties.map(p => LegalService.escapeHtml(p)).join(', ')}</div>
             <div style="margin-top: 20px;">
                 ${contract.content.split('\n').map(line => `<p>${LegalService.escapeHtml(line)}</p>`).join('')}
+            <h1>${this.escapeHtml(contract.title)}</h1>
+            <div><strong>Date:</strong> ${this.escapeHtml(dateString)}</div>
+            <div><strong>Parties:</strong> ${contract.parties.map(p => this.escapeHtml(p)).join(', ')}</div>
+            <div style="margin-top: 20px;">
+                ${contract.content.split('\n').map(line => `<p>${this.escapeHtml(line)}</p>`).join('')}
             </div>
         `;
 

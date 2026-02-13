@@ -78,6 +78,18 @@ export function registerSystemHandlers() {
         });
 
         try {
+            // Robust sanitization to prevent XSS from stored contract data
+            const { JSDOM } = await import('jsdom');
+            const createDOMPurify = (await import('dompurify')).default;
+            const window = new JSDOM('').window;
+            const DOMPurify = createDOMPurify(window as any);
+
+            // Allow basic formatting but strip dangerous tags/scripts
+            const sanitizedHtml = DOMPurify.sanitize(htmlContent, {
+                ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'em', 'u', 'pre', 'code', 'ul', 'ol', 'li', 'span', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+                ALLOWED_ATTR: ['class', 'style']
+            });
+
             // 2. Load the HTML (with some basic styling)
             // Sanitize user-provided HTML to prevent script injection
             const sanitizedHtml = htmlContent
@@ -135,4 +147,3 @@ export function registerSystemHandlers() {
         }
     });
 }
-

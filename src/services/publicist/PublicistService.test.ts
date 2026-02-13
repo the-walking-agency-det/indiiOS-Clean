@@ -51,6 +51,8 @@ describe('PublicistService Integration Tests', () => {
                                 type: 'Album',
                                 releaseDate: new Date().toISOString(),
                                 progress: 0,
+                                type: 'Single', // valid type from schema
+                                releaseDate: new Date().toISOString(),
                                 openRate: 0,
                                 clickRate: 0
                             })
@@ -66,7 +68,7 @@ describe('PublicistService Integration Tests', () => {
             expect(mockCallback).toHaveBeenCalledWith(expect.arrayContaining([
                 expect.objectContaining({
                     id: 'camp-1',
-                    name: 'Test Campaign',
+                    title: 'Test Release',
                     userId: mockUserId
                 })
             ]));
@@ -90,7 +92,7 @@ describe('PublicistService Integration Tests', () => {
             await PublicistService.addCampaign(mockUserId, newCampaign);
 
             expect(addDoc).toHaveBeenCalledWith(
-                expect.anything(), // collection reference
+                expect.anything(),
                 expect.objectContaining({
                     userId: mockUserId,
                     title: 'New Campaign',
@@ -98,7 +100,7 @@ describe('PublicistService Integration Tests', () => {
                     budget: 500,
                     type: 'Single',
                     status: 'Draft',
-                    // Schema adds defaults and strips unknowns like 'goals', 'timeline'
+                    targetAudience: 'Global',
                     progress: 0,
                     openRate: 0
                 })
