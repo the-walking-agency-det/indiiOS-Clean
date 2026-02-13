@@ -28,18 +28,10 @@ if [ -z "$KEY" ]; then
         # Fallback to VITE_API_KEY if GEMINI_API_KEY not found
         if [ -z "$DETECTED_KEY" ]; then
             DETECTED_KEY=$(grep -E "^VITE_API_KEY=" .env | head -1 | sed 's/^VITE_API_KEY=//' | sed "s/^['\"]//; s/['\"]$//")
-        DETECTED_KEY=$(grep -E "^GEMINI_API_KEY=" .env | head -1 | sed 's/^GEMINI_API_KEY=//')
-
-        # Fallback to VITE_API_KEY if GEMINI_API_KEY not found
-        if [ -z "$DETECTED_KEY" ]; then
-            DETECTED_KEY=$(grep -E "^VITE_API_KEY=" .env | head -1 | sed 's/^VITE_API_KEY=//')
         fi
 
         if [ -n "$DETECTED_KEY" ]; then
             echo -e "Found API key in .env"
-        DETECTED_KEY=$(grep VITE_API_KEY .env | cut -d '=' -f2)
-        if [ ! -z "$DETECTED_KEY" ]; then
-            echo -e "Found key in .env: ${DETECTED_KEY:0:5}..."
             read -p "Use this key? (y/n) " USE_DETECTED
             if [[ "$USE_DETECTED" == "y" ]]; then
                 KEY="$DETECTED_KEY"
