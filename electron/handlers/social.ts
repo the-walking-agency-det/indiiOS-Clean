@@ -83,8 +83,6 @@ export function registerSocialHandlers() {
 
     ipcMain.handle('social:get-token', async (event, platform: string) => {
         validateSender(event);
-        const { credentialService } = await import('../services/CredentialService');
         const creds = await credentialService.getCredentials(`social_${platform}` as any);
-        return creds?.accessToken || null;
     });
 }
