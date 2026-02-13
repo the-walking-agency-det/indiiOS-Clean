@@ -118,6 +118,8 @@
 
 - [x] **USER ACTION**: Run `scripts/update-gemini-secret.sh` to fix API Key. <!-- id: 405 -->
 - [x] Deploy Functions `generateImageV3` & `editImage` to apply secret. <!-- id: 406 -->
+- [x] **USER ACTION**: Run `scripts/update-gemini-secret.sh` to fix API Key. <!-- id: 405 -->
+- [x] Deploy Functions `generateImageV3` & `editImage` to apply secret. <!-- id: 406 -->
 - [x] Logic: Update `AgentService` to bypass HybridOrchestrator for 'Native' mode. <!-- id: 401 -->
 - [x] Prompts: Update `DirectorAgent` and `GeneralistAgent` prompts to forbid external tool hallucinations. <!-- id: 402 -->
 - [ ] Verification: Verify Image Generation works in browser. <!-- id: 403 -->
