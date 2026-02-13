@@ -74,19 +74,13 @@ describe('PublicistService Integration Tests', () => {
     describe('addCampaign', () => {
         it('should add valid campaign with userId', async () => {
             const newCampaign: any = {
-                name: 'New Campaign', // name is likely not in schema if title is used? Or maybe name maps to title?
-                // Schema likely uses 'title' not 'name'. The error said 'title' is Required.
                 title: 'New Campaign',
                 artist: 'Test Artist',
                 status: 'Draft',
-                type: 'Single', // Valid enum
+                type: 'Single',
                 budget: 500,
                 releaseDate: new Date().toISOString(),
-                location: 'Global', // instead of targetAudience if schema differs?
-                // Let's keep extra fields if schema allows passthrough or stripUnknown
-                targetAudience: 'Global',
-                goals: 'Reach 1M',
-                timeline: 'Q1'
+                targetAudience: 'Global'
             };
 
             vi.mocked(addDoc).mockResolvedValue({ id: 'new-camp-id' } as any);
