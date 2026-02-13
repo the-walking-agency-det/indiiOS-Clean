@@ -22,11 +22,12 @@ if [ -z "$KEY" ]; then
     if [ -f .env ]; then
         # Use exact match with ^GEMINI_API_KEY= (anchored to line start)
         # Extract everything after the first '=' to handle keys containing '='
-        DETECTED_KEY=$(grep -E "^GEMINI_API_KEY=" .env | head -1 | sed 's/^GEMINI_API_KEY=//')
+        # Strip optional quotes and trailing whitespace
+        DETECTED_KEY=$(grep -E "^GEMINI_API_KEY=" .env | head -1 | sed 's/^GEMINI_API_KEY=//' | sed "s/^['\"]//; s/['\"]$//")
 
         # Fallback to VITE_API_KEY if GEMINI_API_KEY not found
         if [ -z "$DETECTED_KEY" ]; then
-            DETECTED_KEY=$(grep -E "^VITE_API_KEY=" .env | head -1 | sed 's/^VITE_API_KEY=//')
+            DETECTED_KEY=$(grep -E "^VITE_API_KEY=" .env | head -1 | sed 's/^VITE_API_KEY=//' | sed "s/^['\"]//; s/['\"]$//")
         fi
 
         if [ -n "$DETECTED_KEY" ]; then
