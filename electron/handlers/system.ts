@@ -91,6 +91,7 @@ export function registerSystemHandlers() {
             });
 
             // 2. Load the HTML (with some basic styling)
+
             const styledHtml = `
                 <html>
                     <head>
