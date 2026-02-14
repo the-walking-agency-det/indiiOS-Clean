@@ -1,5 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// eslint-friendly handler type
+type IpcHandler = (...args: unknown[]) => unknown;
+
+// Mock Electron modules
+const mockIpcMain = {
+    handle: vi.fn()
+};
+
+const mockLoadURL = vi.fn().mockResolvedValue(undefined);
+const mockWebContentsOn = vi.fn();
+const mockOn = vi.fn();
+const mockClose = vi.fn();
+
+const MockBrowserWindow = vi.fn();
+MockBrowserWindow.mockImplementation(function(this: any) {
+    return {
+        loadURL: mockLoadURL,
+        webContents: {
+            on: mockWebContentsOn
+        },
+        on: mockOn,
+        close: mockClose
+    };
+} as any);
+
+const mockValidateSender = vi.fn();
+const mockGetCredentials = vi.fn();
+const mockBrowserWindow = vi.fn();
+const mockValidateSender = vi.fn();
+const mockGetCredentials = vi.fn();
+const mockCredentialService = {
+    getCredentials: vi.fn()
+};
+
+vi.mock('electron', () => ({
+    ipcMain: mockIpcMain,
+    BrowserWindow: mockBrowserWindow,
 // Define mocks
 const mockHandle = vi.fn();
 const mockLoadURL = vi.fn().mockResolvedValue(undefined);
@@ -88,6 +125,7 @@ describe('Social Handler', () => {
 
             // Call the handler
             if (oauthHandler) {
+                // Mock the promise resolution
                 const promise = oauthHandler(mockEvent, 'twitter');
 
                 // Simulate window closed to resolve the promise
@@ -100,6 +138,15 @@ describe('Social Handler', () => {
                  await promise;
 
                  expect(mockValidateSender).toHaveBeenCalledWith(mockEvent);
+                // Simulate window closed to resolve the promise if it's waiting
+                // Find the 'closed' event listener and call it
+                const closeCalls = mockOn.mock.calls.filter(call => call[0] === 'closed');
+                if (closeCalls.length > 0) {
+                     // Invoke the callback
+                     closeCalls[0][1]();
+                }
+
+                expect(mockValidateSender).toHaveBeenCalledWith(mockEvent);
             }
         });
 
@@ -119,6 +166,17 @@ describe('Social Handler', () => {
 
             if (oauthHandler) {
                 const promise = oauthHandler(mockEvent, 'twitter');
+
+                // Simulate window closed to resolve
+                // We need to capture the 'on' call to trigger 'closed'
+                // Since `oauthHandler` runs synchronously until `await new Promise`,
+                // `mockOn` should have been called by now.
+
+                const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
+                if (closeCall) {
+                    closeCall[1]();
+                }
+
 
                 // Simulate window closed to resolve
                 const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
@@ -153,7 +211,6 @@ describe('Social Handler', () => {
             if (oauthHandler) {
                 const promise = oauthHandler(mockEvent, 'twitter');
 
-                // Simulate window closed to resolve
                 const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
                 if (closeCall) {
                     closeCall[1]();
