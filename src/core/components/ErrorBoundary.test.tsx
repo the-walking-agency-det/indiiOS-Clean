@@ -22,6 +22,7 @@ describe('ErrorBoundary Component', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         // Clear sessionStorage before each test
         sessionStorage.clear();
+        vi.unstubAllEnvs();
     });
 
     it('should render children when no error', () => {
@@ -158,20 +159,22 @@ describe('ErrorBoundary Component', () => {
         const { rerender } = render(
             <ErrorBoundary>
                 <ThrowError shouldThrow={shouldThrow} />
+    });
+
+    it('should recover after error is fixed', () => {
+        const { rerender } = render(
+            <ErrorBoundary>
+                <ThrowError shouldThrow={true} />
             </ErrorBoundary>
         );
 
         expect(screen.getByText('Module Crash Detected')).toBeInTheDocument();
 
-        // Fix the error
-        shouldThrow = false;
-
-        // Click reset
+        // Click reset to clear error boundary state
         const resetButton = screen.getByRole('button', { name: /Try Again/i });
         fireEvent.click(resetButton);
 
         // Rerender with fixed component
-        // Update props first to stop throwing
         rerender(
             <ErrorBoundary>
                 <ThrowError shouldThrow={false} />

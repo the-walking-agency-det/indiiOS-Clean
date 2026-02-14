@@ -76,10 +76,11 @@ describe('Social Handler', () => {
     describe('social:connect-oauth', () => {
         it('should validate sender before processing', async () => {
             let oauthHandler: IpcHandler | undefined;
+            let oauthHandler: ((...args: any[]) => any) | undefined;
 
             mockHandle.mockImplementation((channel, handler) => {
                 if (channel === 'social:connect-oauth') {
-                    oauthHandler = handler as IpcHandler;
+                    oauthHandler = handler;
                 }
             });
 
@@ -110,16 +111,38 @@ describe('Social Handler', () => {
                     // Ignore errors during execution, we just want to check validation
                 }
 
+                // Mock the promise resolution
+                const promise = oauthHandler(mockEvent, 'twitter');
+
+                // Simulate window closed to resolve the promise
+                // We need to capture the 'closed' handler registered via mockOn
+                 const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
+                 if (closeCall) {
+                     closeCall[1]();
+                 }
+
+                 await promise;
+
+                 expect(mockValidateSender).toHaveBeenCalledWith(mockEvent);
+                // Simulate window closed to resolve the promise if it's waiting
+                // Find the 'closed' event listener and call it
+                const closeCalls = mockOn.mock.calls.filter(call => call[0] === 'closed');
+                if (closeCalls.length > 0) {
+                     // Invoke the callback
+                     closeCalls[0][1]();
+                }
+
                 expect(mockValidateSender).toHaveBeenCalledWith(mockEvent);
             }
         });
 
         it('should create BrowserWindow for OAuth flow', async () => {
             let oauthHandler: IpcHandler | undefined;
+            let oauthHandler: ((...args: any[]) => any) | undefined;
 
             mockHandle.mockImplementation((channel, handler) => {
                 if (channel === 'social:connect-oauth') {
-                    oauthHandler = handler as IpcHandler;
+                    oauthHandler = handler;
                 }
             });
 
@@ -130,6 +153,24 @@ describe('Social Handler', () => {
 
             if (oauthHandler) {
                 const promise = oauthHandler(mockEvent, 'twitter');
+
+                // Simulate window closed to resolve
+                // We need to capture the 'on' call to trigger 'closed'
+                // Since `oauthHandler` runs synchronously until `await new Promise`,
+                // `mockOn` should have been called by now.
+
+                const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
+                if (closeCall) {
+                    closeCall[1]();
+                }
+
+
+                // Simulate window closed to resolve
+                const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
+                if (closeCall) {
+                    closeCall[1]();
+                }
+
 
                 // Simulate window closed to resolve
                 const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
@@ -143,16 +184,19 @@ describe('Social Handler', () => {
                     title: 'Connect to Twitter',
                     width: 600,
                     height: 800
+                    height: 800,
+                    title: 'Connect to Twitter'
                 }));
             }
         });
 
         it('should load mock OAuth page', async () => {
             let oauthHandler: IpcHandler | undefined;
+            let oauthHandler: ((...args: any[]) => any) | undefined;
 
             mockHandle.mockImplementation((channel, handler) => {
                 if (channel === 'social:connect-oauth') {
-                    oauthHandler = handler as IpcHandler;
+                    oauthHandler = handler;
                 }
             });
 
@@ -164,7 +208,6 @@ describe('Social Handler', () => {
             if (oauthHandler) {
                 const promise = oauthHandler(mockEvent, 'twitter');
 
-                // Simulate window closed to resolve
                 const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
                 if (closeCall) {
                     closeCall[1]();
@@ -182,10 +225,11 @@ describe('Social Handler', () => {
     describe('social:get-token', () => {
         it('should validate sender before processing', async () => {
             let tokenHandler: IpcHandler | undefined;
+            let tokenHandler: ((...args: any[]) => any) | undefined;
 
             mockHandle.mockImplementation((channel, handler) => {
                 if (channel === 'social:get-token') {
-                    tokenHandler = handler as IpcHandler;
+                    tokenHandler = handler;
                 }
             });
 
@@ -204,10 +248,11 @@ describe('Social Handler', () => {
 
         it('should call credential service to get token', async () => {
             let tokenHandler: IpcHandler | undefined;
+            let tokenHandler: ((...args: any[]) => any) | undefined;
 
             mockHandle.mockImplementation((channel, handler) => {
                 if (channel === 'social:get-token') {
-                    tokenHandler = handler as IpcHandler;
+                    tokenHandler = handler;
                 }
             });
 
