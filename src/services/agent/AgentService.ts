@@ -419,35 +419,32 @@ Be direct, creative, and helpful. You are in direct chat mode — respond conver
 If the user asks you to do something that requires tools (like generating images, searching files, or managing projects), suggest they switch to Agent mode for that task.`;
 
         // Build chat history for multi-turn context (last 20 messages)
-        // Build chat history for multi-turn context (last 20 messages)
         // Note: Filter out the current message which should be the last entry
         const recentHistory = agentHistory
             .filter(m => (m.role === 'user' || m.role === 'model') && m.text && m.text.trim() !== '')
             .slice(-21) // Take 21 to ensure we have 20 after removing current
             .slice(0, -1) // Exclude the current user message (last entry)
-        const recentHistory = agentHistory
-            .filter(m => m.role === 'user' || m.role === 'model')
-            .slice(-20)
             .map(m => ({
                 role: m.role as 'user' | 'model',
                 parts: [{ text: m.text }]
             }));
 
         // Build the prompt contents: history + current message
-        const contents = [
-            ...recentHistory,
-            { role: 'user' as const, parts: [{ text }] }
-        ];
+        const currentMessagePart = { role: 'user' as const, parts: [{ text }] };
 
         // Handle image attachments inline
         if (attachments && attachments.length > 0) {
-            const lastContent = contents[contents.length - 1];
             for (const att of attachments) {
-                lastContent.parts.push({
+                currentMessagePart.parts.push({
                     inlineData: { mimeType: att.mimeType, data: att.base64 }
                 } as any);
             }
         }
+
+        const contents = [
+            ...recentHistory,
+            currentMessagePart
+        ];
 
         try {
             const { stream } = await firebaseAI.generateContentStream(
@@ -481,7 +478,6 @@ If the user asks you to do something that requires tools (like generating images
                 text: accumulatedText || 'No response generated.',
                 thoughts: [{
                     id: uuidv4(),
-                    id: crypto.randomUUID(),
                     text: 'Direct Chat (Fast Path)',
                     timestamp: Date.now(),
                     type: 'logic',
@@ -494,7 +490,6 @@ If the user asks you to do something that requires tools (like generating images
                 text: `Chat Error: ${errorMessage}`,
                 thoughts: [{
                     id: uuidv4(),
-                    id: crypto.randomUUID(),
                     text: 'Direct chat failed',
                     timestamp: Date.now(),
                     type: 'error'
