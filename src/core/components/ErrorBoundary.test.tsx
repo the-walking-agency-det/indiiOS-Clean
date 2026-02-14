@@ -22,6 +22,8 @@ describe('ErrorBoundary Component', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         // Clear sessionStorage before each test
         sessionStorage.clear();
+        // Reset stubbed envs
+        vi.unstubAllEnvs();
     });
 
     it('should render children when no error', () => {
@@ -123,6 +125,7 @@ describe('ErrorBoundary Component', () => {
     });
 
     it('should show error stack in dev mode', () => {
+        // Mock import.meta.env.DEV
         vi.stubEnv('DEV', true);
 
         render(
@@ -152,6 +155,16 @@ describe('ErrorBoundary Component', () => {
     });
 
     it('should recover after error is fixed', () => {
+        let shouldThrow = true;
+        const TestComponent = () => <ThrowError shouldThrow={shouldThrow} />;
+
+        const { rerender } = render(
+            <ErrorBoundary>
+                <TestComponent />
+                <ThrowError shouldThrow={shouldThrow} />
+    });
+
+    it('should recover after error is fixed', () => {
         // Start with a component that does NOT throw — use key to force remount
         const { rerender } = render(
             <ErrorBoundary key="recover-test">
@@ -166,8 +179,23 @@ describe('ErrorBoundary Component', () => {
         rerender(
             <ErrorBoundary key="recover-test-2">
                 <ThrowError shouldThrow={false} />
+        // Click reset
+        // Click reset to clear error boundary state
+        const resetButton = screen.getByRole('button', { name: /Try Again/i });
+        fireEvent.click(resetButton);
+
+        // Rerender with fixed component
+        rerender(
+            <ErrorBoundary>
+                <TestComponent />
             </ErrorBoundary>
         );
+
+        // Then click reset to clear the error boundary state
+        const resetButtonAfter = screen.getByRole('button', { name: /Try Again/i });
+        fireEvent.click(resetButtonAfter);
+        const resetButton2 = screen.getByRole('button', { name: /Try Again/i });
+        fireEvent.click(resetButton2);
 
         expect(screen.queryByText('Module Crash Detected')).not.toBeInTheDocument();
         expect(screen.getByText('Working component')).toBeInTheDocument();
