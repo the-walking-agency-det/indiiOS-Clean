@@ -16,7 +16,7 @@ export function useSocial(userId?: string) {
     const [stats, setStats] = useState<SocialStats>({ followers: 0, following: 0, posts: 0, drops: 0 });
     const [posts, setPosts] = useState<SocialPost[]>([]);
     const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
-    const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
+    const [linkedAccounts, setLinkedAccounts] = useState<(LinkedAccount & { id: string })[]>([]);
 
     // Loading States
     const [isLoading, setIsLoading] = useState(true);
