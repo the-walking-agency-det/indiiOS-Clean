@@ -3,6 +3,40 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // eslint-friendly handler type
 type IpcHandler = (...args: unknown[]) => unknown;
 
+// Mock Electron modules
+const mockIpcMain = {
+    handle: vi.fn()
+};
+
+const mockLoadURL = vi.fn().mockResolvedValue(undefined);
+const mockWebContentsOn = vi.fn();
+const mockOn = vi.fn();
+const mockClose = vi.fn();
+
+const MockBrowserWindow = vi.fn();
+MockBrowserWindow.mockImplementation(function(this: any) {
+    return {
+        loadURL: mockLoadURL,
+        webContents: {
+            on: mockWebContentsOn
+        },
+        on: mockOn,
+        close: mockClose
+    };
+} as any);
+
+const mockValidateSender = vi.fn();
+const mockGetCredentials = vi.fn();
+const mockBrowserWindow = vi.fn();
+const mockValidateSender = vi.fn();
+const mockGetCredentials = vi.fn();
+const mockCredentialService = {
+    getCredentials: vi.fn()
+};
+
+vi.mock('electron', () => ({
+    ipcMain: mockIpcMain,
+    BrowserWindow: mockBrowserWindow,
 // Define mocks
 const mockHandle = vi.fn();
 const mockLoadURL = vi.fn().mockResolvedValue(undefined);
@@ -128,6 +162,13 @@ describe('Social Handler', () => {
                 // Since `oauthHandler` runs synchronously until `await new Promise`,
                 // `mockOn` should have been called by now.
 
+                const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
+                if (closeCall) {
+                    closeCall[1]();
+                }
+
+
+                // Simulate window closed to resolve
                 const closeCall = mockOn.mock.calls.find(c => c[0] === 'closed');
                 if (closeCall) {
                     closeCall[1]();
