@@ -6,6 +6,16 @@ import { fileSystemService } from '@/services/FileSystemService';
 
 export type TaskComplexity = 'SIMPLE_GENERATION' | 'COMPLEX_ORCHESTRATION';
 
+// Precompiled word-boundary regexes for generation trigger matching
+const GENERATION_TRIGGERS = [
+    'write a', 'draft a', 'generate a', 'create a',
+    'joke', 'poem', 'caption', 'email', 'list',
+    'explain', 'what is', 'what are', 'how do', 'how does',
+    'tell me', 'help me understand', 'summarize', 'describe',
+    'why is', 'why do', 'can you', 'could you'
+];
+const GENERATION_REGEXES = GENERATION_TRIGGERS.map(t => new RegExp(`\\b${t}\\b`, 'i'));
+
 export class WorkflowCoordinator {
 
     /**
@@ -55,23 +65,11 @@ export class WorkflowCoordinator {
             'find', 'search', 'upload', 'save', 'remember'
         ];
 
-        // Keywords implying simple generation (expanded for conversational queries)
-        const generationTriggers = [
-            'write a', 'draft a', 'generate a', 'create a',
-            'joke', 'poem', 'caption', 'email', 'list',
-            'explain', 'what is', 'what are', 'how do', 'how does',
-            'tell me', 'help me understand', 'summarize', 'describe',
-            'why is', 'why do', 'can you', 'could you'
-        ];
-
-        // Precompile regex for word boundaries
-        const generationRegexes = generationTriggers.map(t => new RegExp(`\\b${t}\\b`, 'i'));
-
         if (complexityTriggers.some(t => lower.includes(t))) {
             return 'COMPLEX_ORCHESTRATION';
         }
 
-        if (generationRegexes.some(r => r.test(lower)) && !complexityTriggers.some(t => lower.includes(t))) {
+        if (GENERATION_REGEXES.some(r => r.test(lower))) {
             return 'SIMPLE_GENERATION';
         }
 
