@@ -47,6 +47,7 @@ vi.mock('@/components/ui/tabs', () => ({
 const mockSubscribeToReleases = vi.fn(() => () => {});
 
 vi.mock('@/core/store', () => ({
+    useStore: () => ({
     useStore: vi.fn(() => ({
         distribution: {
             releases: [],
@@ -54,6 +55,7 @@ vi.mock('@/core/store', () => ({
             error: null
         },
         subscribeToReleases: mockSubscribeToReleases
+    })
     }))
 }));
 
@@ -105,6 +107,7 @@ describe('DistributionDashboard Component', () => {
     });
 
     it('should show loading skeletons when loading', () => {
+        vi.mocked(require('@/core/store').useStore).mockReturnValue({
         vi.mocked(useStore).mockReturnValue({
             distribution: {
                 releases: [],
@@ -121,6 +124,7 @@ describe('DistributionDashboard Component', () => {
     });
 
     it('should render releases when available', () => {
+        vi.mocked(require('@/core/store').useStore).mockReturnValue({
         vi.mocked(useStore).mockReturnValue({
             distribution: {
                 releases: [
@@ -154,6 +158,7 @@ describe('DistributionDashboard Component', () => {
     });
 
     it('should show error state when error occurs', () => {
+        vi.mocked(require('@/core/store').useStore).mockReturnValue({
         vi.mocked(useStore).mockReturnValue({
             distribution: {
                 releases: [],
@@ -200,8 +205,6 @@ describe('DistributionDashboard Component', () => {
     });
 
     it('should wrap panels in ErrorBoundary components', () => {
-        render(<DistributionDashboard />);
-
         // ErrorBoundary is mocked to just pass through children
         // We verify panels are rendered which means ErrorBoundary is working
         const { container } = render(<DistributionDashboard />);
@@ -225,6 +228,7 @@ describe('DistributionDashboard Component', () => {
             releaseDate: '2024-01-01'
         }));
 
+        vi.mocked(require('@/core/store').useStore).mockReturnValue({
         vi.mocked(useStore).mockReturnValue({
             distribution: {
                 releases,
@@ -242,6 +246,7 @@ describe('DistributionDashboard Component', () => {
     });
 
     it('should not show loading skeletons when releases are present', () => {
+        vi.mocked(require('@/core/store').useStore).mockReturnValue({
         vi.mocked(useStore).mockReturnValue({
             distribution: {
                 releases: [
@@ -272,4 +277,5 @@ describe('DistributionDashboard Component', () => {
         const mainContainer = container.querySelector('.max-w-7xl');
         expect(mainContainer).toBeInTheDocument();
     });
+});
 });
