@@ -22,6 +22,8 @@ describe('ErrorBoundary Component', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         // Clear sessionStorage before each test
         sessionStorage.clear();
+        // Reset stubbed envs
+        vi.unstubAllEnvs();
     });
 
     it('should render children when no error', () => {
@@ -153,6 +155,16 @@ describe('ErrorBoundary Component', () => {
     });
 
     it('should recover after error is fixed', () => {
+        let shouldThrow = true;
+        const TestComponent = () => <ThrowError shouldThrow={shouldThrow} />;
+
+        const { rerender } = render(
+            <ErrorBoundary>
+                <TestComponent />
+                <ThrowError shouldThrow={shouldThrow} />
+    });
+
+    it('should recover after error is fixed', () => {
         const { rerender } = render(
             <ErrorBoundary>
                 <ThrowError shouldThrow={true} />
@@ -162,20 +174,22 @@ describe('ErrorBoundary Component', () => {
         expect(screen.getByText('Module Crash Detected')).toBeInTheDocument();
 
         // Click reset
+        // Click reset to clear error boundary state
         const resetButton = screen.getByRole('button', { name: /Try Again/i });
         fireEvent.click(resetButton);
 
         // Rerender with fixed component
-        // Update props first to stop throwing
         rerender(
             <ErrorBoundary>
-                <ThrowError shouldThrow={false} />
+                <TestComponent />
             </ErrorBoundary>
         );
 
         // Then click reset to clear the error boundary state
         const resetButtonAfter = screen.getByRole('button', { name: /Try Again/i });
         fireEvent.click(resetButtonAfter);
+        const resetButton2 = screen.getByRole('button', { name: /Try Again/i });
+        fireEvent.click(resetButton2);
 
         expect(screen.queryByText('Module Crash Detected')).not.toBeInTheDocument();
         expect(screen.getByText('Working component')).toBeInTheDocument();
