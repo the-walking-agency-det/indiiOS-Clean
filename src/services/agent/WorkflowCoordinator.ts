@@ -55,22 +55,29 @@ export class WorkflowCoordinator {
             'find', 'search', 'upload', 'save', 'remember'
         ];
 
-        // Keywords implying simple generation
+        // Keywords implying simple generation (expanded for conversational queries)
         const generationTriggers = [
             'write a', 'draft a', 'generate a', 'create a',
-            'joke', 'poem', 'caption', 'email', 'list'
+            'joke', 'poem', 'caption', 'email', 'list',
+            'explain', 'what is', 'what are', 'how do', 'how does',
+            'tell me', 'help me understand', 'summarize', 'describe',
+            'why is', 'why do', 'can you', 'could you'
         ];
+
+        // Precompile regex for word boundaries
+        const generationRegexes = generationTriggers.map(t => new RegExp(`\\b${t}\\b`, 'i'));
 
         if (complexityTriggers.some(t => lower.includes(t))) {
             return 'COMPLEX_ORCHESTRATION';
         }
 
-        if (generationTriggers.some(t => lower.includes(t)) && !complexityTriggers.some(t => lower.includes(t))) {
+        if (generationRegexes.some(r => r.test(lower)) && !complexityTriggers.some(t => lower.includes(t))) {
             return 'SIMPLE_GENERATION';
         }
 
-        // Default to Complex to be safe (Agent can handle simple stuff too)
-        return 'COMPLEX_ORCHESTRATION';
+        // Default to Simple — the fast path handles most conversational queries well.
+        // Complex orchestration should be explicitly triggered by complexity keywords.
+        return 'SIMPLE_GENERATION';
     }
 
     private requiresTools(message: string): boolean {
@@ -102,7 +109,11 @@ export class WorkflowCoordinator {
             }
         }
 
-        return lower.includes('my') || lower.includes('save') || lower.includes('find');
+        // Only require tools for explicit persistence/retrieval actions, NOT for possessive "my"
+        // Note: 'save', 'find', 'search', 'upload' are already caught by complexityTriggers in determineComplexity,
+        // so they will be routed to COMPLEX_ORCHESTRATION before reaching here (which only runs for SIMPLE_GENERATION).
+        // 'download' is not in complexityTriggers, so we keep it here.
+        return lower.includes('download');
     }
 
     /**
