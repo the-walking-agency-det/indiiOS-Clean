@@ -7,6 +7,7 @@ import { fileSystemService } from '@/services/FileSystemService';
 export type TaskComplexity = 'SIMPLE_GENERATION' | 'COMPLEX_ORCHESTRATION';
 
 // Precompiled word-boundary regexes for generation trigger matching
+// Keywords implying simple generation (expanded for conversational queries)
 const GENERATION_TRIGGERS = [
     'write a', 'draft a', 'generate a', 'create a',
     'joke', 'poem', 'caption', 'email', 'list',
@@ -14,6 +15,8 @@ const GENERATION_TRIGGERS = [
     'tell me', 'help me understand', 'summarize', 'describe',
     'why is', 'why do', 'can you', 'could you'
 ];
+
+// Precompile regex for word boundaries
 const GENERATION_REGEXES = GENERATION_TRIGGERS.map(t => new RegExp(`\\b${t}\\b`, 'i'));
 
 export class WorkflowCoordinator {
@@ -70,6 +73,7 @@ export class WorkflowCoordinator {
         }
 
         if (GENERATION_REGEXES.some(r => r.test(lower))) {
+        if (GENERATION_REGEXES.some(r => r.test(lower)) && !complexityTriggers.some(t => lower.includes(t))) {
             return 'SIMPLE_GENERATION';
         }
 
@@ -111,10 +115,10 @@ export class WorkflowCoordinator {
         // Note: 'save', 'find', 'search', 'upload' are already caught by complexityTriggers in determineComplexity,
         // so they will be routed to COMPLEX_ORCHESTRATION before reaching here (which only runs for SIMPLE_GENERATION).
         // 'download' is not in complexityTriggers, so we keep it here.
-        return lower.includes('download');
         return lower.includes('save to') || lower.includes('save this') ||
                lower.includes('find my') || lower.includes('search my') ||
                lower.includes('upload') || lower.includes('download');
+        return lower.includes('download');
     }
 
     /**
