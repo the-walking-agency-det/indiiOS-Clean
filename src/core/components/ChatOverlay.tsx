@@ -21,6 +21,7 @@ interface ChatOverlayProps {
 }
 
 const COLORS_TO_CLASSES: Record<string, string> = {
+const BRAND_COLORS_TO_CLASSES: Record<string, string> = {
     purple: 'bg-purple-600 text-white shadow-sm',
     orange: 'bg-orange-600 text-white shadow-sm',
     emerald: 'bg-emerald-600 text-white shadow-sm',
@@ -218,6 +219,23 @@ const ChatOverlay: React.FC<ChatOverlayProps> = ({ onClose, onToggleMinimize }) 
     const activeBrandColor = brandColorMap[activeAgentId] || agentColor;
     const activeClass = COLORS_TO_CLASSES[activeBrandColor] || COLORS_TO_CLASSES['purple'];
 
+    const BRAND_COLORS: Record<string, string> = {
+        purple: 'bg-purple-600 text-white shadow-sm',
+        orange: 'bg-orange-600 text-white shadow-sm',
+        emerald: 'bg-emerald-600 text-white shadow-sm',
+        yellow: 'bg-yellow-600 text-white shadow-sm',
+        blue: 'bg-blue-600 text-white shadow-sm',
+        indigo: 'bg-indigo-600 text-white shadow-sm',
+        rose: 'bg-rose-600 text-white shadow-sm',
+        sky: 'bg-sky-600 text-white shadow-sm',
+        pink: 'bg-pink-600 text-white shadow-sm',
+        slate: 'bg-slate-600 text-white shadow-sm',
+        // Fallback
+        default: 'bg-purple-600 text-white shadow-sm'
+    };
+
+    const activeBrandClass = BRAND_COLORS[activeBrandColor] || BRAND_COLORS.default;
+
     return (
         <>
             {/* Stealth Wake Button */}
@@ -330,6 +348,8 @@ const ChatOverlay: React.FC<ChatOverlayProps> = ({ onClose, onToggleMinimize }) 
                                         <button
                                             onClick={() => setActiveAgentProvider('native')}
                                             className={twMerge(clsx('px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all', activeAgentProvider === 'native' ? activeClass : 'text-gray-500 hover:text-gray-300'))}
+                                            className={twMerge(clsx('px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all', activeAgentProvider === 'native' ? (BRAND_COLORS_TO_CLASSES[activeBrandColor] || BRAND_COLORS_TO_CLASSES['purple']) : 'text-gray-500 hover:text-gray-300'))}
+                                            className={twMerge(clsx('px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all', activeAgentProvider === 'native' ? activeBrandClass : 'text-gray-500 hover:text-gray-300'))}
                                             title="Specialist agents with tools"
                                         >
                                             Agent
