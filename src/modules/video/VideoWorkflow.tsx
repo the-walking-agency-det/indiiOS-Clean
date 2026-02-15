@@ -270,7 +270,13 @@ export default function VideoWorkflow() {
             if (promptOverride) setLocalPrompt(promptToUse); // Ensure local state matches
 
             // Synthesize prompt with Whisk references (SUBJECT, SCENE, STYLE, MOTION)
-            const finalPrompt = WhiskService.synthesizeVideoPrompt(promptToUse, whiskState);
+            let finalPrompt = WhiskService.synthesizeVideoPrompt(promptToUse, whiskState);
+
+            // 🧠 Thinking Mode: Incorporate advanced reasoning into the prompt for now
+            // until a native 'thinking' parameter is supported for Veo models.
+            if (studioControls.thinking) {
+                finalPrompt = `[Think CINEMATIC PHYSICS & CONTINUITY]: ${finalPrompt}`;
+            }
 
             let results: { id: string; url: string; prompt: string; }[] = [];
 
