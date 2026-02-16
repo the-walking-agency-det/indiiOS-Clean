@@ -422,7 +422,6 @@ export const triggerLongFormVideoJob = functions
 
             // 5. Publish Event to Inngest for Long Form
             const inngest = getInngestClient();
-
             await inngest.send({
                 name: "video/long_form.requested",
                 data: {
