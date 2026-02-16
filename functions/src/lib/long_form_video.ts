@@ -40,6 +40,10 @@ export const LongFormVideoJobSchema = z.object({
     userId: z.string(),
     orgId: z.string().optional().default("personal"),
     prompts: z.array(z.string()).min(1), // Validation fixed: must have at least 1 prompt
+    totalDuration: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined ? undefined : val),
+        z.coerce.number().optional(),
+    ),
     totalDuration: z.union([z.string(), z.number()]).optional(),
     startImage: z.string().optional(),
     options: z.object({
@@ -276,12 +280,87 @@ export const generateLongFormVideoFn = (inngestClient: any, geminiApiKey: any) =
 
                 // 4. Extract last frame for daisychaining
                 if (i < prompts.length - 1) {
+                    // FIX #3: Better error handling for frame extraction - retry with fallback
+                    let extractionAttempts = 0;
+                    const maxExtractionAttempts = 2;
+
+                    while (extractionAttempts < maxExtractionAttempts) {
+                        try {
+                            // 1. Trigger Frame Extraction Job
+                            const jobName = await step.run(`trigger-extract-frame-${i}-attempt-${extractionAttempts}`, async () => {
+                                const auth = new GoogleAuth({
+                                    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+                                });
+                                const transcoder = new TranscoderServiceClient();
+                                try {
+                                    const projectId = await auth.getProjectId();
+                                    const location = 'us-central1';
+                                    const bucket = admin.storage().bucket();
+                                    const outputUri = `gs://${bucket.name}/frames/${userId}/${segmentId}/`;
+
+                                    // Normalize Input URI
+                                    const inputUri = toGcsUri(segmentUrl);
+
+                                    // Calculate frame extraction time dynamically
+                                    const videoDurationSeconds = DEFAULT_SEGMENT_DURATION_SECONDS;
+                                    const extractionTime = Math.min(
+                                        DEFAULT_FRAME_EXTRACTION_OFFSET_SECONDS,
+                                        videoDurationSeconds - 0.5
+                                    );
+                                    const extractionSeconds = Math.floor(extractionTime);
+                                    const extractionNanos = Math.floor((extractionTime - extractionSeconds) * 1_000_000_000);
+
+                                    // Create Sprite Job
+                                    const [job] = await transcoder.createJob({
+                                        parent: transcoder.locationPath(projectId, location),
+                                        job: {
+                                            outputUri,
+                                            config: {
+                                                inputs: [{ key: "input0", uri: inputUri }],
+                                                editList: [{ key: "atom0", inputs: ["input0"] }],
+                                                spriteSheets: [
+                                                    {
+                                                        filePrefix: "frame_",
+                                                        startTimeOffset: { seconds: extractionSeconds, nanos: extractionNanos },
+                                                        endTimeOffset: { seconds: 0, nanos: 0 },
+                                                        columnCount: 1,
+                                                        rowCount: 1,
+                                                        totalCount: 1,
+                                                        quality: 100
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    });
+                                    return job.name;
+                                } finally {
+                                    await transcoder.close();
+                                }
+                            });
+
+                            // 2. Poll for Completion using step.sleep
+                            let finalState = 'PROCESSING';
+                            for (let j = 0; j < FRAME_EXTRACTION_MAX_POLL_ATTEMPTS; j++) {
+                                await step.sleep(`wait-extract-${i}-${extractionAttempts}-${j}`, `${FRAME_EXTRACTION_POLL_INTERVAL_MS / 1000}s`);
+
+                        if (nextStartImage) currentStartImage = nextStartImage;
+
+
+                    } catch (e: any) {
+                        console.warn(`[LongForm] Frame extraction failed for segment ${i}:`, e.message);
+                        // Continue without chaining if extraction fails
+                    }
 
                     // FIX #3: Better error handling for frame extraction - retry with fallback
                     let extractionAttempts = 0;
                     const maxExtractionAttempts = 2;
 
                     while (extractionAttempts < maxExtractionAttempts) {
+                            try {
+                                // 1. Trigger Frame Extraction Job
+                                const jobName = await step.run(`trigger-extract-frame-${i}-attempt-${extractionAttempts}`, async () => {
+                                    const auth = new GoogleAuth({
+                                        scopes: ['https://www.googleapis.com/auth/cloud-platform']
                         try {
                             // 1. Trigger Frame Extraction Job
                             const jobName = await step.run(`trigger-extract-frame-${i}-attempt-${extractionAttempts}`, async () => {
@@ -522,7 +601,6 @@ export const stitchVideoFn = (inngestClient: any) => inngestClient.createFunctio
                 }, { merge: true });
             });
 
-            // Poll with step.sleep
             // Poll with step.sleep to avoid timeout (using constants)
             let jobStatus = "PENDING";
             let retries = 0;
