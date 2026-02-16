@@ -35,7 +35,7 @@ describe('🧬 Helix: Evolutionary Loop & Guardrails', () => {
     id: 'genesis',
     name: 'Genesis Agent',
     systemPrompt: 'You are a helpful AI.',
-    parameters: { temperature: 0.5, model: 'gemini-1.5-pro' },
+    parameters: { temperature: 0.5, model: 'gemini-3-pro-preview' },
     generation: 0,
     lineage: []
   };
@@ -131,8 +131,8 @@ describe('🧬 Helix: Evolutionary Loop & Guardrails', () => {
 
     expect(nextGen).toHaveLength(3);
     nextGen.forEach(child => {
-        expect(child.lineage).not.toContain('Zombie');
-        expect(child.lineage).toContain('Healthy1'); // Or Healthy2
+      expect(child.lineage).not.toContain('Zombie');
+      expect(child.lineage).toContain('Healthy1'); // Or Healthy2
     });
   });
 
@@ -165,9 +165,9 @@ describe('🧬 Helix: Evolutionary Loop & Guardrails', () => {
       .mockResolvedValueOnce({ ...baseGene, parameters: undefined as any }) // Defect
       .mockResolvedValueOnce({ ...baseGene, parameters: null as any })      // Defect
       .mockResolvedValue({
-          ...baseGene,
-          systemPrompt: 'Valid [GEMINI-3-PRO-EVOLVED]',
-          parameters: { temperature: 0.7 }
+        ...baseGene,
+        systemPrompt: 'Valid [GEMINI-3-PRO-EVOLVED]',
+        parameters: { temperature: 0.7 }
       });
 
     const population: AgentGene[] = [
@@ -182,5 +182,84 @@ describe('🧬 Helix: Evolutionary Loop & Guardrails', () => {
     const offspring = nextGen[2];
     expect(offspring.parameters.temperature).toBe(0.7);
     expect(mockMutationFn).toHaveBeenCalledTimes(3); // 2 fails + 1 success
+  });
+
+  it('Token Budget: Rejects bloated prompts exceeding context limits', async () => {
+    // Scenario: Mutation produces a prompt that is too long (Context Window Overflow).
+    engine = new EvolutionEngine(baseConfig, mockFitnessFn, mockMutationFn, mockCrossoverFn);
+
+    const bloatedPrompt = 'A'.repeat(100001); // 100,001 chars > 100,000 limit
+
+    // Mock sequence: Fail (Bloat) -> Success
+    mockMutationFn
+      .mockResolvedValueOnce({ ...baseGene, systemPrompt: bloatedPrompt }) // Defect
+      .mockResolvedValue({
+        ...baseGene,
+        systemPrompt: 'Valid Compact Prompt',
+        parameters: { temperature: 0.7 }
+      });
+
+    const population: AgentGene[] = [
+      { ...baseGene, id: 'P1', fitness: 100 },
+      { ...baseGene, id: 'P2', fitness: 90 },
+      { ...baseGene, id: 'P3', fitness: 80 }
+    ];
+
+    const nextGen = await engine.evolve(population);
+
+    // We expect the 3rd slot (offspring) to be the valid one
+    const offspring = nextGen[2];
+    expect(offspring.systemPrompt).toBe('Valid Compact Prompt');
+    expect(mockMutationFn).toHaveBeenCalledTimes(2); // 1 fail + 1 success
+  });
+
+  it('Safety Filter Resilience: Retries mutation when Gemini raises a Safety Violation', async () => {
+    // Scenario: The Mutation Function interacts with an LLM that has strict safety filters.
+    // The engine must discard these attempts and try again.
+    engine = new EvolutionEngine(baseConfig, mockFitnessFn, mockMutationFn, mockCrossoverFn);
+
+    const safetyError = new Error("Safety Violation: Dangerous Content");
+
+    // Mock sequence: Fail (Safety) -> Success
+    mockMutationFn
+      .mockRejectedValueOnce(safetyError) // Fail
+      .mockResolvedValue({
+        ...baseGene,
+        id: 'safe-child',
+        systemPrompt: 'Safe Content'
+      });
+
+    const population: AgentGene[] = [
+      { ...baseGene, id: 'P1', fitness: 100 },
+      { ...baseGene, id: 'P2', fitness: 100 }
+    ];
+
+    const nextGen = await engine.evolve(population);
+
+    expect(nextGen).toHaveLength(3); // 2 Elites + 1 Offspring
+    expect(mockMutationFn).toHaveBeenCalledTimes(2); // 1 fail + 1 success
+  });
+
+  it('Diversity Assurance: Ensures offspring are distinct from parents (Inbreeding Check)', async () => {
+    // Scenario: "Diversity is a metric; measure it."
+    // Ensure that the offspring is not just a clone of the parent.
+    engine = new EvolutionEngine(baseConfig, mockFitnessFn, mockMutationFn, mockCrossoverFn);
+
+    const population: AgentGene[] = [
+      { ...baseGene, id: 'Parent-A', systemPrompt: 'Prompt A', fitness: 100 },
+      { ...baseGene, id: 'Parent-B', systemPrompt: 'Prompt B', fitness: 100 }
+    ];
+
+    const nextGen = await engine.evolve(population);
+
+    // Offspring is at index 2 (EliteCount=2)
+    const offspring = nextGen[2];
+
+    expect(offspring.id).not.toBe('Parent-A');
+    expect(offspring.id).not.toBe('Parent-B');
+    expect(offspring.systemPrompt).not.toBe('Prompt A');
+    expect(offspring.systemPrompt).not.toBe('Prompt B');
+    // Ensure mutation happened (based on our mock that adds [GEMINI-3-PRO-EVOLVED])
+    expect(offspring.systemPrompt).toContain('[GEMINI-3-PRO-EVOLVED]');
   });
 });

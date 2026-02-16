@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         saveHistory: (id: string, data: any) => ipcRenderer.invoke('agent:save-history', id, data),
         getHistory: (id: string) => ipcRenderer.invoke('agent:get-history', id),
         deleteHistory: (id: string) => ipcRenderer.invoke('agent:delete-history', id),
+        proxyZero: (endpoint: string, payload: any, headers?: any) => ipcRenderer.invoke('agent:proxy-zero', endpoint, payload, headers),
     },
 
     // Video (Local Asset Management)
@@ -92,6 +93,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         generateBWARM: (data: any) => ipcRenderer.invoke('distribution:generate-bwarm', data),
         checkMerlinStatus: (data: any) => ipcRenderer.invoke('distribution:check-merlin-status', data),
         transmit: (config: any) => ipcRenderer.invoke('distribution:transmit', config),
+    },
+
+    // Auto-Updater
+    updater: {
+        check: () => ipcRenderer.invoke('updater:check'),
+        install: () => ipcRenderer.invoke('updater:install'),
     },
 
     testAgent: (query?: string) => ipcRenderer.invoke('test:browser-agent', query),

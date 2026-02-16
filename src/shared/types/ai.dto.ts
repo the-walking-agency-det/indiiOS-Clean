@@ -4,6 +4,7 @@
 
 export interface TextPart {
     text: string;
+    thoughtSignature?: string;
 }
 
 export interface InlineDataPart {
@@ -11,6 +12,7 @@ export interface InlineDataPart {
         mimeType: string;
         data: string;
     };
+    thoughtSignature?: string;
 }
 
 export interface FunctionCallPart {
@@ -18,6 +20,7 @@ export interface FunctionCallPart {
         name: string;
         args: Record<string, unknown>;
     };
+    thoughtSignature?: string;
 }
 
 export interface FunctionResponsePart {
@@ -25,6 +28,7 @@ export interface FunctionResponsePart {
         name: string;
         response: Record<string, unknown>;
     };
+    thoughtSignature?: string;
 }
 
 export type ContentPart = TextPart | InlineDataPart | FunctionCallPart | FunctionResponsePart;
@@ -53,8 +57,35 @@ export interface FunctionDeclaration {
     parameters?: FunctionDeclarationSchema;
 }
 
+export interface DynamicRetrievalConfig {
+    mode?: 'MODE_UNSPECIFIED' | 'MODE_DYNAMIC';
+    dynamicThreshold?: number;
+}
+
+export interface GoogleSearchRetrieval {
+    dynamicRetrievalConfig?: DynamicRetrievalConfig;
+}
+
+export type CodeExecution = Record<string, never>;
+
+export interface FunctionCallingConfig {
+    mode?: 'MODE_UNSPECIFIED' | 'AUTO' | 'ANY' | 'NONE';
+    allowedFunctionNames?: string[];
+}
+
+export interface Tool {
+    functionDeclarations?: FunctionDeclaration[];
+    googleSearch?: Record<string, never>;
+    googleSearchRetrieval?: GoogleSearchRetrieval;
+    codeExecution?: CodeExecution;
+}
+
 export interface ToolConfig {
-    functionDeclarations: FunctionDeclaration[];
+    functionCallingConfig?: FunctionCallingConfig;
+    functionDeclarations?: FunctionDeclaration[];
+    googleSearch?: Record<string, never>;
+    googleSearchRetrieval?: GoogleSearchRetrieval;
+    codeExecution?: CodeExecution;
 }
 
 // ============================================================================
@@ -65,10 +96,18 @@ export interface ThinkingConfig {
     thinkingLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
     includeThoughts?: boolean;
     thinkingBudget?: number;
+    budgetTokenCount?: number;
+}
+
+export interface PersonGenerationConfig {
+    dontAllowPeople?: boolean;
+    allowAdult?: boolean;
+    allowAll?: boolean;
 }
 
 export interface ImageConfig {
     imageSize?: '1K' | '2K' | '4K' | string;
+    personGenerationConfig?: PersonGenerationConfig;
 }
 
 export interface PrebuiltVoiceConfig {
@@ -92,13 +131,18 @@ export interface GenerationConfig {
     candidateCount?: number;
     responseMimeType?: string;
     responseSchema?: Record<string, unknown>;
+    responseLogprobs?: boolean;
+    logprobs?: number;
+    audioTimestamp?: boolean;
     // Extended SDK properties
     thinkingConfig?: ThinkingConfig;
     imageConfig?: ImageConfig;
     speechConfig?: SpeechConfig;
+    mediaResolution?: 'MEDIA_RESOLUTION_UNSPECIFIED' | 'MEDIA_RESOLUTION_LOW' | 'MEDIA_RESOLUTION_MEDIUM' | 'MEDIA_RESOLUTION_HIGH' | 'MEDIA_RESOLUTION_ULTRA_HIGH';
     responseModalities?: ('TEXT' | 'IMAGE' | 'AUDIO')[];
     systemInstruction?: string;
-    tools?: ToolConfig[];
+    tools?: Tool[];
+    toolConfig?: ToolConfig;
     // Image generation specific
     sampleCount?: number;
     numberOfImages?: number;
@@ -124,7 +168,8 @@ export interface GenerateContentRequest {
     contents: Content | Content[];
     config?: GenerationConfig;
     systemInstruction?: string;
-    tools?: ToolConfig[];
+    tools?: Tool[];
+    toolConfig?: ToolConfig;
     safetySettings?: SafetySetting[];
     apiKey?: string;
 }
@@ -179,6 +224,20 @@ export interface CitationMetadata {
     citationSources: CitationSource[];
 }
 
+export interface LogprobsResult {
+    // Basic structure for logprobs (can be expanded)
+    topCandidates: {
+        candidates: {
+            token: string;
+            logProbability: number;
+        }[];
+    }[];
+    chosenCandidates: {
+        token: string;
+        logProbability: number;
+    }[];
+}
+
 export interface Candidate {
     content: {
         role: string;
@@ -187,6 +246,7 @@ export interface Candidate {
     finishReason?: 'STOP' | 'MAX_TOKENS' | 'SAFETY' | 'RECITATION' | 'OTHER';
     safetyRatings?: SafetyRating[];
     citationMetadata?: CitationMetadata;
+    logprobsResult?: LogprobsResult;
     index?: number;
 }
 
@@ -258,6 +318,7 @@ export interface WrappedResponse {
     text: () => string;
     functionCalls: () => FunctionCallPart['functionCall'][];
     usage: () => UsageMetadata | undefined;
+    thoughtSignature?: string;
 }
 
 // ============================================================================
@@ -290,7 +351,10 @@ export interface GenerateContentOptions {
     contents?: Content | Content[];
     config?: GenerationConfig;
     systemInstruction?: string;
-    tools?: ToolConfig[];
+    tools?: Tool[];
+    toolConfig?: ToolConfig;
+    thoughtSignature?: string;
+    safetySettings?: SafetySetting[];
     signal?: AbortSignal;
     timeout?: number;
     // Caching options
@@ -304,7 +368,9 @@ export interface GenerateStreamOptions {
     contents: Content[];
     config?: GenerationConfig;
     systemInstruction?: string;
-    tools?: ToolConfig[];
+    tools?: Tool[];
+    toolConfig?: ToolConfig;
+    safetySettings?: SafetySetting[];
 }
 
 export interface GenerateVideoOptions {
@@ -337,6 +403,7 @@ export interface EmbedContentOptions {
 export interface StreamChunk {
     text: () => string;
     functionCalls: () => FunctionCallPart['functionCall'][];
+    thoughtSignature?: string;
 }
 
 export interface RetryableError extends Error {

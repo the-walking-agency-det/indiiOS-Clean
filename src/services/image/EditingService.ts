@@ -1,8 +1,9 @@
 import { firebaseAI } from '../ai/FirebaseAIService';
 import { AI_MODELS } from '@/core/config/ai-models';
-import { functions } from '@/services/firebase';
+import { functionsWest1 as functions } from '@/services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { InputSanitizer } from '../ai/utils/InputSanitizer';
+import { PromptBuilder } from './PromptBuilderService';
 
 // Data URI regex - strict pattern for image MIME types
 const DATA_URI_REGEX = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i;
@@ -40,21 +41,42 @@ export class EditingService {
     }
 
     /**
-     * Edit a single image with optional mask and reference image.
-     * Uses Cloud Function backend for rate limiting and security.
+     * Edit a single image using the Dual-View Pipeline (original + binary mask).
+     * 
+     * Pro (High Fidelity): Uses gemini-3-pro-image-preview for complex reasoning.
+     * Flash (High Speed): Uses gemini-2.5-flash-image for sub-second inpainting.
      */
     async editImage(options: {
         image: { mimeType: string; data: string };
         mask?: { mimeType: string; data: string };
+        decoratedImage?: { mimeType: string; data: string }; // Legacy/Flattened
         referenceImage?: { mimeType: string; data: string };
         prompt: string;
-    }): Promise<{ id: string; url: string; prompt: string } | null> {
+        forceHighFidelity?: boolean;
+        model?: 'pro' | 'flash' | string;
+        thoughtSignature?: string;
+        useSemanticMap?: boolean;
+    }): Promise<{ id: string; url: string; prompt: string; thoughtSignature?: string } | null> {
         const editImageFn = httpsCallable(functions, 'editImage');
 
-        // Sanitize prompt input
-        const sanitizedPrompt = InputSanitizer.sanitize(options.prompt);
+        // Determine Task Label
+        let taskLabel = "Object Modification via Visual Prompt";
+        if (options.useSemanticMap) taskLabel = "Semantic Image Editing";
+        else if (options.mask) taskLabel = "Targeted Image Inpainting";
 
-        // Call backend with retry logic and mimeType information
+        // Generate structured prompt using PromptBuilder
+        const structuredPrompt = PromptBuilder.build({
+            userPrompt: options.prompt,
+            useDualView: !!options.mask,
+            useSemanticMap: !!options.useSemanticMap,
+            task: taskLabel
+        });
+
+        // Selection Logic:
+        const useHighFidelity = options.model === 'pro' || options.forceHighFidelity || !!options.decoratedImage;
+        const modelId = useHighFidelity ? AI_MODELS.IMAGE.GENERATION : AI_MODELS.IMAGE.FAST;
+
+        // Call backend with Dual-View payload
         const result = await this.withRetry(() => editImageFn({
             image: options.image.data,
             imageMimeType: options.image.mimeType,
@@ -62,18 +84,35 @@ export class EditingService {
             maskMimeType: options.mask?.mimeType,
             referenceImage: options.referenceImage?.data,
             refMimeType: options.referenceImage?.mimeType,
-            prompt: sanitizedPrompt
+            prompt: structuredPrompt,
+            model: modelId,
+            thoughtSignature: options.thoughtSignature
         }));
 
-        const data = result.data as unknown as { candidates?: { content?: { parts?: { inlineData?: { mimeType: string; data: string } }[] } }[] };
-        const part = data.candidates?.[0]?.content?.parts?.[0];
+        const data = result.data as unknown as {
+            base64?: string;
+            mimeType?: string;
+            thoughtSignature?: string;
+            candidates?: any[]
+        };
 
-        if (part && part.inlineData) {
-            const url = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        // Handle flattened response (base64) or nested candidate structure
+        let url = "";
+        const newSignature: string | undefined = data.thoughtSignature;
+
+        if (data.base64) {
+            url = `data:${data.mimeType || 'image/png'};base64,${data.base64}`;
+        } else if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData) {
+            const part = data.candidates[0].content.parts[0];
+            url = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+
+        if (url) {
             return {
                 id: crypto.randomUUID(),
                 url,
-                prompt: `Edit: ${options.prompt}`
+                prompt: `Edit (${useHighFidelity ? 'Pro' : 'Flash'}): ${options.prompt}`,
+                thoughtSignature: newSignature
             };
         }
         return null;
@@ -87,6 +126,7 @@ export class EditingService {
         image: { mimeType: string; data: string };
         masks: { mimeType: string; data: string; prompt: string; colorId: string; referenceImage?: { mimeType: string; data: string } }[];
         variationCount?: number;
+        model?: string;
     }): Promise<{ id: string; url: string; prompt: string }[]> {
         const results: { id: string; url: string; prompt: string }[] = [];
         const count = options.variationCount || 4;
@@ -106,7 +146,8 @@ export class EditingService {
                     image: currentImageData,
                     mask: { mimeType: mask.mimeType, data: mask.data },
                     referenceImage: mask.referenceImage,
-                    prompt: variedPrompt
+                    prompt: variedPrompt,
+                    model: options.model
                 });
 
                 if (result) {
@@ -264,7 +305,6 @@ export class EditingService {
             required: ['scenes']
         };
 
-        // @ts-expect-error - Schema typing mismatch
         const plan = await firebaseAI.generateStructuredData<{ scenes: string[] }>(plannerPrompt, planSchema);
         const scenes = plan.scenes || [];
         while (scenes.length < options.count) scenes.push(`${sanitizedPrompt} (${options.timeDeltaLabel} Sequence)`);

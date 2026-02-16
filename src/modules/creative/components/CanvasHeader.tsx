@@ -4,8 +4,7 @@ import { useStore, HistoryItem } from '@/core/store';
 import { useToast } from '@/core/context/ToastContext';
 
 interface CanvasHeaderProps {
-    isEditing: boolean;
-    setIsEditing: (isEditing: boolean) => void;
+    // Removed isEditing and setIsEditing as they are no longer used
     isMagicFillMode: boolean;
     magicFillPrompt: string;
     setMagicFillPrompt: (prompt: string) => void;
@@ -20,11 +19,14 @@ interface CanvasHeaderProps {
     onClose: () => void;
     onSendToWorkflow?: (type: 'firstFrame' | 'lastFrame', item: HistoryItem) => void;
     onRefine?: () => void;
+    onCreateLastFrame?: () => void;
+    processingStatus?: string;
+    isHighFidelity: boolean;
+    setIsHighFidelity: (val: boolean) => void;
 }
 
 export const CanvasHeader: React.FC<CanvasHeaderProps> = ({
-    isEditing,
-    setIsEditing,
+    // Removed isEditing, setIsEditing
     isMagicFillMode,
     magicFillPrompt,
     setMagicFillPrompt,
@@ -38,7 +40,11 @@ export const CanvasHeader: React.FC<CanvasHeaderProps> = ({
     handleAnimate,
     onClose,
     onSendToWorkflow,
-    onRefine
+    onRefine,
+    onCreateLastFrame,
+    processingStatus,
+    isHighFidelity,
+    setIsHighFidelity
 }) => {
     const toast = useToast();
 
@@ -46,103 +52,65 @@ export const CanvasHeader: React.FC<CanvasHeaderProps> = ({
         <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-background">
             <div className="flex-1 mr-4 flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">
-                    {isEditing ? "Fabric.js Editor" : "Preview"}
+                    Creative Canvas
                 </h3>
             </div>
 
             <div className="flex items-center gap-2">
-                {!isEditing ? (
-                    <>
-                        <button
-                            onClick={() => { setIsEditing(true); toast.success("Editor mode active"); }}
-                            data-testid="edit-canvas-btn"
-                            className="px-4 py-2 bg-dept-creative hover:bg-dept-creative/80 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
-                        >
-                            <Brush size={14} /> Edit in Canvas
-                        </button>
-                        {onRefine && (
-                            <button
-                                onClick={onRefine}
-                                data-testid="refine-btn"
-                                className="px-4 py-2 bg-dept-distribution hover:bg-dept-distribution/80 text-white text-[10px] font-bold rounded-lg transition-colors flex items-center gap-2"
-                            >
-                                <Sparkles size={14} /> Refine
-                            </button>
+                <div className="flex items-center gap-2 mr-4 bg-gray-900/50 border border-white/5 p-1 px-2 rounded-xl backdrop-blur-md shadow-inner ring-1 ring-white/10 group/magic focus-within:ring-dept-creative/50 transition-all duration-300">
+                    <Sparkles size={14} className="text-dept-creative animate-pulse" />
+                    <input
+                        type="text"
+                        value={magicFillPrompt}
+                        onChange={(e) => setMagicFillPrompt(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleMagicFill()}
+                        data-testid="magic-fill-input"
+                        placeholder="Magic Edit (e.g. 'Add a dragon in the sky')..."
+                        className="bg-transparent border-none text-white text-xs px-2 focus:ring-0 outline-none w-64 placeholder:text-gray-500 font-medium"
+                    />
+                    <button
+                        onClick={handleMagicFill}
+                        data-testid="magic-generate-btn"
+                        disabled={isProcessing}
+                        className="px-4 py-1.5 bg-dept-creative hover:bg-dept-creative/80 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-2 border border-white/20 shadow-lg shadow-dept-creative/30 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                        {isProcessing ? (
+                            <>
+                                <Wand2 size={12} className="animate-spin" />
+                                <span>{processingStatus || 'Synthesizing'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Wand2 size={12} />
+                                <span>Refine</span>
+                            </>
                         )}
-                    </>
-                ) : (
-                    <>
-                        {isMagicFillMode && (
-                            <div className="flex items-center gap-2 mr-4 bg-gray-800 p-1 rounded-lg">
-                                <input
-                                    type="text"
-                                    value={magicFillPrompt}
-                                    onChange={(e) => setMagicFillPrompt(e.target.value)}
-                                    data-testid="magic-fill-input"
-                                    placeholder="Describe changes..."
-                                    className="bg-transparent border-none text-white text-sm px-2 focus:ring-0 outline-none w-48"
-                                />
-                                <button
-                                    onClick={handleMagicFill}
-                                    data-testid="magic-generate-btn"
-                                    disabled={isProcessing}
-                                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded flex items-center gap-1"
-                                >
-                                    {isProcessing ? <Wand2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                    Generate
-                                </button>
-                            </div>
-                        )}
-                        <div className="relative group">
-                            <button
-                                onClick={saveCanvas}
-                                data-testid="save-canvas-btn"
-                                className="px-4 py-2 bg-dept-licensing hover:bg-dept-licensing/80 text-white text-xs font-bold rounded-l-lg transition-colors flex items-center gap-2"
-                            >
-                                <Save size={14} /> Save
-                            </button>
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-[#1f1f1f] border border-gray-700 rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
-                                {onSendToWorkflow && (
-                                    <>
-                                        <button
-                                            onClick={() => onSendToWorkflow('firstFrame', item)}
-                                            data-testid="use-first-frame-btn"
-                                            className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-2"
-                                        >
-                                            <Film size={14} className="text-dept-distribution" /> Use as First Frame
-                                        </button>
-                                        <button
-                                            onClick={() => onSendToWorkflow('lastFrame', item)}
-                                            data-testid="use-last-frame-btn"
-                                            className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-2"
-                                        >
-                                            <Clapperboard size={14} className="text-dept-licensing" /> Use as Last Frame
-                                        </button>
-                                        <div className="border-t border-gray-700 my-1"></div>
-                                    </>
-                                )}
-                                <button
-                                    onClick={saveCanvas}
-                                    className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-700 flex items-center gap-2"
-                                >
-                                    <Save size={14} /> Save to Gallery
-                                </button>
-                            </div>
-                        </div>
-                        {onSendToWorkflow && (
-                            <button
-                                onClick={() => onSendToWorkflow('firstFrame', item)}
-                                data-testid="to-video-btn"
-                                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
-                                title="Send to Video Workflow"
-                            >
-                                <Film size={14} /> To Video
-                            </button>
-                        )}
-                    </>
-                )}
+                    </button>
 
-                {!isEditing && item.type === 'image' && (
+                    {/* High Fidelity Toggle */}
+                    <button
+                        onClick={() => setIsHighFidelity(!isHighFidelity)}
+                        title={isHighFidelity ? "Switch to High Speed (Flash)" : "Switch to High Fidelity (Pro)"}
+                        className={`p-1.5 rounded-lg border transition-all ${isHighFidelity
+                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-500 shadow-lg shadow-amber-500/20'
+                                : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-white'
+                            }`}
+                    >
+                        <Star size={12} fill={isHighFidelity ? "currentColor" : "none"} />
+                    </button>
+                </div>
+
+                <div className="relative group">
+                    <button
+                        onClick={saveCanvas}
+                        data-testid="save-canvas-btn"
+                        className="px-4 py-2 bg-dept-licensing hover:bg-dept-licensing/80 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        <Save size={14} /> Save
+                    </button>
+                </div>
+
+                {item.type === 'image' && (
                     <>
                         {endFrameItem ? (
                             <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded-lg">
@@ -154,11 +122,22 @@ export const CanvasHeader: React.FC<CanvasHeaderProps> = ({
                             </div>
                         ) : (
                             <button
-                                onClick={() => setIsSelectingEndFrame(true)}
-                                data-testid="set-last-frame-inline-btn"
-                                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+                                onClick={onCreateLastFrame || (() => setIsSelectingEndFrame(true))}
+                                data-testid="create-last-frame-inline-btn"
+                                disabled={isProcessing}
+                                className="px-3 py-2 bg-dept-creative hover:bg-dept-creative/80 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-dept-creative/20 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <ImageIcon size={14} /> Set Last Frame
+                                {isProcessing && processingStatus ? (
+                                    <>
+                                        <Wand2 size={14} className="animate-spin" />
+                                        <span>{processingStatus}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles size={14} />
+                                        <span>Create Last Frame</span>
+                                    </>
+                                )}
                             </button>
                         )}
                         <button
@@ -168,35 +147,36 @@ export const CanvasHeader: React.FC<CanvasHeaderProps> = ({
                         >
                             <Play size={14} /> Animate
                         </button>
-
-                        <div className="flex items-center gap-1 bg-gray-800/50 p-1 rounded-lg border border-gray-700">
-                            <button
-                                onClick={() => toast.success("Shared!")}
-                                data-testid="share-btn"
-                                className="p-2 hover:bg-blue-900/40 text-gray-400 hover:text-blue-400 rounded-lg transition-colors"
-                                title="Share"
-                            >
-                                <Share2 size={16} />
-                            </button>
-                            <button
-                                onClick={() => toast.success("Added to Favorites!")}
-                                data-testid="favorite-btn"
-                                className="p-2 hover:bg-yellow-900/40 text-gray-400 hover:text-yellow-400 rounded-lg transition-colors"
-                                title="Add to Favorites"
-                            >
-                                <Star size={16} />
-                            </button>
-                            <button
-                                onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
-                                data-testid="download-btn"
-                                className="p-2 hover:bg-green-900/40 text-gray-400 hover:text-green-400 rounded-lg transition-colors"
-                                title="Download"
-                            >
-                                <Download size={16} />
-                            </button>
-                        </div>
                     </>
                 )}
+
+                <div className="flex items-center gap-1 bg-gray-800/50 p-1 rounded-lg border border-gray-700">
+                    <button
+                        onClick={() => toast.success("Shared!")}
+                        data-testid="share-btn"
+                        className="p-2 hover:bg-blue-900/40 text-gray-400 hover:text-blue-400 rounded-lg transition-colors"
+                        title="Share"
+                    >
+                        <Share2 size={16} />
+                    </button>
+                    <button
+                        onClick={() => toast.success("Added to Favorites!")}
+                        data-testid="favorite-btn"
+                        className="p-2 hover:bg-yellow-900/40 text-gray-400 hover:text-yellow-400 rounded-lg transition-colors"
+                        title="Add to Favorites"
+                    >
+                        <Star size={16} />
+                    </button>
+                    <button
+                        onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
+                        data-testid="download-btn"
+                        className="p-2 hover:bg-green-900/40 text-gray-400 hover:text-green-400 rounded-lg transition-colors"
+                        title="Download"
+                    >
+                        <Download size={16} />
+                    </button>
+                </div>
+
                 <button
                     onClick={onClose}
                     data-testid="canvas-close-btn"

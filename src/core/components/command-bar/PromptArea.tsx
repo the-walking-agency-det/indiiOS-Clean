@@ -1,9 +1,10 @@
 import React, { useState, useRef, useMemo, useCallback, memo, useEffect } from 'react';
-import { ArrowRight, Loader2, Paperclip, Camera, Mic, ChevronUp, PanelTopClose, PanelTopOpen } from 'lucide-react';
+import { ArrowRight, Loader2, Paperclip, Camera, Mic, ChevronUp, PanelTopClose, PanelTopOpen, Database } from 'lucide-react';
 import { useToast } from '@/core/context/ToastContext';
 import { agentService } from '@/services/agent/AgentService';
 import { agentRegistry } from '@/services/agent/registry';
 import { useStore } from '@/core/store';
+import { useShallow } from 'zustand/react/shallow';
 import type { ModuleId } from '@/core/constants';
 import { getColorForModule } from '@/core/theme/moduleColors';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,8 +47,30 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         commandBarInput,
         setCommandBarInput,
         commandBarAttachments,
-        setCommandBarAttachments
-    } = useStore();
+        setCommandBarAttachments,
+        activeAgentProvider,
+        setActiveAgentProvider,
+        isKnowledgeBaseEnabled,
+        setKnowledgeBaseEnabled
+    } = useStore(useShallow(state => ({
+        // ⚡ Bolt Optimization: Use shallow selector to prevent re-renders on unrelated store updates
+        currentModule: state.currentModule,
+        setModule: state.setModule,
+        toggleAgentWindow: state.toggleAgentWindow,
+        isAgentOpen: state.isAgentOpen,
+        chatChannel: state.chatChannel,
+        setChatChannel: state.setChatChannel,
+        isCommandBarDetached: state.isCommandBarDetached,
+        setCommandBarDetached: state.setCommandBarDetached,
+        commandBarInput: state.commandBarInput,
+        setCommandBarInput: state.setCommandBarInput,
+        commandBarAttachments: state.commandBarAttachments,
+        setCommandBarAttachments: state.setCommandBarAttachments,
+        activeAgentProvider: state.activeAgentProvider,
+        setActiveAgentProvider: state.setActiveAgentProvider,
+        isKnowledgeBaseEnabled: state.isKnowledgeBaseEnabled,
+        setKnowledgeBaseEnabled: state.setKnowledgeBaseEnabled
+    })));
 
     const isIndiiMode = chatChannel === 'indii';
     const colors = getColorForModule(currentModule);
@@ -92,17 +115,18 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         if (!isAgentOpen) {
             toggleAgentWindow();
         }
+        setActiveAgentProvider('native'); // Switch back to Native for specific agents
         setOpenDelegate(false);
-    }, [isAgentOpen, setModule, toggleAgentWindow]);
+    }, [isAgentOpen, setModule, toggleAgentWindow, setActiveAgentProvider]);
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            setCommandBarAttachments([...commandBarAttachments, ...Array.from(e.target.files!)]);
+            setCommandBarAttachments([...(commandBarAttachments || []), ...Array.from(e.target.files!)]);
         }
     }, [commandBarAttachments, setCommandBarAttachments]);
 
     const removeAttachment = useCallback((index: number) => {
-        setCommandBarAttachments(commandBarAttachments.filter((_, i) => i !== index));
+        setCommandBarAttachments((commandBarAttachments || []).filter((_, i) => i !== index));
     }, [commandBarAttachments, setCommandBarAttachments]);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -119,7 +143,7 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         e.preventDefault();
         setIsDragging(false);
         if (e.dataTransfer.files) {
-            setCommandBarAttachments([...commandBarAttachments, ...Array.from(e.dataTransfer.files)]);
+            setCommandBarAttachments([...(commandBarAttachments || []), ...Array.from(e.dataTransfer.files)]);
         }
     }, [commandBarAttachments, setCommandBarAttachments]);
 
@@ -141,12 +165,12 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         try {
             e?.preventDefault();
             const input = commandBarInput || '';
-            if (!input.trim() && commandBarAttachments.length === 0) return;
+            if (!input.trim() && (commandBarAttachments?.length ?? 0) === 0) return;
             if (isProcessing) return;
 
             setIsProcessing(true);
             const currentInput = input;
-            const currentAttachments = [...commandBarAttachments];
+            const currentAttachments = [...(commandBarAttachments || [])];
 
             setCommandBarInput('');
             setCommandBarAttachments([]);
@@ -214,6 +238,7 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
             >
                 <PromptInputTextarea
                     placeholder={isDragging ? "" : (isIndiiMode ? "Ask indii to orchestrate..." : `Message ${currentModule}...`)}
+                    aria-label={isIndiiMode ? "Ask indii" : `Message ${currentModule}`}
                     className="text-gray-200 placeholder-gray-600 text-base md:text-sm"
                 />
 
@@ -226,9 +251,8 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
                                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple aria-label="Upload files" />
                                 <input type="file" ref={cameraInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" capture="environment" aria-label="Take photo" />
                                 <PromptInputAction tooltip="Attach files">
-                                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:bg-white/5 hover:text-gray-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none">
-                                        <Paperclip size={14} />
-                                        <span className="hidden sm:inline">Attach</span>
+                                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center p-2 rounded-xl text-gray-400 hover:bg-white/10 hover:text-gray-200 transition-all">
+                                        <Paperclip size={20} />
                                     </button>
                                 </PromptInputAction>
 
@@ -236,15 +260,14 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
                                     <button
                                         onClick={handleMicClick}
                                         className={cn(
-                                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+                                            "flex items-center justify-center p-2 rounded-xl transition-all",
                                             isListening
                                                 ? "text-red-400 bg-red-400/10 hover:bg-red-400/20"
-                                                : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                                                : "text-gray-400 hover:bg-white/10 hover:text-gray-200"
                                         )}
                                         aria-label={isListening ? "Stop listening" : "Voice Input"}
                                     >
-                                        <Mic size={14} className={isListening ? "animate-pulse" : ""} />
-                                        <span className="hidden sm:inline">Dictate</span>
+                                        <Mic size={20} className={isListening ? "animate-pulse" : ""} />
                                     </button>
                                 </PromptInputAction>
                             </>
@@ -252,27 +275,56 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
                         {!isMobile && (
                             <div className="relative">
                                 <button
-                                    onClick={() => setOpenDelegate(!openDelegate)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenDelegate(!openDelegate);
+                                    }}
                                     aria-haspopup="true"
                                     aria-expanded={openDelegate}
                                     aria-label="Select active agent"
                                     className={cn(
-                                        "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-                                        !isIndiiMode ? `${colors.bg} ${colors.border} ${colors.text}` : "bg-transparent border-transparent text-gray-400 hover:text-white"
+                                        "flex items-center justify-center w-10 h-10 rounded-full transition-all border",
+                                        !isIndiiMode ? `${colors.bg} ${colors.border} ${colors.text}` : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                                     )}
                                 >
-                                    <div className={cn("w-1.5 h-1.5 rounded-full", !isIndiiMode ? "bg-green-400" : "bg-gray-600")} />
-                                    <span>{currentModule === 'dashboard' ? 'indii' : currentModule}</span>
-                                    <ChevronUp size={12} className={cn("transition-transform", openDelegate && "rotate-180")} />
+                                    <div className={cn("w-2 h-2 rounded-full", !isIndiiMode ? "bg-green-400 animate-pulse" : "bg-gray-600")} />
                                 </button>
-                                <DelegateMenu isOpen={openDelegate} currentModule={currentModule} managerAgents={managerAgents} departmentAgents={departmentAgents} onSelect={handleDelegate} onClose={handleCloseDelegate} />
+                                <DelegateMenu isOpen={openDelegate} currentModule={currentModule} isIndiiMode={isIndiiMode} managerAgents={managerAgents} departmentAgents={departmentAgents} onSelect={handleDelegate} onSelectIndii={() => {
+                                    setChatChannel('indii');
+                                    setModule('dashboard' as ModuleId);
+                                    setActiveAgentProvider('agent-zero'); // Explicitly engage Sidecar
+                                    setOpenDelegate(false);
+                                    if (!isAgentOpen) toggleAgentWindow();
+                                }} onClose={handleCloseDelegate} />
                             </div>
                         )}
+
+                        {/* KB Toggle — grouped with agent selector */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setKnowledgeBaseEnabled(!isKnowledgeBaseEnabled);
+                            }}
+                            className={cn(
+                                "flex items-center justify-center w-8 h-8 rounded-full transition-all border",
+                                isKnowledgeBaseEnabled
+                                    ? "bg-teal-600/20 border-teal-500/50 text-teal-300"
+                                    : "bg-black/40 border-white/5 text-gray-500 hover:text-gray-300"
+                            )}
+                            title={isKnowledgeBaseEnabled ? "Knowledge Base Active" : "Connect Knowledge Base"}
+                            aria-label={isKnowledgeBaseEnabled ? "Disconnect Knowledge Base" : "Connect Knowledge Base"}
+                            aria-pressed={isKnowledgeBaseEnabled}
+                        >
+                            <Database size={13} />
+                        </button>
                     </div>
 
                     <div className="flex items-center gap-2 ml-auto">
                         <button
-                            onClick={() => setCommandBarDetached(!isCommandBarDetached)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setCommandBarDetached(!isCommandBarDetached);
+                            }}
                             className="p-1.5 rounded-full text-gray-500 hover:text-white hover:bg-white/10 transition-all min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                             title={isCommandBarDetached ? "Dock to Agent" : "Detach from Agent"}
                             aria-label={isCommandBarDetached ? "Dock to Agent" : "Detach from Agent"}
@@ -280,21 +332,12 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
                             {isCommandBarDetached ? <PanelTopOpen size={16} /> : <PanelTopClose size={16} />}
                         </button>
 
-                        <button
-                            onClick={() => setChatChannel(isIndiiMode ? 'agent' : 'indii')}
-                            className={cn(
-                                "p-1.5 rounded-full border flex items-center gap-2 px-4 text-[10px] font-bold tracking-widest lowercase min-h-[44px] md:min-h-0 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-                                isIndiiMode ? "bg-purple-600/20 border-purple-500/50 text-purple-200" : "bg-black/40 border-white/5 text-gray-500 hover:text-gray-200"
-                            )}
-                            aria-label={isIndiiMode ? "Switch to Agent mode" : "Switch to indii mode"}
-                        >
-                            <div className={cn("w-1.5 h-1.5 rounded-full", isIndiiMode ? "bg-purple-400" : "bg-gray-600")} />
-                            indii
-                        </button>
+                        {/* NATIVE/ZERO controls removed to reduce crowding - Indii mode via DelegateMenu now controls this */}
+
                         <PromptInputAction tooltip="Run command">
                             <button
                                 onClick={(e) => handleSubmit(e)}
-                                disabled={(!(commandBarInput || '').trim() && commandBarAttachments.length === 0) || isProcessing}
+                                disabled={(!(commandBarInput || '').trim() && (commandBarAttachments?.length ?? 0) === 0) || isProcessing}
                                 className="flex items-center justify-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                                 data-testid="command-bar-run-btn"
                             >

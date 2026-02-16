@@ -13,13 +13,15 @@ vi.mock('@/services/firebase', () => ({
     auth: { currentUser: { uid: 'user-123' } }
 }));
 
-// Mock Google Generative AI (Fallback)
-vi.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: vi.fn(function () {
+// Mock Google GenAI SDK (Fallback) - new @google/genai package
+vi.mock('@google/genai', () => ({
+    GoogleGenAI: vi.fn(function () {
         return {
-            getGenerativeModel: vi.fn(() => ({
-                generateContent: mockGenerateContent
-            }))
+            models: {
+                generateContent: mockGenerateContent,
+                generateContentStream: vi.fn(),
+                embedContent: vi.fn()
+            }
         };
     })
 }));
@@ -69,18 +71,16 @@ describe('Voice Interface QA', () => {
 
     it('should sanitize special characters', async () => {
         mockGenerateContent.mockResolvedValue({
-            response: {
-                candidates: [{
-                    content: {
-                        parts: [{
-                            inlineData: {
-                                mimeType: 'audio/mp3',
-                                data: 'base64audio'
-                            }
-                        }]
-                    }
-                }]
-            }
+            candidates: [{
+                content: {
+                    parts: [{
+                        inlineData: {
+                            mimeType: 'audio/mp3',
+                            data: 'base64audio'
+                        }
+                    }]
+                }
+            }]
         });
 
         const result = await service.generateSpeech('Hello 🌍! @#$%^&*()', 'Kore');

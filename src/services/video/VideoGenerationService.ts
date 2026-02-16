@@ -1,7 +1,7 @@
 import { firebaseAI } from '../ai/FirebaseAIService';
 import { AI } from '../ai/AIService';
 import { AI_MODELS, AI_CONFIG } from '@/core/config/ai-models';
-import { useStore, ShotItem } from '@/core/store';
+import type { ShotItem } from '@/core/store';
 import { v4 as uuidv4 } from 'uuid';
 import { extractVideoFrame } from '@/utils/video';
 import { functionsWest1 as functions, db, auth } from '@/services/firebase';
@@ -15,9 +15,18 @@ import { UserProfile } from '@/modules/workflow/types';
 import { getVideoConstraints } from '../onboarding/DistributorContext';
 import { VideoGenerationOptionsSchema, VideoGenerationOptions, VideoAspectRatioSchema } from '@/modules/video/schemas';
 import { z } from 'zod';
+import { InputSanitizer } from '@/services/ai/utils/InputSanitizer';
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService';
 
 type VideoAspectRatio = z.infer<typeof VideoAspectRatioSchema>;
 
+/**
+ * VideoGenerationService - Client-side orchestrator for AI video production
+ * 
+ * Handles quota checking, prompt enrichment (cinematography/physics), 
+ * temporal context analysis, and triggering both atomic and long-form 
+ * Daisychaining video generation via Cloud Functions.
+ */
 export class VideoGenerationService {
 
     private async analyzeTemporalContext(image: string, offset: number, basePrompt: string): Promise<string> {
@@ -55,7 +64,7 @@ export class VideoGenerationService {
         }
     }
 
-    private enrichPrompt(basePrompt: string, settings: { camera?: string, motion?: number, fps?: number }, userProfile?: UserProfile): string {
+    private enrichPrompt(basePrompt: string, settings: { camera?: string, motion?: number, fps?: number, thinking?: boolean }, userProfile?: UserProfile): string {
         let prompt = basePrompt;
 
         if (userProfile) {
@@ -89,6 +98,13 @@ export class VideoGenerationService {
         return undefined;
     }
 
+    /**
+     * Triggers a standard (atomic) video generation job.
+     * Enriches the prompt, analyzes temporal context, and invokes the triggerVideoJob function.
+     * 
+     * @param options - Configuration for the video generation request.
+     * @returns A promise resolving to an array containing the jobId placeholder.
+     */
     async generateVideo(options: VideoGenerationOptions): Promise<{ id: string, url: string, prompt: string }[]> {
         // Zod Validation
         const validation = VideoGenerationOptionsSchema.safeParse(options);
@@ -108,6 +124,9 @@ export class VideoGenerationService {
             throw new Error(`Quota exceeded: ${quota.reason}`);
         }
 
+        // Security: Sanitize Prompt (Redact PII)
+        const sanitizedPrompt = InputSanitizer.sanitize(options.prompt);
+
         // Temporal context analysis
         let temporalContext = "";
         if (options.firstFrame || options.lastFrame) {
@@ -118,10 +137,11 @@ export class VideoGenerationService {
         }
 
         // Map internal parameters to AI service expectations
-        let enrichedPrompt = this.enrichPrompt(options.prompt, {
+        let enrichedPrompt = this.enrichPrompt(sanitizedPrompt, {
             camera: options.cameraMovement,
             motion: options.motionStrength,
-            fps: options.fps
+            fps: options.fps,
+            thinking: options.thinking
         }, options.userProfile);
 
         if (temporalContext) {
@@ -130,6 +150,7 @@ export class VideoGenerationService {
 
         const targetAspectRatio = this.determineTargetAspectRatio(options);
 
+        const { useStore } = await import('@/core/store');
         const orgId = useStore.getState().currentOrganizationId;
 
         const { jobId } = await this.triggerVideoGeneration({
@@ -137,6 +158,29 @@ export class VideoGenerationService {
             aspectRatio: targetAspectRatio,
             prompt: enrichedPrompt,
             orgId
+        });
+
+        // Persist video metadata for future retrieval and agent context
+        metadataPersistenceService.save('video', {
+            jobId,
+            prompt: options.prompt,
+            enrichedPrompt,
+            aspectRatio: targetAspectRatio,
+            cameraMovement: options.cameraMovement,
+            motionStrength: options.motionStrength,
+            duration: options.duration || 4,
+            hasFirstFrame: !!options.firstFrame,
+            hasLastFrame: !!options.lastFrame,
+            generateAudio: options.generateAudio || false,
+            model: options.model,
+            status: 'pending',
+            generatedAt: new Date().toISOString(),
+        }, {
+            showToasts: false, // Don't spam toasts for background saves
+            maxRetries: 1,
+            queueOnFailure: true,
+        }).catch(err => {
+            console.warn('[VideoGeneration] Failed to persist video metadata:', err);
         });
 
         // Return a mock entry that the UI can subscribe to via Firebase
@@ -192,19 +236,46 @@ export class VideoGenerationService {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
         const jobPromise = new Promise((resolve, reject) => {
-            unsub = this.subscribeToJob(jobId, (job) => {
+            unsub = this.subscribeToJob(jobId, async (job) => {
                 if (!job) return;
+
                 if (job.status === 'completed' || job.status === 'failed') {
                     if (job.status === 'completed') {
                         // Enforce MIME Type Guard for Veo 3.1 Compliance
                         const mimeType = job.output?.metadata?.mime_type;
                         if (mimeType && mimeType !== 'video/mp4') {
                             reject(new Error(`Security Violation: Invalid MIME type '${mimeType}'. Expected 'video/mp4'.`));
-                        } else {
-                            resolve(job);
+                            return;
                         }
+
+                        // Lens 🎥 Integrity Check: Verify Video Asset Availability (404 Protection)
+                        const videoUrl = job.output?.url;
+                        if (videoUrl) {
+                            try {
+                                // HEAD request to verify existence without downloading payload
+                                const response = await fetch(videoUrl, { method: 'HEAD' });
+                                if (!response.ok) {
+                                    reject(new Error(`Asset Integrity Failure: Video URL is unreachable (${response.status}).`));
+                                    return;
+                                }
+                            } catch (e) {
+                                // Network error during verification should not block generation unless strictly required.
+                                // We log the warning for debugging purposes, but proceed with strict verification logic.
+                                console.warn("Lens: Video verification check failed", e);
+                            }
+                        }
+
+                        resolve(job);
                     } else {
-                        reject(new Error(job.error || 'Video generation failed.'));
+                        // Enhanced Safety Reporting
+                        let errorMsg = job.error || 'Video generation failed.';
+                        if (job.safety_ratings && Array.isArray(job.safety_ratings)) {
+                            const blocked = job.safety_ratings.find((r: any) => r.blocked);
+                            if (blocked) {
+                                errorMsg = `Safety Violation: ${blocked.category} (${blocked.probability})`;
+                            }
+                        }
+                        reject(new Error(errorMsg));
                     }
                 }
             });
@@ -224,6 +295,13 @@ export class VideoGenerationService {
         }
     }
 
+    /**
+     * Triggers a long-form (Daisychaining) video generation job.
+     * Splices a long request into segments, enriches them, and invokes triggerLongFormVideoJob.
+     * 
+     * @param options - Configuration for long-form generation including totalDuration.
+     * @returns A promise resolving to the main jobId placeholder.
+     */
     async generateLongFormVideo(options: {
         prompt: string;
         totalDuration: number;
@@ -233,10 +311,14 @@ export class VideoGenerationService {
         negativePrompt?: string;
         firstFrame?: string;
         generateAudio?: boolean;
+        thinking?: boolean;
         model?: string;
         onProgress?: (current: number, total: number) => void;
         userProfile?: UserProfile;
     }): Promise<{ id: string, url: string, prompt: string }[]> {
+        // Security: Sanitize Prompt (Redact PII)
+        const sanitizedPrompt = InputSanitizer.sanitize(options.prompt);
+
         // Pre-flight duration quota check
         const quotaCheck = await subscriptionService.canPerformAction('generateVideo', options.totalDuration);
         if (!quotaCheck.allowed) {
@@ -251,11 +333,14 @@ export class VideoGenerationService {
         }
 
         const jobId = `long_${uuidv4()}`;
+        const { useStore } = await import('@/core/store');
         const orgId = useStore.getState().currentOrganizationId;
         const triggerLongFormVideoJob = httpsCallable(functions, 'triggerLongFormVideoJob');
 
         // Enrich prompt with distributor context
-        const enrichedPrompt = this.enrichPrompt(options.prompt, {}, options.userProfile);
+        const enrichedPrompt = this.enrichPrompt(sanitizedPrompt, {
+            thinking: options.thinking
+        }, options.userProfile);
 
         const targetAspectRatio = this.determineTargetAspectRatio(options);
 
@@ -272,12 +357,15 @@ export class VideoGenerationService {
             orgId,
             startImage: options.firstFrame,
             totalDuration: options.totalDuration,
-            aspectRatio: targetAspectRatio,
-            resolution: options.resolution,
-            seed: options.seed,
-            generateAudio: options.generateAudio,
-            model: options.model,
-            negativePrompt: options.negativePrompt,
+            options: {
+                aspectRatio: targetAspectRatio,
+                resolution: options.resolution,
+                seed: options.seed,
+                generateAudio: options.generateAudio,
+                thinking: options.thinking,
+                model: options.model,
+                negativePrompt: options.negativePrompt,
+            }
         });
 
         // Return a placeholder list with the main jobId

@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
     },
     app: {
         isPackaged: false,
-        getPath: vi.fn(() => '/mock/user-data')
+        getPath: vi.fn(() => '/mock/user-data'),
+        getAppPath: vi.fn(() => '/app')
     },
     browserAgentService: {
         startSession: vi.fn(),
@@ -26,6 +27,18 @@ const mocks = vi.hoisted(() => ({
 vi.mock('electron', () => ({
     ipcMain: mocks.ipcMain,
     app: mocks.app
+}));
+
+// Mock 'electron-store' to prevent filesystem access in CI
+vi.mock('electron-store', () => ({
+    default: class MockStore {
+        store: Record<string, any> = {};
+        path = '/mock/store.json';
+        get(key: string) { return this.store[key]; }
+        set(key: string, val: any) { this.store[key] = val; }
+        delete(key: string) { delete this.store[key]; }
+        clear() { this.store = {}; }
+    }
 }));
 
 // Mock 'BrowserAgentService'

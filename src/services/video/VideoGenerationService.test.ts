@@ -39,6 +39,8 @@ vi.mock('@/services/firebase', () => ({
     db: {},
     functions: {},
     functionsWest1: {}
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 // Handle dynamic import used in VideoGenerationService
@@ -73,6 +75,7 @@ describe('VideoGenerationService (Veo 3.1 Pipeline)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         service = new VideoGenerationService();
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
         // Default happy path for quota
         mocks.subscriptionService.canPerformAction.mockResolvedValue({ allowed: true });
         mocks.subscriptionService.getCurrentSubscription.mockResolvedValue({ tier: 'pro' });
@@ -98,7 +101,7 @@ describe('VideoGenerationService (Veo 3.1 Pipeline)', () => {
             const result = await service.generateVideo({
                 prompt: 'A cinematic shot',
                 aspectRatio: '16:9',
-                resolution: '1920x1080'
+                resolution: '1080p'
             });
 
             expect(triggerMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -131,7 +134,7 @@ describe('VideoGenerationService (Veo 3.1 Pipeline)', () => {
                                     duration_seconds: 5.0,
                                     fps: 24,
                                     mime_type: 'video/mp4',
-                                    resolution: '1280x720' // 720p is typical for preview
+                                    resolution: '720p' // 720p is typical for preview
                                 }
                             }
                         })

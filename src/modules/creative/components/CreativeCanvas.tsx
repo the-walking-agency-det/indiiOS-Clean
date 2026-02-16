@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Brush, Wand2 } from 'lucide-react';
 import { useStore, HistoryItem } from '@/core/store';
 import { saveAssetToStorage, saveCanvasStateToStorage, getCanvasStateFromStorage } from '@/services/storage/repository';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,24 +24,28 @@ interface CreativeCanvasProps {
 }
 
 export default function CreativeCanvas({ item, onClose, onSendToWorkflow, onRefine }: CreativeCanvasProps) {
-    const { generatedHistory } = useStore();
+    const { generatedHistory, currentProjectId } = useStore();
     const toast = useToast();
 
     // UI State
-    const [isEditing, setIsEditing] = useState(false);
+    // UI State
     const [isProcessing, setIsProcessing] = useState(false);
+    const [processingStatus, setProcessingStatus] = useState<string>('');
     const [isMagicFillMode, setIsMagicFillMode] = useState(false);
-    const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
     const [isSelectingEndFrame, setIsSelectingEndFrame] = useState(false);
+    const [isDefinitionsOpen, setIsDefinitionsOpen] = useState(false);
 
     // Data State
     const [prompt, setPrompt] = useState('');
     const [activeColor, setActiveColor] = useState<CreativeColor>(STUDIO_COLORS[0]);
-    const [editDefinitions, setEditDefinitions] = useState<Record<string, string>>({});
-    const [referenceImages, setReferenceImages] = useState<Record<string, { mimeType: string; data: string } | null>>({});
+    const [definitions, setDefinitions] = useState<Record<string, string>>({});
+    const [referenceImages, setReferenceImages] = useState<Record<string, { mimeType: string, data: string } | null>>({});
     const [generatedCandidates, setGeneratedCandidates] = useState<Candidate[]>([]);
     const [endFrameItem, setEndFrameItem] = useState<{ id: string; url: string; prompt: string; type: 'image' | 'video' } | null>(null);
     const [magicFillPrompt, setMagicFillPrompt] = useState('');
+
+    // Quality preference state (Pro vs Flash)
+    const [isHighFidelity, setIsHighFidelity] = useState(false);
 
     // Canvas ref
     const canvasEl = useRef<HTMLCanvasElement>(null);
@@ -50,35 +55,33 @@ export default function CreativeCanvas({ item, onClose, onSendToWorkflow, onRefi
         if (item) setPrompt(item.prompt);
     }, [item]);
 
-    // Initialize/dispose canvas
+    // Simplified initialization: re-enabled Fabric.js for functional annotations
     useEffect(() => {
-        if (!item) return;
-
-        if (isEditing && canvasEl.current && !canvasOps.isInitialized()) {
-            const imageUrl = item.url && item.type === 'image' ? item.url : undefined;
-
-            // Initialize with image, then try to load saved state
-            canvasOps.initialize(canvasEl.current, imageUrl, async () => {
-                if (!item) return;
-                const savedState = await getCanvasStateFromStorage(item.id);
-                if (savedState) {
-                    console.info(`[CreativeCanvas] Loading saved state for ${item.id}`);
-                    await canvasOps.loadFromJSON(savedState);
-                }
-            });
+        if (canvasEl.current && item && item.type === 'image') {
+            canvasOps.initialize(canvasEl.current, item.url);
         }
-
         return () => {
-            if (!isEditing) {
-                canvasOps.dispose();
-            }
+            canvasOps.dispose();
         };
-    }, [isEditing, item]);
+    }, [item]);
 
-    // Update brush color when active color changes
+    // Sync brush color
     useEffect(() => {
-        canvasOps.updateBrushColor(activeColor);
-    }, [activeColor]);
+        if (isMagicFillMode) {
+            canvasOps.updateBrushColor(activeColor);
+            // Sync magicFillPrompt to the active color's definition when switching colors
+            setMagicFillPrompt(definitions[activeColor.id] || '');
+        }
+    }, [activeColor, isMagicFillMode]);
+
+    // Handle prompt change from header
+    const handlePromptChange = (val: string) => {
+        setMagicFillPrompt(val);
+        setDefinitions(prev => ({
+            ...prev,
+            [activeColor.id]: val
+        }));
+    };
 
     if (!item) return null;
 
@@ -93,43 +96,171 @@ export default function CreativeCanvas({ item, onClose, onSendToWorkflow, onRefi
         canvasOps.setMagicFillMode(newMode, activeColor);
 
         if (newMode) {
-            toast.info(`Annotating with ${activeColor.name}. Define edit in settings.`);
+            toast.info(`Annotating with ${activeColor.name}. Describe your edit.`);
+            // Sync initial state
+            setMagicFillPrompt(definitions[activeColor.id] || '');
         }
     };
 
-    const handleMultiEdit = async () => {
-        const prepared = canvasOps.prepareMasksForEdit(editDefinitions, referenceImages);
+    const handleUpdateDefinition = (colorId: string, prompt: string) => {
+        setDefinitions(prev => ({ ...prev, [colorId]: prompt }));
+        if (colorId === activeColor.id) {
+            setMagicFillPrompt(prompt);
+        }
+    };
 
-        if (!prepared) {
-            toast.error('Please define at least one edit prompt and draw annotations.');
-            setIsDefinitionsOpen(true);
+    const handleUpdateReferenceImage = (colorId: string, image: { mimeType: string, data: string } | null) => {
+        setReferenceImages(prev => ({ ...prev, [colorId]: image }));
+    };
+
+    // Magic Fill Handler implementing dual-workflow architecture
+    const handleMagicFill = async () => {
+        // Collect all non-empty definitions
+        const activeDefinitions = Object.fromEntries(
+            Object.entries(definitions).filter(([, val]) => val.trim().length > 0)
+        );
+
+        if (Object.keys(activeDefinitions).length === 0 && !magicFillPrompt) {
+            toast.error("Please describe the edit you want to make.");
             return;
         }
 
+        // Ensure current prompt is in definitions if not already
+        const finalDefinitions = { ...activeDefinitions };
+        if (magicFillPrompt && !finalDefinitions[activeColor.id]) {
+            finalDefinitions[activeColor.id] = magicFillPrompt;
+        }
+
         setIsProcessing(true);
-        toast.info('Processing Studio Edits...');
+        setProcessingStatus(isHighFidelity ? "Capturing Visual Context..." : "Architecting Masks...");
+        toast.info(isHighFidelity ? 'Starting High-Fidelity Pro Edit...' : 'Starting High-Speed Flash Edit...');
 
         try {
-            const results = await Editing.multiMaskEdit({
-                image: prepared.baseImage,
-                masks: prepared.masks
-            });
+            setProcessingStatus(isHighFidelity ? "Reasoning (Pro)..." : "Inpainting (Flash)...");
 
-            if (results && results.length > 0) {
-                setGeneratedCandidates(results);
-                toast.success(`Generated ${results.length} variations!`);
+            const prepared = canvasOps.prepareMasksForEdit(finalDefinitions, referenceImages);
+
+            if (prepared && prepared.masks.length > 0) {
+                const combinedPrompt = Object.values(finalDefinitions).join(". ") || magicFillPrompt;
+
+                if (isHighFidelity) {
+                    // DUAL-VIEW PIPELINE (PRO)
+                    const activeKeys = Object.keys(finalDefinitions);
+                    const isMultiMask = activeKeys.length > 1;
+
+                    let maskData: string | null = null;
+                    let promptPayload = combinedPrompt;
+                    let useSemanticMap = false;
+
+                    if (isMultiMask) {
+                        // SEMANTIC MASKING (Multi-Region)
+                        // Preserve colors and create a legend for the model
+                        maskData = canvasOps.extractSemanticMask();
+                        useSemanticMap = true;
+
+                        const legend = activeKeys.map(colorId => {
+                            const colorDef = STUDIO_COLORS.find(c => c.id === colorId);
+                            const label = colorDef ? colorDef.name.toUpperCase() : 'MARKED';
+                            return `- ${label} REGION: ${finalDefinitions[colorId]}`;
+                        }).join('\n');
+
+                        promptPayload = `Applying multiple edits defined by color mask:\n${legend}`;
+                    } else {
+                        // GHOST MASK (Single-Region)
+                        // Standard binary mask is sufficient
+                        maskData = canvasOps.extractGeminiMask();
+                    }
+
+                    if (maskData) {
+                        const result = await Editing.editImage({
+                            image: prepared.baseImage,
+                            mask: { mimeType: 'image/png', data: maskData },
+                            prompt: promptPayload,
+                            forceHighFidelity: true,
+                            model: 'pro',
+                            useSemanticMap
+                        });
+
+                        if (result) {
+                            setGeneratedCandidates([{
+                                id: crypto.randomUUID(),
+                                url: result.url,
+                                prompt: promptPayload,
+                                thoughtSignature: result.thoughtSignature
+                            }]);
+                            toast.success(`High-Fidelity Edit Complete!`);
+                        }
+                    }
+                } else if (prepared.masks.length === 1) {
+                    // SINGLE MASK PIPELINE (FLASH)
+                    const result = await Editing.editImage({
+                        image: prepared.baseImage,
+                        mask: prepared.masks[0],
+                        prompt: combinedPrompt,
+                        forceHighFidelity: false,
+                        model: 'flash'
+                    });
+
+                    if (result) {
+                        setGeneratedCandidates([{
+                            id: crypto.randomUUID(),
+                            url: result.url,
+                            prompt: combinedPrompt
+                        }]);
+                        toast.success(`Speedy Edit Complete!`);
+                    }
+                } else {
+                    // MULTI-MASK CHAIN
+                    setProcessingStatus(isHighFidelity ? "Chaining Edits (Pro)..." : "Chaining Edits (Flash)...");
+                    const results = await Editing.multiMaskEdit({
+                        image: prepared.baseImage,
+                        masks: prepared.masks,
+                        variationCount: 1,
+                        model: isHighFidelity ? 'pro' : 'flash'
+                    });
+
+                    if (results.length > 0) {
+                        setGeneratedCandidates(results.map(r => ({
+                            id: r.id,
+                            url: r.url,
+                            prompt: r.prompt
+                        })));
+                        toast.success("Multi-Region Chain Complete!");
+                    }
+                }
             } else {
-                toast.error('Generation failed to produce candidates.');
+                // FALLBACK: Whole Image Remix
+                setProcessingStatus("Remixing Visuals...");
+                const { ImageGeneration } = await import('@/services/image/ImageGenerationService');
+                const res = await fetch(item.url);
+                const blob = await res.blob();
+                const mimeType = blob.type || 'image/png';
+                const base64data = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                    reader.readAsDataURL(blob);
+                });
+
+                const result = await ImageGeneration.remixImage({
+                    contentImage: { mimeType, data: base64data },
+                    styleImage: { mimeType, data: base64data },
+                    prompt: magicFillPrompt
+                });
+
+                if (result) {
+                    setGeneratedCandidates([{
+                        id: crypto.randomUUID(),
+                        url: result.url,
+                        prompt: magicFillPrompt
+                    }]);
+                    toast.success("Remix Generated! Hint: Draw on the image for targeted edits.");
+                }
             }
-        } catch (error: unknown) {
-            const err = error as { name?: string; code?: string; message?: string };
-            if (err?.name === 'QuotaExceededError' || err?.code === 'QUOTA_EXCEEDED') {
-                toast.error(err.message || 'Limit reached. Please upgrade.');
-            } else {
-                toast.error('Failed to process edits');
-            }
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to process edit');
         } finally {
             setIsProcessing(false);
+            setProcessingStatus('');
         }
     };
 
@@ -190,68 +321,98 @@ export default function CreativeCanvas({ item, onClose, onSendToWorkflow, onRefi
 
     const handleRefine = async () => {
         if (!item) return;
-
-        // 1. Close the canvas (this logic is handled by the caller usually, but we can do it here if needed)
-        // Actually, we want to transition view.
         onClose();
-
-        const {
-            addWhiskItem,
-            setPendingPrompt,
-            setViewMode,
-            setGenerationMode // Ensure we are in image mode
-        } = useStore.getState();
-
-        // 2. Set up UI state for refinement
-        // We'll optimistically add it to Whisk even before caption is ready? 
-        // Better to get caption first, or use a placeholder?
-        // Let's use a "Thinking..." or reuse original prompt as temporary caption.
-
+        const { addWhiskItem, setPendingPrompt, setViewMode, setGenerationMode } = useStore.getState();
         toast.info("Refining... Analyzing image essence.");
-
-        // Ensure we are in the right mode
         setGenerationMode('image');
-        setViewMode('gallery'); // Or keep same view? Gallery seems standard.
-
-        // 3. Add to Whisk
-        // We need an ID for the whisk item.
+        setViewMode('gallery');
         const whiskId = crypto.randomUUID();
-
-        // Use original prompt as fallback initial caption
         const initialCaption = item.prompt || "Image Reference";
-
-        // Store signature: addWhiskItem: (category, type, content, aiCaption, explicitId)
         addWhiskItem('subject', 'image', item.url, initialCaption, whiskId);
-
-        // 4. Set pending prompt to original prompt so user can iterate
         setPendingPrompt(item.prompt);
-
-        // 5. Async: Get the real caption
         try {
-            // Dynamic import to avoid circular deps if any, or just good practice for heavy services
             const { ImageGeneration } = await import('@/services/image/ImageGenerationService');
-
-            // Parse data URL (assuming base64 for generated items)
             const [mimeType, b64] = item.url.split(',');
             const pureMime = mimeType.split(':')[1].split(';')[0];
-
-            const caption = await ImageGeneration.captionImage(
-                { mimeType: pureMime, data: b64 },
-                'subject'
-            );
-
-            // Update the item with the real caption
-            // Store signature: updateWhiskItem: (category, id, updates)
+            const caption = await ImageGeneration.captionImage({ mimeType: pureMime, data: b64 }, 'subject');
             const { updateWhiskItem } = useStore.getState();
             updateWhiskItem('subject', whiskId, { aiCaption: caption });
             toast.success("Image essence extracted and locked!");
-        } catch (e: unknown) {
-            const err = e as { name?: string; code?: string; message?: string };
-            if (err?.name === 'QuotaExceededError' || err?.code === 'QUOTA_EXCEEDED') {
-                toast.error(err.message || 'Quota exceeded during analysis.');
-            } else {
-                toast.warning("Could not auto-caption. Using original prompt.");
-            }
+        } catch (e: any) {
+            toast.warning("Could not auto-caption. Using original prompt.");
+        }
+    };
+
+    const handleCreateLastFrame = async () => {
+        if (!item || item.type !== 'image') return;
+
+        setIsProcessing(true);
+        setProcessingStatus("Analyzing Scene...");
+        toast.info("Analyzing scene to architect cinematic climax...");
+
+        try {
+            const { ImageGeneration } = await import('@/services/image/ImageGenerationService');
+            // Remove unused import if not needed, or keep if CloudStorageService is used elsewhere
+
+            // 1. Get Base64 & Mime
+            const res = await fetch(item.url);
+            const blob = await res.blob();
+            // Use the blob's actual type, default to png if missing
+            const mimeType = blob.type || 'image/png';
+
+            const seedBase64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const result = reader.result as string;
+                    // Robustly strip ALL data headers: data:image/xxx;base64,
+                    const base64Clean = result.replace(/^data:.*;base64,/, '');
+                    resolve(base64Clean);
+                };
+                reader.readAsDataURL(blob);
+            });
+
+            // 2. Analyze
+            const climaxDescription = await ImageGeneration.captionImage(
+                { mimeType, data: seedBase64 },
+                'subject'
+            );
+
+            // 3. Synthesize
+            setProcessingStatus("Synthesizing End-Frame...");
+            toast.info("Synthesizing climax end-frame...");
+
+            const refinedPrompt = `${climaxDescription}, capturing the high-energy climax of the scene with dramatic lighting and motion energy.`;
+            const synthResults = await ImageGeneration.remixImage({
+                contentImage: { mimeType, data: seedBase64 },
+                styleImage: { mimeType, data: seedBase64 },
+                prompt: refinedPrompt
+            });
+
+            if (!synthResults) throw new Error("Synthesis failed.");
+
+            // 4. Save & Set
+            setProcessingStatus("Finalizing...");
+            const targetId = crypto.randomUUID();
+            const targetAsset: HistoryItem = {
+                id: targetId,
+                url: synthResults.url,
+                prompt: `End Frame Climax: ${refinedPrompt.substring(0, 50)}...`,
+                type: 'image',
+                timestamp: Date.now(),
+                projectId: currentProjectId
+            };
+
+            const { addToHistory } = useStore.getState();
+            addToHistory(targetAsset);
+            setEndFrameItem(targetAsset as any);
+
+            toast.success("Cinematic climax bridge created!");
+        } catch (error: any) {
+            console.error("Create Last Frame failed:", error);
+            toast.error(`Architect Error: ${error.message}`);
+        } finally {
+            setIsProcessing(false);
+            setProcessingStatus('');
         }
     };
 
@@ -261,88 +422,83 @@ export default function CreativeCanvas({ item, onClose, onSendToWorkflow, onRefi
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-                onClick={onClose}
-                data-testid="creative-canvas-modal-overlay"
+                className="absolute inset-0 z-40 bg-background flex flex-col overflow-hidden"
+                data-testid="creative-canvas-container"
             >
-                <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="relative max-w-6xl w-full h-[90vh] bg-[#1a1a1a] rounded-xl border border-gray-800 overflow-hidden flex flex-col shadow-2xl"
-                    onClick={e => e.stopPropagation()}
-                    data-testid="creative-canvas-modal-content"
-                >
-                    <CanvasHeader
-                        isEditing={isEditing}
-                        setIsEditing={setIsEditing}
-                        isMagicFillMode={isMagicFillMode}
-                        magicFillPrompt={magicFillPrompt}
-                        setMagicFillPrompt={setMagicFillPrompt}
-                        handleMagicFill={handleMultiEdit}
-                        isProcessing={isProcessing}
-                        saveCanvas={saveCanvas}
-                        item={item}
-                        endFrameItem={endFrameItem}
-                        setEndFrameItem={setEndFrameItem}
-                        setIsSelectingEndFrame={setIsSelectingEndFrame}
-                        handleAnimate={handleAnimate}
-                        onClose={onClose}
-                        onSendToWorkflow={onSendToWorkflow}
-                        onRefine={onRefine || handleRefine}
-                    />
+                <CanvasHeader
+                    isMagicFillMode={isMagicFillMode}
+                    magicFillPrompt={magicFillPrompt}
+                    setMagicFillPrompt={handlePromptChange}
+                    handleMagicFill={handleMagicFill}
+                    isProcessing={isProcessing}
+                    saveCanvas={saveCanvas}
+                    item={item}
+                    endFrameItem={endFrameItem}
+                    setEndFrameItem={setEndFrameItem}
+                    setIsSelectingEndFrame={setIsSelectingEndFrame}
+                    handleAnimate={handleAnimate}
+                    onClose={onClose}
+                    onSendToWorkflow={onSendToWorkflow}
+                    onRefine={onRefine || handleRefine}
+                    onCreateLastFrame={handleCreateLastFrame}
+                    processingStatus={processingStatus}
+                    isHighFidelity={isHighFidelity}
+                    setIsHighFidelity={setIsHighFidelity}
+                />
 
-                    <div className="flex-1 overflow-hidden flex items-center justify-center bg-[#0f0f0f] relative">
-                        {isEditing ? (
-                            <>
-                                <div className="flex h-full w-full">
-                                    <AnnotationPalette
-                                        activeColor={activeColor}
-                                        onColorSelect={setActiveColor}
-                                        colorDefinitions={editDefinitions}
-                                        onOpenDefinitions={() => setIsDefinitionsOpen(true)}
-                                    />
-                                    <CanvasToolbar
-                                        addRectangle={() => canvasOps.addRectangle()}
-                                        addCircle={() => canvasOps.addCircle()}
-                                        addText={() => canvasOps.addText()}
-                                        toggleMagicFill={toggleMagicFill}
-                                        isMagicFillMode={isMagicFillMode}
-                                    />
-                                    <div className="flex-1 flex items-center justify-center bg-gray-900 overflow-auto p-8">
-                                        <canvas ref={canvasEl} />
-                                    </div>
-                                </div>
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Left Sidebar: Tools & Annotations */}
+                    <aside className="border-r border-gray-800 bg-[#0a0a0a] flex flex-col items-center">
+                        <CanvasToolbar
+                            addRectangle={() => canvasOps.addRectangle()}
+                            addCircle={() => canvasOps.addCircle()}
+                            addText={() => canvasOps.addText()}
+                            toggleMagicFill={toggleMagicFill}
+                            isMagicFillMode={isMagicFillMode}
+                        />
+                        <div className="flex-1 overflow-y-auto w-full custom-scrollbar py-4 px-2">
+                            <AnnotationPalette
+                                activeColor={activeColor}
+                                onColorSelect={setActiveColor}
+                                colorDefinitions={definitions}
+                                onOpenDefinitions={() => setIsDefinitionsOpen(true)}
+                            />
+                        </div>
+                    </aside>
 
-                                <EditDefinitionsPanel
-                                    isOpen={isDefinitionsOpen}
-                                    onClose={() => setIsDefinitionsOpen(false)}
-                                    definitions={editDefinitions}
-                                    onUpdateDefinition={(id, val) => setEditDefinitions(prev => ({ ...prev, [id]: val }))}
-                                    referenceImages={referenceImages}
-                                    onUpdateReferenceImage={(id, val) => setReferenceImages(prev => ({ ...prev, [id]: val }))}
-                                />
-
-                                <CandidatesCarousel
-                                    candidates={generatedCandidates}
-                                    onSelect={handleCandidateSelect}
-                                    onClose={() => setGeneratedCandidates([])}
-                                />
-                            </>
+                    {/* Stage: Main Viewport */}
+                    <main className="flex-1 relative bg-[#050505] flex items-center justify-center overflow-hidden p-12">
+                        {item.type === 'video' && !item.url.startsWith('data:image') ? (
+                            <video src={item.url} controls className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
                         ) : (
-                            item.type === 'video' && !item.url.startsWith('data:image') ? (
-                                <video src={item.url} controls className="max-w-full max-h-full object-contain shadow-2xl" />
-                            ) : (
-                                <div className="relative max-w-full max-h-full">
-                                    <img src={item.url} alt={item.prompt || 'Content'} className="max-w-full max-h-full object-contain shadow-2xl" />
-                                    {item.type === 'video' && item.url.startsWith('data:image') && (
-                                        <div className="absolute top-4 left-4 bg-purple-600/90 text-white text-xs font-bold px-3 py-1 rounded-md backdrop-blur-sm shadow-lg border border-white/20">
-                                            STORYBOARD PREVIEW
-                                        </div>
-                                    )}
-                                </div>
-                            )
+                            <div className="relative w-full h-full flex items-center justify-center group" onClick={(e) => isMagicFillMode && e.stopPropagation()}>
+                                <canvas
+                                    ref={canvasEl}
+                                    className="max-w-full max-h-full object-contain shadow-2xl rounded-lg cursor-crosshair"
+                                    data-testid="creative-canvas-element"
+                                />
+                                {item.type === 'video' && item.url.startsWith('data:image') && (
+                                    <div className="absolute top-4 left-4 bg-purple-600/90 text-white text-xs font-bold px-3 py-1 rounded-md backdrop-blur-sm shadow-lg border border-white/20 pointer-events-none">
+                                        STORYBOARD PREVIEW
+                                    </div>
+                                )}
+                            </div>
                         )}
+
+                        {/* Floating Interaction Status */}
+                        {isMagicFillMode && (
+                            <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-blue-600/20 border border-blue-500/50 text-blue-400 px-4 py-1 rounded-full text-xs font-bold backdrop-blur-md flex items-center gap-2">
+                                <Wand2 size={12} />
+                                Magic Edit Mode: {activeColor.name}
+                            </div>
+                        )}
+
+                        {/* Candidates Overlay */}
+                        <CandidatesCarousel
+                            candidates={generatedCandidates}
+                            onSelect={handleCandidateSelect}
+                            onClose={() => setGeneratedCandidates([])}
+                        />
 
                         <EndFrameSelector
                             isOpen={isSelectingEndFrame}
@@ -354,8 +510,18 @@ export default function CreativeCanvas({ item, onClose, onSendToWorkflow, onRefi
                                 setIsSelectingEndFrame(false);
                             }}
                         />
-                    </div>
-                </motion.div>
+                    </main>
+
+                    {/* Right Panel: Contextual Options */}
+                    <EditDefinitionsPanel
+                        isOpen={isDefinitionsOpen}
+                        onClose={() => setIsDefinitionsOpen(false)}
+                        definitions={definitions}
+                        onUpdateDefinition={handleUpdateDefinition}
+                        referenceImages={referenceImages}
+                        onUpdateReferenceImage={handleUpdateReferenceImage}
+                    />
+                </div>
             </motion.div>
         </AnimatePresence>
     );

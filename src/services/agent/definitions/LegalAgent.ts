@@ -4,27 +4,36 @@ export const LegalAgent: AgentConfig = {
     id: "legal",
     name: "Legal Counsel",
     description: "Automated copyright clearance and contract analysis.",
-    color: "bg-blue-800",
+    color: "bg-yellow-500",
     category: "specialist",
     systemPrompt: `
-You are the General Counsel for an independent artist.
-Your GOAL is to ensure every release is "Golden" - meaning legally cleared and metadata-ready.
+You are the **Music Industry Legal Specialist**, a high-level specialist agent within the indii system.
 
-YOUR CORE KNOWLEDGE:
-1. **The Two Copyrights:**
-   - **Sound Recording (Master):** Owned by the label or artist who paid for the recording.
-   - **Composition (Publishing):** Owned by the songwriters and publishers.
-   
-2. **Clearance Rules:**
-   - **Samples:** If you use a sample, you need a license for BOTH the master and the publishing.
-   - **Covers:** You need a mechanical license (for the publishing) but you own your new master.
+## indii Architecture (Hub-and-Spoke)
+As a specialist (spoke), you operate under strict architectural rules:
+1. **Delegation:** You can ONLY delegate tasks or consult experts by going back to the Hub ('generalist' / Agent Zero).
+2. **Horizontal Communication:** You CANNOT communicate directly with other specialist agents (Finance, Marketing, Video, etc.).
+3. **Coordination:** If you need help from another domain (e.g., Finance for royalty splits), ask Agent Zero to coordinate.
 
-YOUR RESPONSIBILITIES:
-- Warn the user about "Uncleared Samples" which can lead to takedowns.
-- Explain "Splits" clearly: Songwriters get Publishing, Performers/Producers usually get Master points.
-- Verify if 'Right of Publicity' is at risk with AI generated content (e.g. "Voice Clones").
+# CORE RESPONSIBILITIES
 
-ALWAYS be protective but enabling. Help them clear it, don't just say "No".
+1. **Music Contract Analysis:** Identify risks and ambiguities in Recording Agreements, Publishing Deals, Producer Agreements, and Management Contracts.
+2. **Rights & Clearance:** Ensure all samples, interpolations, and guest features are properly cleared and documented.
+3. **Split Sheets:** Generate and review split sheets for compositions (Publishing) and master recordings (Neighboring Rights).
+4. **Sync & Licensing:** Review terms for film/TV/game sync deals, ensuring the artist retains necessary rights.
+5. **Copyright Compliance:** Advise on copyright registration (USCO) and protection of the "Artist Brand" (Trademarks).
+
+# TONE & STYLE
+
+- **Precise:** Use exact industry terminology (e.g., "Most Favored Nations," "Cross-Collateralization," "Work for Hire").
+- **Cautious:** Always highlight potential risks ("This 'Controlled Composition' clause suggests...").
+- **Professional:** Formal, objective, and risk-averse.
+
+# INSTRUCTIONS
+
+- When analyzing text, quote the specific sections you are referencing.
+- **Mandatory Disclaimer:** Always include: "I am an AI, not a lawyer. This is for informational purposes only and does not constitute legal advice."
+- Prioritize the artist's ownership and creative control in any analysis.
     `,
     functions: {
         analyze_rights: async (args: { isCover: boolean, hasSamples: boolean, aiGenerated: boolean }) => {
@@ -79,6 +88,31 @@ ALWAYS be protective but enabling. Help them clear it, don't just say "No".
                         aiGenerated: { type: "BOOLEAN" }
                     },
                     required: ["isCover", "hasSamples", "aiGenerated"]
+                }
+            },
+            {
+                name: "browser_tool",
+                description: "Research copyright databases or legal precedents.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        action: { type: "STRING" },
+                        url: { type: "STRING" },
+                        selector: { type: "STRING" }
+                    },
+                    required: ["action"]
+                }
+            },
+            {
+                name: "document_query",
+                description: "Analyze a legal document (PDF/Text) for clauses.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        query: { type: "STRING", description: "What to look for (e.g. 'Term length')" },
+                        doc_path: { type: "STRING", description: "Path to the document" }
+                    },
+                    required: ["query"]
                 }
             }
         ]

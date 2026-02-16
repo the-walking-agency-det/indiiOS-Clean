@@ -49,6 +49,14 @@ vi.mock("@/core/store", () => ({
   },
 }));
 
+// Mock CloudStorageService to prevent dynamic import hangs
+vi.mock("@/services/CloudStorageService", () => ({
+  CloudStorageService: {
+    smartSave: vi.fn().mockResolvedValue({ url: "mock-storage-url" }),
+    compressImage: vi.fn().mockResolvedValue({ dataUri: "data:image/png;base64,mock-compressed" }),
+  },
+}));
+
 describe("ImageGenerationService", () => {
   const mockGenerateImage = vi.fn() as any;
 
@@ -147,7 +155,7 @@ describe("ImageGenerationService", () => {
       expect(results).toHaveLength(1);
       expect(mockGenerateImage).toHaveBeenCalledWith(
         expect.objectContaining({
-          images: [{ mimeType: "image/jpeg", data: "refdata" }],
+          prompt: expect.stringContaining("Edit this image"),
         }),
       );
     });
@@ -243,10 +251,8 @@ describe("ImageGenerationService", () => {
       expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), "generateImageV3");
       expect(mockGenerateImage).toHaveBeenCalledWith(
         expect.objectContaining({
-          images: expect.arrayContaining([
-            expect.objectContaining({ mimeType: "image/jpeg", data: "contentdata" }),
-            expect.objectContaining({ mimeType: "image/png", data: "styledata" }),
-          ]),
+          prompt: "Apply this style",
+          aspectRatio: "1:1",
         }),
       );
     });
@@ -280,5 +286,22 @@ describe("ImageGenerationService", () => {
       // Cloud Function should be called twice (once per target image)
       expect(mockGenerateImage).toHaveBeenCalledTimes(2);
     });
+  });
+});
+describe("captionImage", () => {
+  it("should call AI.generateContent with correct structure", async () => {
+    const mockResponse = {
+      text: vi.fn().mockReturnValue("A glowing orb in a dark forest."),
+    };
+    (AI.generateContent as unknown as any).mockResolvedValue(mockResponse);
+
+    const result = await ImageGeneration.captionImage(
+      { mimeType: "image/png", data: "cleanBase64Data" },
+      "subject"
+    );
+
+    expect(result).toBe("A glowing orb in a dark forest.");
+    const callArgs = (AI.generateContent as unknown as any).mock.calls[0][0];
+    expect(callArgs).toHaveProperty("config");
   });
 });

@@ -9,7 +9,10 @@ import { useToast } from '@/core/context/ToastContext';
 import BrandAssetsDrawer from './BrandAssetsDrawer';
 import FrameSelectionModal from '../../video/components/FrameSelectionModal';
 
-export default function CreativeNavbar() {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface CreativeNavbarProps extends React.HTMLAttributes<HTMLDivElement> { }
+
+export default function CreativeNavbar(props: CreativeNavbarProps) {
     const { setVideoInput, prompt, setPrompt, generationMode, viewMode, setViewMode } = useStore();
     const toast = useToast();
     const [showPromptBuilder, setShowPromptBuilder] = useState(false);
@@ -18,7 +21,7 @@ export default function CreativeNavbar() {
     const [frameModalTarget, setFrameModalTarget] = useState<'firstFrame' | 'lastFrame'>('firstFrame');
 
     return (
-        <div className="flex flex-col z-20 relative bg-[#0a0a0a] border-b border-white/5 select-none">
+        <div {...props} className={`flex flex-col z-20 relative bg-[#0a0a0a] border-b border-white/5 select-none ${props.className || ''}`}>
             {/* Single Compact Header Row */}
             <div className="flex items-center justify-between px-4 py-2 h-14">
                 {/* Left: Branding & Title */}
@@ -66,6 +69,20 @@ export default function CreativeNavbar() {
                         >
                             Direct
                         </button>
+                        <button
+                            onClick={() => setViewMode('lab')}
+                            className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all ${viewMode === 'lab' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                        >
+                            Lab
+                        </button>
+                        <button
+                            onClick={() => setViewMode('release')}
+                            className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all ${viewMode === 'release' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm' : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                        >
+                            Release
+                        </button>
                     </div>
                 </div>
 
@@ -103,6 +120,12 @@ export default function CreativeNavbar() {
                             />
                         </div>
                     )}
+
+                    {/* Main Systems Status */}
+                    <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded border border-white/5" title="AI Systems Status">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <span className="text-[9px] font-mono text-white/50 uppercase tracking-widest hidden lg:block">ONLINE</span>
+                    </div>
 
                     <div className="h-4 w-px bg-white/10 mx-1"></div>
 

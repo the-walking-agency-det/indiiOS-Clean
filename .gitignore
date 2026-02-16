@@ -32,6 +32,8 @@ temp_comparison_repo
 # Secrets
 scripts/configure_secrets.sh
 .env
+.env.*
+!.env.example
 
 # Test artifacts
 test_logs*.txt
@@ -62,6 +64,8 @@ tsconfig.verify.json
 functions/lib/
 dist-electron-studio/
 .gemini
+.firebase/
+*.backup
 
 # Distribution Engine Runtime Data
 upc_store.json

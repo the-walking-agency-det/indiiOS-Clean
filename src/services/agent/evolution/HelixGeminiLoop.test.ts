@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EvolutionEngine } from './EvolutionEngine';
 import { AgentGene, EvolutionConfig } from './types';
 
@@ -37,7 +37,7 @@ describe('🧬 Helix: Gemini 3 Pro Evolutionary Loop', () => {
     id: 'genesis',
     name: 'Genesis Agent',
     systemPrompt: 'You are a helpful AI.',
-    parameters: { temperature: 0.5, model: 'gemini-1.5-pro' },
+    parameters: { temperature: 0.5, model: 'gemini-3-pro-preview' },
     generation: 0,
     lineage: []
   };
@@ -83,7 +83,17 @@ describe('🧬 Helix: Gemini 3 Pro Evolutionary Loop', () => {
     engine = new EvolutionEngine(config, mockFitnessFn, mockMutationFn, mockCrossoverFn);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('Micro-Universe: Verifies the full evolutionary cycle (Select -> Breed -> Mutate)', async () => {
+    // 0. Enforce Determinism (Helix Philosophy: Randomness is for Evolution, not for Testing)
+    // We mock Math.random to always return 0.0.
+    // Effect on Selection: Always picks index 0 (Best available in sorted pool).
+    // Effect on Mutation: 0.0 < 1.0 (Always Mutates).
+    vi.spyOn(Math, 'random').mockReturnValue(0.0);
+
     // 1. Setup Population (3 Agents)
     const population: AgentGene[] = [
       { ...baseGene, id: 'Agent-A', name: 'Alpha', fitness: 100 },
@@ -123,7 +133,14 @@ describe('🧬 Helix: Gemini 3 Pro Evolutionary Loop', () => {
     // Agent-C is unlikely to be picked (Tournament Selection).
     // Crucially, we check that we didn't self-crossover (p1 !== p2).
     expect(offspring.lineage).toHaveLength(2);
-    expect(offspring.lineage[0]).not.toBe(offspring.lineage[1]);
+
+    // STRICT DETERMINISTIC CHECK:
+    // With Math.random() fixed to 0.0:
+    // 1. Mating Pool sorted: [A, B, C]
+    // 2. Parent 1 selection: index 0 -> Agent-A
+    // 3. Remaining Pool: [B, C]
+    // 4. Parent 2 selection: index 0 -> Agent-B
+    expect(offspring.lineage).toEqual(['Agent-A', 'Agent-B']);
 
     // C. Crossover Check: System Prompt combination
     expect(offspring.systemPrompt).toContain('You are a helpful AI.');
@@ -146,17 +163,17 @@ describe('🧬 Helix: Gemini 3 Pro Evolutionary Loop', () => {
 
     // Mock first attempt to fail (Missing Parameters)
     mockMutationFn.mockResolvedValueOnce({
-        ...baseGene,
-        id: 'defective',
-        parameters: undefined as any // Force defect
+      ...baseGene,
+      id: 'defective',
+      parameters: undefined as any // Force defect
     });
 
     // Mock second attempt to succeed
     mockMutationFn.mockResolvedValueOnce({
-        ...baseGene,
-        id: 'valid-child',
-        systemPrompt: 'Valid [GEMINI-3-PRO-EVOLVED]',
-        parameters: { temperature: 0.7 }
+      ...baseGene,
+      id: 'valid-child',
+      systemPrompt: 'Valid [GEMINI-3-PRO-EVOLVED]',
+      parameters: { temperature: 0.7 }
     });
 
     const population: AgentGene[] = [
@@ -186,9 +203,9 @@ describe('🧬 Helix: Gemini 3 Pro Evolutionary Loop', () => {
 
     // 1. Mock attempt: Parameters as Array (Schema Integrity)
     mockMutationFn.mockResolvedValueOnce({
-        ...baseGene,
-        id: 'child-array',
-        parameters: [] as any // Force Array defect
+      ...baseGene,
+      id: 'child-array',
+      parameters: [] as any // Force Array defect
     });
 
     // 2. Mock attempt: Circular Reference (Serialization Safety)
@@ -198,10 +215,10 @@ describe('🧬 Helix: Gemini 3 Pro Evolutionary Loop', () => {
 
     // 3. Mock attempt: Valid
     mockMutationFn.mockResolvedValueOnce({
-        ...baseGene,
-        id: 'valid-child-2',
-        systemPrompt: 'Valid [GEMINI-3-PRO-EVOLVED]',
-        parameters: { temperature: 0.8 }
+      ...baseGene,
+      id: 'valid-child-2',
+      systemPrompt: 'Valid [GEMINI-3-PRO-EVOLVED]',
+      parameters: { temperature: 0.8 }
     });
 
     const population: AgentGene[] = [

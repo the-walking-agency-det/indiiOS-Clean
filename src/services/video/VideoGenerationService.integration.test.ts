@@ -29,6 +29,8 @@ vi.mock('@/services/firebase', () => ({
     db: {},
     functions: {},
     functionsWest1: {}
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('@/services/subscription/SubscriptionService', () => ({
@@ -64,7 +66,7 @@ describe('VideoGenerationService Integration', () => {
             duration: 5,
             fps: 24,
             aspectRatio: "16:9",
-            resolution: "1920x1080",
+            resolution: '1080p',
             cameraMovement: "Pan Right"
         };
 

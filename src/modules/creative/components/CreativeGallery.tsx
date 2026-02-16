@@ -25,6 +25,7 @@ interface GalleryItemProps {
     generationMode: string;
     onDelete: (id: string, type: 'image' | 'video' | 'music' | 'text', origin: 'generated' | 'uploaded') => void;
 }
+
 const GalleryItem = memo(({ item, onSelect, setVideoInput, setEntityAnchor, setSelectedItem, toast, generationMode, onDelete }: GalleryItemProps) => {
     return (
         <div
@@ -201,13 +202,15 @@ export default function CreativeGallery({ compact = false, onSelect, className =
         onSelectRef.current = onSelect;
     });
 
+    const { setViewMode } = useStore();
     const handleSelect = useCallback((item: HistoryItem) => {
         if (onSelectRef.current) {
             onSelectRef.current(item);
         } else {
             setSelectedItem(item);
+            setViewMode('editor');
         }
-    }, [setSelectedItem]);
+    }, [setSelectedItem, setViewMode]);
 
     // Filter items based on search query
     const filteredUploadedImages = (searchQuery
@@ -298,7 +301,7 @@ export default function CreativeGallery({ compact = false, onSelect, className =
         : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
 
     return (
-        <div className={`flex-1 flex flex-col h-full overflow-hidden ${className}`}>
+        <div data-testid="creative-gallery" className={`flex-1 flex flex-col h-full overflow-hidden ${className}`}>
             {/* Upload Header - Optional if compact */}
             {!compact && (
                 <div className="p-4 border-b border-gray-800 flex justify-between items-center">

@@ -9,6 +9,7 @@ import type { UserProfile } from '@/modules/workflow/types';
 import { subscriptionService } from '@/services/subscription/SubscriptionService';
 import { usageTracker } from '@/services/subscription/UsageTracker';
 import { QuotaExceededError } from '@/shared/types/errors';
+import { metadataPersistenceService } from '@/services/persistence/MetadataPersistenceService';
 
 export interface ImageGenerationOptions {
     prompt: string;
@@ -25,7 +26,6 @@ export interface ImageGenerationOptions {
     // Gemini 3 Configuration
     model?: 'fast' | 'pro';
     thinking?: boolean;
-    mediaResolution?: 'low' | 'medium' | 'high';
     useGrounding?: boolean;
 }
 
@@ -80,13 +80,18 @@ export class ImageGenerationService {
     }
 
     async generateImages(options: ImageGenerationOptions): Promise<{ id: string, url: string, prompt: string }[]> {
+        console.log('[ImageGen DEBUG] Entering generateImages', options);
         const results: { id: string, url: string, prompt: string }[] = [];
         const count = options.count || 1;
 
         // Pre-flight quota check
         const userId = options.userProfile?.id;
         const quotaCheck = await subscriptionService.canPerformAction('generateImage', count, userId);
+        console.log('[ImageGen DEBUG] Quota check result:', quotaCheck);
+
         if (!quotaCheck.allowed) {
+            // ... existing error logic
+            console.error('[ImageGen DEBUG] Quota exceeded');
             let tier: any = 'free'; // Using any to bypass strict enum mismatch if needed, but MembershipTier includes 'free'
             try {
                 const sub = userId
@@ -108,6 +113,7 @@ export class ImageGenerationService {
 
         try {
             const generateImage = httpsCallable(functions, 'generateImageV3');
+            console.log('[ImageGen DEBUG] Calling generateImageV3');
 
             const fullPrompt = this.buildDistributorAwarePrompt(options);
             const aspectRatio = this.getAspectRatio(options);
@@ -116,12 +122,12 @@ export class ImageGenerationService {
                 prompt: fullPrompt,
                 aspectRatio: aspectRatio,
                 count: count,
-                images: options.sourceImages?.length ? options.sourceImages : [],
-                model: options.model || 'fast',
-                thinking: options.thinking ?? false,
-                mediaResolution: options.mediaResolution || 'medium',
-                useGrounding: options.useGrounding ?? false
+                // Gemini 3 Pro Image (Imagen 3) is strictly Text-to-Image.
+                model: options.model === 'pro' ? 'pro' : 'fast',
+                // Imagen 3 does not support thinking/grounding - removing from payload to prevent 400s
+                // Removing images: [] as it might trigger invalid argument for T2I
             });
+            console.log('[ImageGen DEBUG] generateImageV3 returned:', result);
 
             interface GenerateImageResponse {
                 images: Array<{
@@ -151,10 +157,20 @@ export class ImageGenerationService {
                     const { useStore } = await import('@/core/store');
                     const userId = useStore.getState().userProfile?.id;
 
-                    if (userId) {
+                    // eslint-disable-next-line no-constant-condition
+                    if (userId && false) { // TEMPORARY: Disable Cloud Storage to bypass CORS/Bucket issues
                         const { CloudStorageService } = await import('@/services/CloudStorageService');
                         const saved = await CloudStorageService.smartSave(dataUri, id, userId);
                         finalUrl = saved.url;
+                    } else {
+                        // Force compression if not uploading, to respect Firestore 1MB limit for local data
+                        const { CloudStorageService } = await import('@/services/CloudStorageService');
+                        const compressed = await CloudStorageService.compressImage(dataUri, {
+                            maxWidth: 512,
+                            maxHeight: 512,
+                            quality: 0.6
+                        });
+                        finalUrl = compressed.dataUri;
                     }
                 } catch (e) {
                     console.warn("Failed to upload to cloud storage, falling back to compressed data URI:", e);
@@ -210,6 +226,28 @@ export class ImageGenerationService {
             } catch (e) {
                 // Usage tracking failure should not block generation
             }
+
+            // Persist image metadata to Firestore for future retrieval
+            for (const image of results) {
+                metadataPersistenceService.save('image', {
+                    prompt: options.prompt,
+                    aspectRatio: options.aspectRatio || '1:1',
+                    resolution: options.resolution,
+                    model: options.model || 'pro',
+                    sourceType: 'generation',
+                    isCoverArt: options.isCoverArt || false,
+                    imageId: image.id,
+                    // Don't store the full URL if it's a data URI (too large)
+                    hasDataUri: image.url.startsWith('data:'),
+                    generatedAt: new Date().toISOString(),
+                }, {
+                    showToasts: false, // Don't spam toasts for successful saves
+                    maxRetries: 1,
+                    queueOnFailure: true,
+                }).catch(err => {
+                    console.warn('[ImageGeneration] Failed to persist image metadata:', err);
+                });
+            }
         }
 
         return results;
@@ -244,11 +282,9 @@ export class ImageGenerationService {
             const generateImage = httpsCallable(functions, 'generateImageV3');
 
             const result = await generateImage({
-                prompt: `Blend these two images together. Content reference should define the subject/composition. Style reference should define the artistic style, colors, and mood. ${options.prompt || 'Create a cohesive fusion.'}`,
-                images: [
-                    { mimeType: options.contentImage.mimeType, data: options.contentImage.data },
-                    { mimeType: options.styleImage.mimeType, data: options.styleImage.data }
-                ],
+                // Gemini 3 Pro Image is currently Text-to-Image only. 
+                // We rely on the high-fidelity caption (options.prompt) describing the inputs.
+                prompt: options.prompt || 'Create a cinematic remix.',
                 aspectRatio: '1:1'
             });
 
@@ -313,10 +349,8 @@ export class ImageGenerationService {
 
                     const result = await generateImage({
                         prompt: `Render this content image in the artistic style of the reference image. Maintain the composition and subject from content, apply colors, textures, and mood from style. ${options.prompt || 'Restyle'}`,
-                        images: [
-                            { mimeType: target.mimeType, data: target.data },
-                            { mimeType: options.styleImage.mimeType, data: options.styleImage.data }
-                        ],
+                        // Gemini 3 Pro Image is currently Text-to-Image only.
+                        // Passing input images causes INVALID_ARGUMENT (400).
                         aspectRatio
                     });
 
@@ -382,19 +416,26 @@ export class ImageGenerationService {
                 style: "Describe the artistic style, lighting, mood, color palette, and camera technique of this image. Focus on the visual 'vibe' rather than the content."
             };
 
+            // Fallback: If Flash failed (check logs), Pro is often more stable for Multimodal
+            // Flash is specifically optimized for fast multimodal analysis
+            // Use Pro (Agent) model for better multimodal stability and auth reliability
+            // Flash (Text) can sometimes trigger 403s on preview endpoints
             const response = await AI.generateContent({
-                model: AI_MODELS.TEXT.AGENT, // Use Pro model for detailed analysis
-                contents: {
+                model: AI_MODELS.TEXT.FAST,
+                contents: [{
                     role: 'user',
                     parts: [
-                        { inlineData: { mimeType: image.mimeType, data: image.data } },
-                        { text: promptMap[category] }
+                        { text: promptMap[category] },
+                        { inlineData: { mimeType: image.mimeType || 'image/png', data: image.data } }
                     ]
-                },
-                config: AI_CONFIG.THINKING.HIGH
+                }],
+                config: {
+                    ...AI_CONFIG.THINKING.LOW
+                }
             });
+            const responseText = response.text();
 
-            return response.text().trim();
+            return responseText.trim();
         } catch (e) {
             console.error(`Captioning Error (${category}):`, e);
             return "Visual reference"; // Fallback

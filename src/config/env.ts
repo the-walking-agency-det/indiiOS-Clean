@@ -45,7 +45,7 @@ const processEnv = {
     DEV: import.meta.env.DEV,
 
     // Firebase specific overrides
-    firebaseApiKey: getEnv(import.meta.env.VITE_FIREBASE_API_KEY, process.env.VITE_FIREBASE_API_KEY),
+    firebaseApiKey: getEnv(import.meta.env.VITE_FIREBASE_API_KEY, process.env.VITE_FIREBASE_API_KEY) || getEnv(import.meta.env.VITE_API_KEY, process.env.VITE_API_KEY),
     firebaseProjectId: getEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID, process.env.VITE_FIREBASE_PROJECT_ID),
     firebaseStorageBucket: getEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, process.env.VITE_FIREBASE_STORAGE_BUCKET),
     firebaseDatabaseURL: getEnv(import.meta.env.VITE_FIREBASE_DATABASE_URL, process.env.VITE_FIREBASE_DATABASE_URL),
@@ -55,9 +55,16 @@ const processEnv = {
     skipOnboarding: toBoolean(import.meta.env.VITE_SKIP_ONBOARDING || process.env.VITE_SKIP_ONBOARDING),
 };
 
+// Robust test environment detection
+const isTest =
+    import.meta.env.MODE === 'test' ||
+    !!process.env.VITEST ||
+    !!process.env.NODE_ENV?.includes('test') ||
+    process.env.VITEST_WORKER_ID !== undefined;
+
 const parsed = FrontendEnvSchema.safeParse(processEnv);
 
-if (!parsed.success) {
+if (!parsed.success && !isTest) {
     Logger.error('Env', "Invalid environment configuration:", parsed.error.format());
 
     // Explicitly log missing keys for easier debugging
@@ -67,7 +74,15 @@ if (!parsed.success) {
     if (!processEnv.firebaseApiKey) missingKeys.push('VITE_FIREBASE_API_KEY');
 
     if (missingKeys.length > 0) {
-        Logger.warn('Env', "WARNING: The following environment variables are missing:", missingKeys.join(', '));
+        const msg = `Missing required environment variables: ${missingKeys.join(', ')}. Copy .env.example to .env and fill in values.`;
+        Logger.error('Env', msg);
+
+        // In production, throw to prevent running with broken config
+        if (import.meta.env.PROD) {
+            throw new Error(msg);
+        }
+
+        // In dev, warn but continue with degraded functionality
         Logger.warn('Env', "App will attempt to run with defaults, but some features may be disabled.");
     }
 }
@@ -99,16 +114,21 @@ export const firebaseDefaultConfig = {
 const firebaseEnv = processEnv;
 
 export const firebaseConfig = {
-    apiKey: "AIzaSyD9SmSp-2TIxw5EV9dfQSOdx4yRNNxU0RM",
-    authDomain: (firebaseEnv.firebaseProjectId || firebaseEnv.projectId || "indiios-v-1-1") + ".firebaseapp.com",
-    databaseURL: firebaseEnv.firebaseDatabaseURL || "https://indiios-v-1-1-default-rtdb.firebaseio.com",
-    projectId: firebaseEnv.firebaseProjectId || firebaseEnv.projectId || "indiios-v-1-1",
-    storageBucket: firebaseEnv.firebaseStorageBucket || "indiios-v-1-1.firebasestorage.app",
-    messagingSenderId: getEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, process.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || "223837784072",
-    appId: getEnv(import.meta.env.VITE_FIREBASE_APP_ID, process.env.VITE_FIREBASE_APP_ID) || "1:223837784072:web:3af738739465ea4095e9bd",
-    measurementId: getEnv(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID, process.env.VITE_FIREBASE_MEASUREMENT_ID) || "G-7WW3HEHFTF"
+    apiKey: firebaseEnv.firebaseApiKey || "",
+    authDomain: "indiios-v-1-1.firebaseapp.com",
+    databaseURL: "https://indiios-v-1-1-default-rtdb.firebaseio.com",
+    projectId: "indiios-v-1-1",
+    storageBucket: "indiios-alpha-electron",
+    messagingSenderId: "223837784072",
+    appId: "1:223837784072:web:3af738739465ea4095e9bd",
+    measurementId: "G-7WW3HEHFTF"
 };
 
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId) {
-    Logger.warn('Env', "⚠️ Firebase Configuration Incomplete: Please set VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID, and VITE_FIREBASE_APP_ID");
+    const msg = "Firebase Configuration Incomplete: Please set VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID, and VITE_FIREBASE_APP_ID";
+    Logger.error('Env', msg);
+
+    if (import.meta.env.PROD) {
+        throw new Error(msg);
+    }
 }

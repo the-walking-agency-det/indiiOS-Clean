@@ -40,6 +40,8 @@ vi.mock('@/services/firebase', () => ({
     db: {},
     functions: {},
     functionsWest1: {}
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 // Handle dynamic import used in VideoGenerationService
@@ -90,7 +92,7 @@ describe('VideoGenerationService - Forge Hardening (Schema & Input)', () => {
             const validOptions = {
                 prompt: 'A beautiful sunset',
                 aspectRatio: '16:9' as const,
-                resolution: '1920x1080' as const,
+                resolution: '1080p' as const,
                 fps: 24,
                 duration: 5
             };

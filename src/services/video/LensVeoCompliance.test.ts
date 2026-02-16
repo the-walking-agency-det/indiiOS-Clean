@@ -28,13 +28,17 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/services/firebase', () => ({
     auth: mocks.auth,
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {},
+    remoteConfig: {}
 }));
 
 vi.mock('../firebase', () => ({
     functions: {},
+    functionsWest1: {},
     db: {},
-    auth: mocks.auth
+    auth: mocks.auth,
+    remoteConfig: {}
 }));
 
 vi.mock('@/services/subscription/SubscriptionService', () => ({
@@ -56,11 +60,19 @@ describe('Lens 🎥 - Veo 3.1 Compliance & Integrity Checks', () => {
         vi.useFakeTimers();
         vi.clearAllMocks();
         service = new VideoGenerationService();
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
         mocks.subscriptionService.canPerformAction.mockResolvedValue({ allowed: true });
+
+        // Mock fetch for video URL verification
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200
+        });
     });
 
     afterEach(() => {
         vi.useRealTimers();
+        vi.resetAllMocks();
     });
 
     it('should generate "Flash" video within 2 seconds (simulated) and verify Veo 3.1 metadata contract', async () => {
@@ -214,8 +226,9 @@ describe('Lens 🎥 - Veo 3.1 Compliance & Integrity Checks', () => {
         });
 
         // Use subscribeToJob directly to verify stream of updates
+        let unsub: (() => void) | undefined;
         const jobPromise = new Promise<void>((resolve) => {
-            service.subscribeToJob('job-id-upgrade', (job) => {
+            unsub = service.subscribeToJob('job-id-upgrade', (job) => {
                 if (job && job.status === 'completed') {
                     updates.push(job);
                     if (job.output.metadata.quality === 'pro') {
@@ -227,6 +240,7 @@ describe('Lens 🎥 - Veo 3.1 Compliance & Integrity Checks', () => {
 
         vi.advanceTimersByTime(3000);
         await jobPromise;
+        if (unsub) unsub();
 
         expect(updates).toHaveLength(2);
         expect(updates[0].output.url).toBe('http://flash.mp4');

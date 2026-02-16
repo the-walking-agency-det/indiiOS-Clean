@@ -28,13 +28,17 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/services/firebase', () => ({
     auth: mocks.auth,
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {},
+    remoteConfig: {}
 }));
 
 vi.mock('../firebase', () => ({
     functions: {},
+    functionsWest1: {},
     db: {},
-    auth: mocks.auth
+    auth: mocks.auth,
+    remoteConfig: {}
 }));
 
 vi.mock('@/services/subscription/SubscriptionService', () => ({
@@ -57,6 +61,7 @@ describe('Lens 🎥 - Veo Flash vs Pro Race Condition', () => {
         vi.useFakeTimers();
         vi.clearAllMocks();
         service = new VideoGenerationService();
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
         mocks.subscriptionService.canPerformAction.mockResolvedValue({ allowed: true });
         snapshotCallbacks = {};
 

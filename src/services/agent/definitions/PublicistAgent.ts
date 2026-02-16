@@ -7,9 +7,35 @@ import { firebaseAI } from '@/services/ai/FirebaseAIService';
 export const PublicistAgent = createAgent('publicist')
     .withName('Publicist')
     .withDescription('Manages public relations and media communications.')
-    .withColor('bg-orange-400')
+    .withColor('bg-pink-500')
     .withCategory('manager')
-    .withSystemPrompt(systemPrompt)
+    .withSystemPrompt(`
+You are the **Music Industry Publicist**, a high-level specialist agent within the indii system.
+
+## indii Architecture (Hub-and-Spoke)
+As a specialist (spoke), you operate under strict architectural rules:
+1. **Delegation:** You can ONLY delegate tasks or consult experts by going back to the Hub ('generalist' / Agent Zero).
+2. **Horizontal Communication:** You CANNOT communicate directly with other specialist agents (Marketing, Social, Legal, etc.).
+3. **Coordination:** If you need help from another domain (e.g., Social for a press-release share), ask Agent Zero to coordinate.
+
+## Role
+Your role is to manage public relations, media communications, and the artist's public image. You are an expert in securing blog placements, handling "crisis" management, and crafting compelling narratives for the music press.
+
+## Responsibilities:
+
+1. **Press Release Drafting:** Craft formal announcements for single/EP/album releases and tour dates.
+2. **Media Outreach:** Identify and pitch to music blogs (e.g., Pitchfork, Stereogum), magazines, and local journalists.
+3. **EPK (Electronic Press Kit) Coordination:** Define the structure and narrative of the artist's EPK.
+4. **Crisis Management:** Generate rapid, professional responses to negative PR or controversial events.
+5. **Interview Prep:** Draft talking points and FAQ for the artist ahead of media appearances.
+
+## Tone & Perspective:
+- **Professional & Polished:** Your language must be suitable for major media outlets.
+- **Narrative-Driven:** Focus on the "Artist's Story" rather than just the facts.
+- **Protective:** Your goal is to safeguard and enhance the artist's reputation.
+
+Think in terms of "Media Placements," "Narrative Arc," and "Public Perception."
+    `)
     .withTool({
         functionDeclarations: [{
             name: "create_campaign",
@@ -176,5 +202,75 @@ export const PublicistAgent = createAgent('publicist')
             const message = error instanceof Error ? error.message : String(error);
             return { success: false, error: message };
         }
+    })
+    .withTool({
+        functionDeclarations: [{
+            name: "indii_image_gen",
+            description: "Generate visual assets for press kits or social media.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    prompt: { type: "STRING", description: "Image description." },
+                    style: { type: "STRING", description: "Art style (Photorealistic, Cinematic)." },
+                    aspect_ratio: { type: "STRING", description: "1:1, 16:9, 9:16" }
+                },
+                required: ["prompt"]
+            }
+        }]
+    }, async (args: { prompt: string, style?: string, aspect_ratio?: string }) => {
+        // This is a placeholder for the Python bridge call
+        return {
+            success: true,
+            data: {
+                message: "Image generation task dispatched to Python Engine.",
+                task_payload: args
+            }
+        };
+    })
+    .withTool({
+        functionDeclarations: [{
+            name: "browser_tool",
+            description: "Browse the web to find press contacts or monitor coverage.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    action: { type: "STRING", description: "open, click, type, get_dom, screenshot" },
+                    url: { type: "STRING", description: "URL to visit" },
+                    selector: { type: "STRING" },
+                    text: { type: "STRING" }
+                },
+                required: ["action"]
+            }
+        }]
+    }, async (args: { action: string, url?: string, selector?: string, text?: string }) => {
+        return {
+            success: true,
+            data: {
+                message: "Browser action dispatched to Ghost Hands.",
+                payload: args
+            }
+        };
+    })
+    .withTool({
+        functionDeclarations: [{
+            name: "credential_vault",
+            description: "Securely retrieve passwords for social accounts.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    action: { type: "STRING", description: "retrieve" },
+                    service: { type: "STRING", description: "Service name (e.g. Twitter)" }
+                },
+                required: ["action", "service"]
+            }
+        }]
+    }, async (args: { action: string, service: string }) => {
+        return {
+            success: true,
+            data: {
+                message: "Vault access requested.",
+                payload: args
+            }
+        };
     })
     .build();

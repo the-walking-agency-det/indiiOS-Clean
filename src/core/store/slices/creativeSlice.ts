@@ -128,8 +128,8 @@ export interface CreativeSlice {
     entityAnchor: HistoryItem | null;
     setEntityAnchor: (img: HistoryItem | null) => void;
 
-    viewMode: 'gallery' | 'canvas' | 'video_production' | 'showroom' | 'direct';
-    setViewMode: (mode: 'gallery' | 'canvas' | 'video_production' | 'showroom' | 'direct') => void;
+    viewMode: 'gallery' | 'canvas' | 'video_production' | 'showroom' | 'direct' | 'lab' | 'editor' | 'release';
+    setViewMode: (mode: 'gallery' | 'canvas' | 'video_production' | 'showroom' | 'direct' | 'lab' | 'editor' | 'release') => void;
 
     prompt: string;
     setPrompt: (prompt: string) => void;
@@ -207,9 +207,22 @@ export const createCreativeSlice: StateCreator<CreativeSlice> = (set, get) => ({
                         // Convert back to array and sort by timestamp (newest first)
                         const mergedHistory = Array.from(historyMap.values()).sort((a, b) => b.timestamp - a.timestamp);
 
-                        const generated = mergedHistory.filter(item => item.origin !== 'uploaded');
-                        const uploadedImages = mergedHistory.filter(item => item.origin === 'uploaded' && item.type === 'image');
-                        const uploadedAudio = mergedHistory.filter(item => item.origin === 'uploaded' && item.type === 'music');
+                        // Bolt Optimization: Filter in a single pass O(N) instead of 3 passes O(3N)
+                        const generated: HistoryItem[] = [];
+                        const uploadedImages: HistoryItem[] = [];
+                        const uploadedAudio: HistoryItem[] = [];
+
+                        for (const item of mergedHistory) {
+                            if (item.origin !== 'uploaded') {
+                                generated.push(item);
+                            } else {
+                                if (item.type === 'image') {
+                                    uploadedImages.push(item);
+                                } else if (item.type === 'music') {
+                                    uploadedAudio.push(item);
+                                }
+                            }
+                        }
 
                         return {
                             generatedHistory: generated,
@@ -287,7 +300,7 @@ export const createCreativeSlice: StateCreator<CreativeSlice> = (set, get) => ({
 
     studioControls: {
         aspectRatio: '16:9',
-        resolution: '1280x720',
+        resolution: '720p',
         negativePrompt: '',
         seed: '',
         cameraMovement: 'Static',

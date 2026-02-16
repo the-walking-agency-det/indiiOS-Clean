@@ -32,12 +32,26 @@ vi.mock('@/services/agent/tools/LegalTools', () => ({
 }));
 
 vi.mock('@/core/config/ai-models', () => ({
+
     AI_MODELS: {
         TEXT: {
             FAST: 'fast-model',
             AGENT: 'agent-model',
         },
     },
+    APPROVED_MODELS: {
+        TEXT_AGENT: 'agent-model',
+        TEXT_FAST: 'fast-model',
+        IMAGE_GEN: 'mock-image-model',
+        IMAGE_FAST: 'mock-image-model',
+        AUDIO_PRO: 'agent-model',
+        AUDIO_FLASH: 'fast-model',
+        VIDEO_GEN: 'mock-video-model',
+        BROWSER_AGENT: 'agent-model',
+        EMBEDDING_DEFAULT: 'models/embedding-001'
+    },
+    validateModels: () => { },
+    ModelIdSchema: { parse: (v: string) => v },
 }));
 
 describe('LegalDashboard', () => {

@@ -7,6 +7,10 @@
 // Haptic Feedback
 // ============================================================================
 
+import { messaging } from '@/services/firebase';
+import { getToken, onMessage } from 'firebase/messaging';
+import { env } from '@/config/env';
+
 export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';
 
 /**
@@ -362,4 +366,106 @@ export const getBatteryStatus = async () => {
     } catch {
         return null;
     }
+};
+// ============================================================================
+// Notifications
+// ============================================================================
+
+/**
+ * Request permission for push notifications
+ */
+export const requestNotificationPermission = async (): Promise<boolean> => {
+    if (!messaging || typeof window === 'undefined' || !('Notification' in window)) {
+        console.warn('[Notifications] Messaging not supported');
+        return false;
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            console.log('[Notifications] Permission granted');
+
+            // Try to get token if VAPID key exists (not strictly required for local/PWA display, but needed for FCN)
+            if (messaging) {
+                try {
+                    // Start token retrieval but don't block if it fails (e.g. missing VAPID)
+                    // We use a dummy VAPID if none provided just to triggering the flow if possible, 
+                    // though it will likely fail for FCN without correct key.
+                    // Ideally we should have VITE_FIREBASE_VAPID_KEY in env.
+                    const vapidKey = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
+                    if (vapidKey) {
+                        const token = await getToken(messaging, { vapidKey });
+                        if (token) console.log('[Notifications] Token:', token);
+                    }
+                } catch (e) {
+                    console.warn('[Notifications] Token retrieval warning:', e);
+                }
+            }
+
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('[Notifications] Error requesting permission:', error);
+        return false;
+    }
+};
+
+/**
+ * Listen for foreground messages
+ */
+export const onMessageListener = (callback: (payload: any) => void) => {
+    if (!messaging) return () => { };
+    try {
+        return onMessage(messaging, (payload) => {
+            console.log('[Notifications] Foreground message received:', payload);
+            callback(payload);
+        });
+    } catch (e) {
+        console.error('[Notifications] Error setting up listener:', e);
+        return () => { };
+    }
+};
+
+// ============================================================================
+// Network Quality (Adaptive Loading)
+// ============================================================================
+
+export type NetworkEffectiveType = 'slow-2g' | '2g' | '3g' | '4g';
+
+interface NetworkInformation extends EventTarget {
+    readonly effectiveType: NetworkEffectiveType;
+    readonly saveData: boolean;
+    readonly downlink: number;
+    readonly rtt: number;
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+}
+
+// Extend Navigator interface locally since it satisfies the global need for this file
+declare global {
+    interface Navigator {
+        readonly connection?: NetworkInformation;
+        readonly mozConnection?: NetworkInformation;
+        readonly webkitConnection?: NetworkInformation;
+    }
+}
+
+/**
+ * Get current network quality
+ * Returns '4g' (good) as default if API is unsupported (e.g. iOS)
+ */
+export const getNetworkQuality = (): NetworkEffectiveType => {
+    if (typeof navigator === 'undefined') return '4g';
+
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return connection ? connection.effectiveType : '4g';
+};
+
+/**
+ * Get the connection object wrapper
+ */
+export const getNetworkConnection = (): NetworkInformation | null => {
+    if (typeof navigator === 'undefined') return null;
+    return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
 };

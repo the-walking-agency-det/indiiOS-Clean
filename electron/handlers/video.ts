@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
-import { z } from 'zod';
 import { validateSender } from '../utils/ipc-security';
+import { z } from 'zod';
 import { validateSafeUrlAsync } from '../utils/network-security';
 import { FetchUrlSchema } from '../utils/validation';
 import { accessControlService } from '../security/AccessControlService';
@@ -13,6 +13,11 @@ import { accessControlService } from '../security/AccessControlService';
  * Downloads a file from a URL to a local path.
  */
 async function downloadFile(url: string, destinationPath: string) {
+    // SECURITY: Ensure URL is http or https to prevent LFI via file:// or other protocols
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        throw new Error(`Invalid URL protocol: ${url}`);
+    }
+
     // Security: Disable redirects to prevent Open Redirect SSRF bypass
     const response = await fetch(url, { redirect: 'error' });
     if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
@@ -32,6 +37,15 @@ export function registerVideoHandlers() {
         try {
             validateSender(event);
 
+            // SECURITY: Validate filename against Path Traversal
+            // 1. Explicitly reject ".." segments
+            if (filename.includes('..')) {
+                throw new Error(`Invalid filename: Path traversal detected in "${filename}"`);
+            }
+            // 2. Reject absolute paths (just in case)
+            if (path.isAbsolute(filename)) {
+                throw new Error(`Invalid filename: Absolute paths not allowed`);
+            }
             // Validate URL (SSRF Protection)
             FetchUrlSchema.parse(url);
             await validateSafeUrlAsync(url);
@@ -77,31 +91,27 @@ export function registerVideoHandlers() {
     ipcMain.handle('video:open-folder', async (event, filePath?: string) => {
         try {
             validateSender(event);
-
             const documentsPath = app.getPath('documents');
             const assetDir = path.join(documentsPath, 'IndiiOS', 'Assets', 'Video');
+
+            // If filePath is provided, ensure it is within assetDir
             let target = assetDir;
 
             if (filePath) {
-                // Security Check: Ensure filePath is within assetDir
-                // We resolve both paths to absolute paths to prevent relative path attacks
-                const resolvedPath = path.resolve(filePath);
+                const resolved = path.resolve(filePath);
+                const safeRoot = path.resolve(assetDir) + path.sep;
+                // Allow opening exactly the assetDir or files inside it
+                // Fix: Ensure we don't block opening the dir itself
                 const resolvedAssetDir = path.resolve(assetDir);
-
-                // Check for traversal or access outside asset dir
-                // Note: This string comparison is case-sensitive. On Windows/macOS this might be too strict
-                // if the case differs, but it is secure.
-                const safePrefix = resolvedAssetDir.endsWith(path.sep) ? resolvedAssetDir : resolvedAssetDir + path.sep;
-                if (resolvedPath !== resolvedAssetDir && !resolvedPath.startsWith(safePrefix)) {
-                    console.error(`[Security] Blocked access to unauthorized path: ${resolvedPath}`);
-                    throw new Error("Security: Access Denied. Cannot open folders outside of Assets/Video.");
+                if (resolved !== resolvedAssetDir && !resolved.startsWith(safeRoot)) {
+                    throw new Error("Security Warning: Unauthorized path access");
                 }
-                target = resolvedPath;
+                target = resolved;
             }
 
             await shell.showItemInFolder(target);
         } catch (error) {
-            console.error('[VideoHandler] Failed to open folder:', error);
+            console.error('[VideoHandler] Open folder failed:', error);
             throw error;
         }
     });

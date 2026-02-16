@@ -1,4 +1,15 @@
 import { StateCreator } from 'zustand';
+import { z } from 'zod';
+import { SpecializedAgent } from '@/services/agent/types';
+// import { agentRegistry } from '@/services/agent/registry'; // Removed to break circular dependency
+
+const AgentSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    color: z.string(),
+    category: z.string(),
+});
 
 export interface AgentMessage {
     id: string;
@@ -9,6 +20,7 @@ export interface AgentMessage {
     isStreaming?: boolean;
     thoughts?: AgentThought[];
     agentId?: string;
+    thoughtSignature?: string;
 }
 
 export interface AgentThought {
@@ -50,6 +62,12 @@ export interface AgentSlice {
     // Dual-Chat Channel: 'indii' for orchestrator, 'agent' for specialists
     chatChannel: 'indii' | 'agent';
 
+    // Provider switching: 'direct' (simple LLM chat), 'native' (specialist agents), or 'agent-zero' (Docker container)
+    activeAgentProvider: 'direct' | 'native' | 'agent-zero';
+
+    // Knowledge Base RAG toggle: when true, inject memory + knowledge into system prompt
+    isKnowledgeBaseEnabled: boolean;
+
     isAgentOpen: boolean;
     isCommandBarDetached: boolean;
     commandBarInput: string;
@@ -60,6 +78,11 @@ export interface AgentSlice {
 
     // Window Management
     agentWindowSize: { width: number; height: number };
+
+    // Available Agents
+    availableAgents: SpecializedAgent[];
+    isLoadingAgents: boolean;
+    agentsError: string | null;
 
     // Actions
     createSession: (title?: string, initialAgents?: string[]) => string;
@@ -77,6 +100,8 @@ export interface AgentSlice {
     setCommandBarAttachments: (attachments: File[]) => void;
     setAgentMode: (mode: AgentMode) => void;
     setChatChannel: (channel: 'indii' | 'agent') => void;
+    setActiveAgentProvider: (provider: 'direct' | 'native' | 'agent-zero') => void;
+    setKnowledgeBaseEnabled: (enabled: boolean) => void;
     requestApproval: (content: string, type: string) => Promise<boolean>;
     resolveApproval: (approved: boolean) => void;
 
@@ -84,6 +109,7 @@ export interface AgentSlice {
     setAgentProcessing: (isProcessing: boolean) => void;
     setAgentWindowSize: (size: { width: number; height: number }) => void;
     loadSessions: () => Promise<void>;
+    loadAgents: () => Promise<void>;
 }
 
 export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
@@ -91,7 +117,12 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
     agentHistory: [],
     sessions: {},
     activeSessionId: null,
+    availableAgents: [],
+    isLoadingAgents: false,
+    agentsError: null,
     chatChannel: 'indii', // Default to indii (main orchestrator)
+    activeAgentProvider: 'direct',
+    isKnowledgeBaseEnabled: false,
 
     isAgentOpen: false,
     isCommandBarDetached: false,
@@ -266,6 +297,8 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
     setAgentMode: (mode) => set({ agentMode: mode }),
 
     setChatChannel: (channel) => set({ chatChannel: channel }),
+    setActiveAgentProvider: (provider) => set({ activeAgentProvider: provider }),
+    setKnowledgeBaseEnabled: (enabled) => set({ isKnowledgeBaseEnabled: enabled }),
 
     requestApproval: (content: string, type: string): Promise<boolean> => {
         return new Promise((resolve) => {
@@ -336,5 +369,31 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
                 agentHistory: activeId ? sessionMap[activeId].messages : []
             };
         });
+    },
+
+    loadAgents: async () => {
+        set({ isLoadingAgents: true, agentsError: null });
+        try {
+            // Simulate async if needed, or just handle sync failure
+            const { agentRegistry } = await import('@/services/agent/registry');
+            const agents = agentRegistry.getAll();
+
+            // Validate data integrity
+            const validatedAgents = agents.filter(agent => {
+                const result = AgentSchema.safeParse(agent);
+                if (!result.success) {
+                    console.warn(`[AgentSlice] Invalid agent data for ${agent.id}:`, result.error);
+                    return false;
+                }
+                return true;
+            });
+
+            set({ availableAgents: validatedAgents });
+        } catch (error) {
+            console.error('[AgentSlice] Failed to load agents:', error);
+            set({ agentsError: (error as Error).message || 'Failed to load agents' });
+        } finally {
+            set({ isLoadingAgents: false });
+        }
     }
 });

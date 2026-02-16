@@ -3,6 +3,7 @@ import { ModuleErrorBoundary } from '@/core/components/ModuleErrorBoundary';
 import CreativeGallery from './components/CreativeGallery';
 import CreativeNavbar from './components/CreativeNavbar';
 import InfiniteCanvas from './components/InfiniteCanvas';
+import AILab from './components/AILab';
 import VideoWorkflow from '../video/VideoWorkflow';
 import CreativeCanvas from './components/CreativeCanvas';
 import { useStore } from '@/core/store';
@@ -12,6 +13,7 @@ import { useToast } from '@/core/context/ToastContext';
 import { WhiskService } from '@/services/WhiskService';
 import { QuotaExceededError } from '@/shared/types/errors';
 import DirectGenerationTab from './components/DirectGenerationTab';
+const ReleaseManager = lazy(() => import('../release/ReleaseManager').then(module => ({ default: module.ReleaseManager })));
 
 // Lazy load CreativePanel for mobile controls tab
 const CreativePanel = lazy(() => import('@/core/components/right-panel/CreativePanel'));
@@ -49,7 +51,7 @@ export default function CreativeStudio({ initialMode }: { initialMode?: 'image' 
         if (initialMode) {
             setGenerationMode(initialMode);
         }
-    }, [initialMode]);
+    }, [initialMode, setGenerationMode]);
 
     useEffect(() => {
         useStore.setState({ isAgentOpen: false });
@@ -60,7 +62,7 @@ export default function CreativeStudio({ initialMode }: { initialMode?: 'image' 
             // But if we just mounted with initialMode='image', generationMode might be 'image' already.
             setViewMode('gallery');
         }
-    }, [generationMode]);
+    }, [generationMode, viewMode, setViewMode]);
 
     // Handle Pending Prompt for Image Mode
     useEffect(() => {
@@ -96,7 +98,6 @@ export default function CreativeStudio({ initialMode }: { initialMode?: 'image' 
                         // Gemini 3 Params
                         model: studioControls.model,
                         thinking: studioControls.thinking,
-                        mediaResolution: studioControls.mediaResolution,
                         useGrounding: studioControls.useGrounding
                     });
 
@@ -131,7 +132,7 @@ export default function CreativeStudio({ initialMode }: { initialMode?: 'image' 
             };
             generateImage();
         }
-    }, [pendingPrompt, generationMode, whiskState]);
+    }, [pendingPrompt, generationMode, whiskState, setPrompt, setPendingPrompt, studioControls, addToHistory, currentProjectId, userProfile, toast]);
 
     return (
         <ModuleErrorBoundary moduleName="Creative Director">
@@ -170,27 +171,31 @@ export default function CreativeStudio({ initialMode }: { initialMode?: 'image' 
                         {viewMode === 'canvas' && <InfiniteCanvas />}
                         {viewMode === 'video_production' && <VideoWorkflow />}
                         {viewMode === 'direct' && <DirectGenerationTab />}
+                        {viewMode === 'lab' && <AILab />}
+                        {viewMode === 'release' && <Suspense fallback={<div className="text-white p-8">Loading Release Manager...</div>}><ReleaseManager /></Suspense>}
+                        {viewMode === 'editor' && selectedItem && (
+                            <CreativeCanvas
+                                item={selectedItem}
+                                onClose={() => {
+                                    setSelectedItem(null);
+                                    setViewMode('gallery');
+                                }}
+                                onSendToWorkflow={(type, item) => {
+                                    const { setVideoInput, setGenerationMode, setViewMode, setSelectedItem } = useStore.getState();
+                                    setVideoInput(type, item);
+                                    setGenerationMode('video');
+                                    setViewMode('video_production');
+                                    setSelectedItem(null);
+                                    toast.success(`Set as ${type === 'firstFrame' ? 'Start' : 'End'} Frame`);
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
 
                 {/* Main Prompt Bar Removed - Using Global CommandBar */}
 
-                {/* Global Overlay */}
-                {selectedItem && (
-                    <CreativeCanvas
-                        item={selectedItem}
-                        onClose={() => setSelectedItem(null)}
-                        onSendToWorkflow={(type, item) => {
-                            // type is 'firstFrame' | 'lastFrame'
-                            const { setVideoInput, setGenerationMode, setViewMode, setSelectedItem } = useStore.getState();
-                            setVideoInput(type, item);
-                            setGenerationMode('video');
-                            setViewMode('video_production');
-                            setSelectedItem(null);
-                            toast.success(`Set as ${type === 'firstFrame' ? 'Start' : 'End'} Frame`);
-                        }}
-                    />
-                )}
+                {/* Transitions handled via viewMode === 'editor' above */}
             </div>
         </ModuleErrorBoundary>
     );

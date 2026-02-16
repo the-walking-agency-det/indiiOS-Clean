@@ -17,7 +17,10 @@ vi.mock('@/services/firebase', () => ({
         currentUser: { uid: 'test-user' }
     },
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {}
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('firebase/functions', () => ({

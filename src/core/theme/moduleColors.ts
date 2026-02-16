@@ -67,6 +67,7 @@ export const departmentCssVars = {
     files: '--color-dept-default',
     dashboard: '--color-dept-default',
     'select-org': '--color-dept-default',
+    debug: '--color-dept-default',
 } as const;
 
 /**
@@ -329,14 +330,23 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         hoverBg: 'hover:bg-dept-distribution/5',
         cssVar: '--color-dept-distribution',
     },
-    'reference-manager': {
-        text: 'text-dept-creative',
-        bg: 'bg-dept-creative/10',
-        border: 'border-dept-creative',
-        ring: 'focus-within:ring-dept-creative/50',
-        hoverText: 'hover:text-dept-creative',
-        hoverBg: 'hover:bg-dept-creative/5',
-        cssVar: '--color-dept-creative',
+    history: {
+        text: 'text-dept-default',
+        bg: 'bg-dept-default/10',
+        border: 'border-dept-default',
+        ring: 'focus-within:ring-dept-default/50',
+        hoverText: 'hover:text-white',
+        hoverBg: 'hover:bg-dept-default/5',
+        cssVar: '--color-dept-default',
+    },
+    debug: {
+        text: 'text-red-500',
+        bg: 'bg-red-500/10',
+        border: 'border-red-500',
+        ring: 'focus-within:ring-red-500/50',
+        hoverText: 'hover:text-red-400',
+        hoverBg: 'hover:bg-red-500/5',
+        cssVar: '--color-dept-default',
     }
 };
 
