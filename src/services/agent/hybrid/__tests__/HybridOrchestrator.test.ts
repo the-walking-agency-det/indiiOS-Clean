@@ -69,7 +69,7 @@ describe('HybridOrchestrator Integration', () => {
             .mockResolvedValueOnce(mockResponses[1]);
 
         const result = await orchestrator.execute(mockContext, "Check copyright for my new song 'Detroit Ghost'");
-        
+
         expect(result).toContain("clear to proceed");
         expect(AI.generateContent).toHaveBeenCalledTimes(2);
     });
