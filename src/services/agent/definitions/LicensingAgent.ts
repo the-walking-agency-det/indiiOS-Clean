@@ -1,5 +1,5 @@
 import { AgentConfig } from "../types";
-import systemPrompt from '@agents/licensing/prompt.md?raw';
+import systemPrompt from '@/agents/licensing/prompt.md?raw';
 import { licensingService } from "../../licensing/LicensingService";
 import { licenseScannerService } from "../../knowledge/LicenseScannerService";
 import { firebaseAI } from "@/services/ai/FirebaseAIService";
@@ -190,6 +190,44 @@ export const LicensingAgent: AgentConfig = {
                         terms: { type: "STRING", description: "Key terms and conditions to include." }
                     },
                     required: ["type", "parties", "terms"]
+                }
+            },
+            {
+                name: "browser_tool",
+                description: "Research Music Supervisors or Sync Libraries.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        action: { type: "STRING", description: "Action: open, click, type, get_dom" },
+                        url: { type: "STRING" },
+                        selector: { type: "STRING" }
+                    },
+                    required: ["action"]
+                }
+            },
+            {
+                name: "document_query",
+                description: "Analyze license agreements for unfair terms.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        query: { type: "STRING" },
+                        doc_path: { type: "STRING" }
+                    },
+                    required: ["query"]
+                }
+            },
+            {
+                name: "payment_gate",
+                description: "Pay for clearance fees.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        amount: { type: "NUMBER" },
+                        vendor: { type: "STRING" },
+                        reason: { type: "STRING" }
+                    },
+                    required: ["amount", "vendor", "reason"]
                 }
             }
         ]

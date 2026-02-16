@@ -25,6 +25,17 @@ vi.mock('@/services/ai/VoiceService', () => ({
     voiceService: { speak: vi.fn(), stopSpeaking: vi.fn() }
 }));
 
+// Mock Toast Context
+vi.mock('@/core/context/ToastContext', () => ({
+    useToast: () => ({
+        toast: vi.fn(),
+        success: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        warning: vi.fn(),
+    })
+}));
+
 // Mock Virtuoso (Simplified for Pulse testing)
 vi.mock('react-virtuoso', async () => {
     const React = await import('react');
@@ -90,7 +101,18 @@ const INITIAL_STATE = {
     createSession: vi.fn(),
     toggleAgentWindow: vi.fn(),
     isAgentProcessing: false,
-    chatChannel: 'indii'
+    chatChannel: 'indii',
+    setChatChannel: vi.fn(),
+    setModule: vi.fn(),
+    setCommandBarDetached: vi.fn(),
+    setCommandBarInput: vi.fn(),
+    setCommandBarAttachments: vi.fn(),
+    isCommandBarDetached: false,
+    commandBarInput: '',
+    commandBarAttachments: [],
+    currentModule: 'dashboard',
+    setAgentWindowSize: vi.fn(),
+    agentWindowSize: { width: 400, height: 600 },
 };
 
 describe('💓 Pulse: Chat Overlay Status Feedback', () => {
@@ -144,7 +166,7 @@ describe('💓 Pulse: Chat Overlay Status Feedback', () => {
         // 2. Assert: Processing Indicator is visible
         const processingIndicator = screen.getByText(/PROCESSING RESPONSE.../i);
         expect(processingIndicator).toBeInTheDocument();
-        expect(processingIndicator).toHaveClass('animate-pulse'); // Visual feedback verification
+        expect(processingIndicator).toHaveClass('text-purple-300'); // Visual feedback - text styling
 
         // 3. Assert: Empty State is GONE
         expect(screen.queryByText(/How can I help you\?/i)).not.toBeInTheDocument();

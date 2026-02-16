@@ -1,0 +1,15 @@
+**/node_modules
+**/.git
+**/.firebase
+dist*
+out*
+release*
+*.log
+.DS_Store
+coverage
+documentation
+global_assets
+*.app
+*.dmg
+*.zip
+*.pkg

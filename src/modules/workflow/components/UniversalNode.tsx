@@ -34,12 +34,15 @@ const UniversalNode = ({ id, data, selected }: NodeProps<UniversalNodeData>) => 
     const nodeDefinition = getNodeDefinition(deptName);
     const jobDefinition = getJobDefinition(deptName, jobId);
 
+    // console.log("Node Result Data:", data.result);
+
     const status = statusConfig[data.status] || statusConfig[Status.PENDING];
     const StatusIcon = status.icon;
     const Icon = nodeDefinition?.icon || Settings;
 
-    // 2. Result Rendering Logic
     const renderResultPreview = () => {
+        // console.log("Rendering Node ID:", id, "Data:", data);
+
         if (data.status === Status.ERROR) {
             return <p className="text-red-400 text-[10px] p-2 break-all leading-tight">{String(data.result).substring(0, 50)}...</p>;
         }
@@ -54,25 +57,84 @@ const UniversalNode = ({ id, data, selected }: NodeProps<UniversalNodeData>) => 
             }
         }
 
-        if (!data.result || data.status !== Status.DONE) {
+        // --- THE FIX: We were checking !data.result too strictly ---
+        // If status is DONE, we should try to render whatever is in result.
+        if (data.status !== Status.DONE) {
             return <div className="w-full h-full flex items-center justify-center bg-gray-900/50 text-gray-600 text-[10px] italic">Awaiting Output</div>;
         }
 
-        let asset: AnyAsset;
+        if (!data.result) {
+            return <div className="w-full h-full flex items-center justify-center bg-gray-900/50 text-gray-400 text-[10px] italic">Success: No Data Returned</div>;
+        }
+
+        // Deep check for result structure
+        let asset: AnyAsset | null = null;
         try {
-            asset = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            const rawResult = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+
+            // --- FIX: Map the new Image Generation Object to an Image Asset ---
+            if (rawResult && rawResult.images && Array.isArray(rawResult.images)) {
+                const firstImage = rawResult.images[0];
+                asset = {
+                    assetType: 'image',
+                    imageUrl: firstImage.imageUrl || `data:${firstImage.mimeType || 'image/png'};base64,${firstImage.bytesBase64Encoded || firstImage.base64}`,
+                    aiMetadata: rawResult.aiMetadata,
+                    aiGenerationInfo: rawResult.aiGenerationInfo,
+                    title: 'AI Generated Artwork'
+                } as any;
+            } else {
+                asset = rawResult as AnyAsset;
+            }
         } catch (e) {
             return <p className="text-gray-400 text-[10px] p-1 truncate">{String(data.result).substring(0, 30)}</p>;
         }
 
-        if (asset?.assetType === 'image') return <img src={(asset as unknown as { imageUrl: string }).imageUrl} alt="Result" className="w-full h-full object-cover" />;
-        if (asset?.assetType === 'imageConceptSet') {
-            const conceptSet = asset as unknown as { concepts: { imageUrl: string }[] };
-            return <img src={conceptSet.concepts[0]?.imageUrl} alt="Result" className="w-full h-full object-cover" />;
-        }
-        if (asset?.assetType === 'video') return <video src={(asset as unknown as { videoUrl: string }).videoUrl} className="w-full h-full object-cover" />;
+        if (!asset) return <div className="w-full h-full flex items-center justify-center bg-gray-900/50 text-gray-600 text-[10px] italic">No Data</div>;
 
-        return <div className="p-2 text-[10px] text-gray-300 overflow-hidden leading-tight">{asset.title || 'Text Output'}</div>;
+        if (asset.assetType === 'image') return (
+            <div className="relative w-full h-full">
+                <img src={(asset as unknown as { imageUrl: string }).imageUrl} alt="Result" className="w-full h-full object-cover" />
+                {(asset as any).aiMetadata && (
+                    <div className="absolute bottom-1 right-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-teal-400 border border-teal-500/50 backdrop-blur-sm">
+                        AI Provenance Locked
+                    </div>
+                )}
+            </div>
+        );
+        if (asset.assetType === 'imageConceptSet') {
+            const conceptSet = asset as unknown as { concepts: { imageUrl: string; aiMetadata?: any }[] };
+            return (
+                <div className="relative w-full h-full">
+                    <img src={conceptSet.concepts[0]?.imageUrl} alt="Result" className="w-full h-full object-cover" />
+                    {conceptSet.concepts[0]?.aiMetadata && (
+                        <div className="absolute bottom-1 right-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-teal-400 border border-teal-500/50 backdrop-blur-sm">
+                            AI Provenance Locked
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        if (asset.assetType === 'video') return <video src={(asset as unknown as { videoUrl: string }).videoUrl} className="w-full h-full object-cover" />;
+
+        // --- ENHANCEMENT: Detect raw base64 data and render as image ---
+        const resultString = String(data.result);
+        if (resultString.startsWith('data:image/') || (asset as any).base64) {
+            const src = (asset as any).base64 ? `data:${(asset as any).mimeType || 'image/png'};base64,${(asset as any).base64}` : resultString;
+            return (
+                <div className="relative w-full h-full">
+                    <img src={src} alt="AI Result" className="w-full h-full object-cover" />
+                    {(asset as any).aiMetadata && (
+                        <div className="absolute bottom-1 right-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-teal-400 border border-teal-500/50 backdrop-blur-sm flex items-center gap-1">
+                            <div className="w-1 h-1 bg-teal-500 rounded-full animate-pulse" />
+                            AI Provenance Locked
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const displayLabel = (asset as any).title || (asset as any).label || (asset as any).description || (typeof asset === 'string' ? asset : 'Output Received');
+        return <div className="p-2 text-[10px] text-gray-300 overflow-hidden leading-tight">{displayLabel}</div>;
     };
 
     const handleEdit = (e: React.MouseEvent) => {

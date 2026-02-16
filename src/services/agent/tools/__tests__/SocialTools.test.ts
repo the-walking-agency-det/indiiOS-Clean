@@ -17,11 +17,25 @@ vi.mock('@/services/social/SocialService', () => ({
 }));
 
 vi.mock('@/core/config/ai-models', () => ({
+
   AI_MODELS: {
     TEXT: {
       AGENT: 'mock-model',
     },
   },
+  APPROVED_MODELS: {
+    TEXT_AGENT: 'mock-model',
+    TEXT_FAST: 'mock-model',
+    IMAGE_GEN: 'mock-image-model',
+    IMAGE_FAST: 'mock-image-model',
+    AUDIO_PRO: 'mock-model',
+    AUDIO_FLASH: 'mock-model',
+    VIDEO_GEN: 'mock-video-model',
+    BROWSER_AGENT: 'mock-model',
+    EMBEDDING_DEFAULT: 'models/embedding-001'
+  },
+  validateModels: () => { },
+  ModelIdSchema: { parse: (v: string) => v },
 }));
 
 describe('SocialTools', () => {
@@ -80,7 +94,7 @@ describe('SocialTools', () => {
 
       // Simulate DB Failure
       vi.mocked(SocialService.createPost).mockRejectedValue(new Error('Firestore unavailable'));
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       // Execute Tool
       const result = await generate_social_post({

@@ -12,30 +12,14 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  limit
 } from 'firebase/firestore';
 import {
-  EarningsSummarySchema,
-  type EarningsSummary as ValidatedEarningsSummary
+  DashboardEarningsSummarySchema,
+  type DashboardEarningsSummary
 } from '@/services/revenue/schema';
 import { ExpenseSchema, type Expense } from '@/modules/finance/schemas';
-
-export interface EarningsSummary {
-  totalEarnings: number;
-  pendingPayouts: number;
-  lastPayout: number;
-  lastPayoutDate?: string;
-  currency: string;
-  trends: {
-    earningsChange: number;
-    payoutsChange: number;
-  };
-  sources: {
-    name: string;
-    amount: number;
-    percentage: number;
-  }[];
-}
 
 export type { Expense };
 
@@ -46,7 +30,7 @@ export class FinanceService {
   /**
    * Get earnings summary for dashboard (RevenueService aggregation).
    */
-  async getEarningsSummary(userId: string): Promise<EarningsSummary> {
+  async getEarningsSummary(userId: string): Promise<DashboardEarningsSummary> {
     if (!auth.currentUser || (auth.currentUser.uid !== userId && userId !== 'guest')) {
       throw new Error('Unauthorized');
     }
@@ -75,7 +59,7 @@ export class FinanceService {
   /**
    * Fetch persistent earnings reports (DSR style).
    */
-  async fetchEarnings(userId: string): Promise<ValidatedEarningsSummary | null> {
+  async fetchEarnings(userId: string): Promise<DashboardEarningsSummary | null> {
     try {
       if (!auth.currentUser || (auth.currentUser.uid !== userId && userId !== 'guest')) {
         throw new Error('Unauthorized');
@@ -96,7 +80,7 @@ export class FinanceService {
       const docData = snapshot.docs[0].data();
 
       // Zod Validation for Production Safety
-      const parseResult = EarningsSummarySchema.safeParse(docData);
+      const parseResult = DashboardEarningsSummarySchema.safeParse(docData);
 
       if (!parseResult.success) {
         console.error(`[FinanceService] Earnings data validation failed for ${userId}:`, parseResult.error);
@@ -154,7 +138,8 @@ export class FinanceService {
       const q = query(
         collection(db, this.EXPENSES_COLLECTION),
         where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(100)
       );
 
       const snapshot = await getDocs(q);
@@ -185,7 +170,8 @@ export class FinanceService {
     const q = query(
       collection(db, this.EXPENSES_COLLECTION),
       where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(100)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -207,7 +193,7 @@ export class FinanceService {
   /**
    * Subscribe to earnings reports for real-time updates.
    */
-  subscribeToEarnings(userId: string, callback: (earnings: ValidatedEarningsSummary | null) => void): () => void {
+  subscribeToEarnings(userId: string, callback: (earnings: DashboardEarningsSummary | null) => void): () => void {
     if (!auth.currentUser || (auth.currentUser.uid !== userId && userId !== 'guest')) {
       console.error('Unauthorized subscribe to earnings');
       return () => { };
@@ -221,7 +207,7 @@ export class FinanceService {
     return onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
         const docData = snapshot.docs[0].data();
-        const parseResult = EarningsSummarySchema.safeParse(docData);
+        const parseResult = DashboardEarningsSummarySchema.safeParse(docData);
 
         if (parseResult.success) {
           callback(parseResult.data);

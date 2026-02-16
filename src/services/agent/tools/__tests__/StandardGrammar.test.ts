@@ -14,12 +14,26 @@ vi.mock('@/services/ai/FirebaseAIService', () => ({
 
 // Mock AI Models
 vi.mock('@/core/config/ai-models', () => ({
+
     AI_MODELS: {
         TEXT: {
             AGENT: 'gemini-pro',
             FAST: 'gemini-flash'
         }
-    }
+    },
+    APPROVED_MODELS: {
+        TEXT_AGENT: 'gemini-pro',
+        TEXT_FAST: 'gemini-flash',
+        IMAGE_GEN: 'mock-image-model',
+        IMAGE_FAST: 'mock-image-model',
+        AUDIO_PRO: 'gemini-pro',
+        AUDIO_FLASH: 'gemini-flash',
+        VIDEO_GEN: 'mock-video-model',
+        BROWSER_AGENT: 'gemini-pro',
+        EMBEDDING_DEFAULT: 'models/embedding-001'
+    },
+    validateModels: () => { },
+    ModelIdSchema: { parse: (v: string) => v }
 }));
 
 describe('Standard Grammar Tools', () => {

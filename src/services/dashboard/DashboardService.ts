@@ -2,7 +2,6 @@ import { ModuleId } from '@/core/constants';
 import { HistoryItem } from '@/core/store/slices/creativeSlice';
 import { Project } from '@/core/store/slices/appSlice';
 import { SalesAnalyticsSchema, SalesAnalyticsData } from './schema';
-import { MOCK_SALES_ANALYTICS } from './mockData';
 
 export interface ProjectMetadata {
     id: string;
@@ -63,7 +62,8 @@ const STOP_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'a
 interface CachedAnalytics {
     historyRef: HistoryItem[];
     agentMessagesRef: unknown[];
-    projectsRef: ProjectMetadata[];
+    projectsCount: number;
+    projectsRef: Project[];
     day: number;
     data: AnalyticsData;
 }
@@ -101,13 +101,11 @@ export class DashboardService {
                 return updatedState.projects.map((p) => ({
                     id: p.id,
                     name: p.name,
-                    lastModified: p.date,
+                    type: p.type || 'creative', // Default to creative if missing in old projects
+                    lastModified: p.lastModified || p.date || 0,
                     assetCount: p.assetCount || 0,
                     thumbnail: p.thumbnail
                 }));
-            // Store now strictly contains ProjectMetadata[], no conversion needed
-            if (state.projects && state.projects.length > 0) {
-                return state.projects;
             }
 
             return [];
@@ -357,10 +355,13 @@ export class DashboardService {
             const currentDay = Math.floor(now / dayMs);
 
             // Bolt Optimization: Check Cache
+            // ⚡ OPTIMIZATION: Use O(1) length check for projects instead of O(N) iteration
+            // The analytics data only uses the count of projects, not their content.
             if (
                 DashboardService.analyticsCache &&
                 DashboardService.analyticsCache.historyRef === history &&
                 DashboardService.analyticsCache.agentMessagesRef === agentMessages &&
+                DashboardService.analyticsCache.projectsCount === projects.length &&
                 DashboardService.analyticsCache.projectsRef === projects &&
                 DashboardService.analyticsCache.day === currentDay
             ) {
@@ -394,9 +395,10 @@ export class DashboardService {
                 // 3. Word Cloud
                 if (item.prompt) {
                     // Bolt: Use matchAll to avoid creating large intermediate strings and arrays
-                    for (const match of item.prompt.matchAll(/\S+/g)) {
+                    // ⚡ OPTIMIZATION: Filter length at regex level (/\S{4,}/g) to avoid string allocation for short words
+                    for (const match of item.prompt.matchAll(/\S{4,}/g)) {
                         const word = match[0].toLowerCase();
-                        if (word.length > 3 && !STOP_WORDS.has(word)) {
+                        if (!STOP_WORDS.has(word)) {
                             wordCounts[word] = (wordCounts[word] || 0) + 1;
                         }
                     }
@@ -432,6 +434,7 @@ export class DashboardService {
             DashboardService.analyticsCache = {
                 historyRef: history,
                 agentMessagesRef: agentMessages,
+                projectsCount: projects.length,
                 projectsRef: projects,
                 day: currentDay,
                 data: result
@@ -481,6 +484,17 @@ export class DashboardService {
     }
 
     static async getSalesAnalytics(period: string = '30d'): Promise<SalesAnalyticsData> {
+        // Zero-state fallback for safe "empty" loading or error cases
+        const zeroState: SalesAnalyticsData = {
+            conversionRate: { value: 0, trend: 'neutral', formatted: '0%' },
+            totalVisitors: { value: 0, trend: 'neutral', formatted: '0' },
+            clickRate: { value: 0, trend: 'neutral', formatted: '0%' },
+            avgOrderValue: { value: 0, trend: 'neutral', formatted: '$0.00' },
+            revenueChart: [],
+            period: period,
+            lastUpdated: Date.now()
+        };
+
         try {
             // 1. Check Cache
             const cached = this.cache.get(period);
@@ -514,8 +528,8 @@ export class DashboardService {
 
                     return data;
                 } catch (apiError) {
-                    console.warn("API fetch failed, falling back to Firestore/Mock:", apiError);
-                    // Fallthrough to Firestore/Mock
+                    console.warn("API fetch failed, falling back to Firestore:", apiError);
+                    // Fallthrough to Firestore
                 }
             }
 
@@ -531,6 +545,8 @@ export class DashboardService {
                             // Update Cache
                             this.cache.set(period, { data: parseResult.data, timestamp: Date.now() });
                             return parseResult.data;
+                        } else {
+                            console.warn("Firestore data failed schema validation:", parseResult.error);
                         }
                     }
                 } catch (e) {
@@ -538,21 +554,14 @@ export class DashboardService {
                 }
             }
 
-            // 4. Final Fallback: Mock Data (Dev/Offline Mode)
-            // Ensure consistency by updating the period
-            return { ...MOCK_SALES_ANALYTICS, period };
+            // 4. Return zero state if all else fails
+            // We removed the mock data fallback here to ensure production correctness.
+            return zeroState;
 
         } catch (error) {
             console.error("Critical failure in getSalesAnalytics:", error);
             // Return safe default to prevent UI crash
-            return {
-                conversionRate: { value: 0, trend: 'neutral', formatted: '0%' },
-                totalVisitors: { value: 0, trend: 'neutral', formatted: '0' },
-                clickRate: { value: 0, trend: 'neutral', formatted: '0%' },
-                avgOrderValue: { value: 0, trend: 'neutral', formatted: '$0.00' },
-                revenueChart: [],
-                period: period
-            };
+            return zeroState;
         }
     }
 }

@@ -6,6 +6,23 @@ import 'fake-indexeddb/auto'; // Polyfill IndexedDB for JSDOM
 // Hoist mock
 const mockGenerateContent = vi.fn();
 
+// Mock env config to provide fake API key
+vi.mock('@/config/env', () => ({
+    env: {
+        apiKey: 'test-api-key-for-caching',
+        VITE_API_KEY: 'test-api-key-for-caching',
+        DEV: true
+    },
+    firebaseConfig: {
+        apiKey: 'test-firebase-key',
+        authDomain: 'test.firebaseapp.com',
+        projectId: 'test-project',
+        storageBucket: 'test.appspot.com',
+        messagingSenderId: '123',
+        appId: '1:123:web:abc'
+    }
+}));
+
 // Mock Firebase services
 vi.mock('@/services/firebase', () => ({
     getFirebaseAI: vi.fn(() => ({})),
@@ -28,13 +45,15 @@ vi.mock('../billing/TokenUsageService', () => ({
     }
 }));
 
-// Mock Google Generative AI (Fallback)
-vi.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: vi.fn(function () {
+// Mock Google GenAI SDK (Fallback) - new @google/genai package
+vi.mock('@google/genai', () => ({
+    GoogleGenAI: vi.fn(function () {
         return {
-            getGenerativeModel: vi.fn(() => ({
-                generateContent: mockGenerateContent
-            }))
+            models: {
+                generateContent: mockGenerateContent,
+                generateContentStream: vi.fn(),
+                embedContent: vi.fn()
+            }
         };
     })
 }));

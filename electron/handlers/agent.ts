@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, IpcMainInvokeEvent } from 'electron';
 import { z } from 'zod';
 import { AgentActionSchema, AgentNavigateSchema, AgentHistorySaveSchema, AgentHistoryIdSchema } from '../utils/validation';
 import { validateSender } from '../utils/ipc-security';
@@ -7,7 +7,7 @@ import { historyStore } from '../services/HistoryStore';
 
 export function registerAgentHandlers() {
     // Agent History Persistence (Production Ready)
-    ipcMain.handle('agent:save-history', async (event, id: string, data: any) => {
+    ipcMain.handle('agent:save-history', async (event: IpcMainInvokeEvent, id: string, data: unknown) => {
         try {
             validateSender(event);
             AgentHistorySaveSchema.parse({ id, data });
@@ -51,7 +51,7 @@ export function registerAgentHandlers() {
 
     // Test Browser Agent (Development ONLY)
     if (!app.isPackaged) {
-        ipcMain.handle('test:browser-agent', async (event: any, query?: string) => {
+        ipcMain.handle('test:browser-agent', async (event: IpcMainInvokeEvent, query?: string) => {
             const { browserAgentService } = await import('../services/BrowserAgentService');
             try {
                 validateSender(event);
@@ -79,7 +79,7 @@ export function registerAgentHandlers() {
         });
 
         // Secure Agent IPC - Development Only
-        ipcMain.handle('agent:navigate-and-extract', async (event: any, url: string) => {
+        ipcMain.handle('agent:navigate-and-extract', async (event: IpcMainInvokeEvent, url: string) => {
             try {
                 validateSender(event);
                 const validated = AgentNavigateSchema.parse({ url });
@@ -106,14 +106,14 @@ export function registerAgentHandlers() {
             }
         });
 
-        ipcMain.handle('agent:perform-action', async (event: any, action: string, selector: string, text?: string) => {
+        ipcMain.handle('agent:perform-action', async (event: IpcMainInvokeEvent, action: string, selector: string, text?: string) => {
             try {
                 validateSender(event);
                 // Validate inputs against schema (allows text to be optional)
                 const validated = AgentActionSchema.parse({ action, selector, text });
 
                 const { browserAgentService } = await import('../services/BrowserAgentService');
-                return await browserAgentService.performAction(validated.action as any, validated.selector, validated.text);
+                return await browserAgentService.performAction(validated.action as "click" | "type" | "hover", validated.selector, validated.text);
             } catch (error) {
                 console.error('Agent Action Failed:', error);
                 if (error instanceof z.ZodError) {
@@ -123,13 +123,49 @@ export function registerAgentHandlers() {
             }
         });
 
-        ipcMain.handle('agent:capture-state', async (event: any) => {
+        ipcMain.handle('agent:capture-state', async (event: IpcMainInvokeEvent) => {
             const { browserAgentService } = await import('../services/BrowserAgentService');
             try {
                 validateSender(event);
                 const snapshot = await browserAgentService.captureSnapshot();
                 return { success: true, ...snapshot };
             } catch (error) {
+                return { success: false, error: String(error) };
+            }
+        });
+
+        // Agent Zero Main Process Proxy (Bypasses CORS)
+        ipcMain.handle('agent:proxy-zero', async (event: IpcMainInvokeEvent, endpoint: string, payload: unknown, headers: Record<string, string>) => {
+            try {
+                validateSender(event);
+
+                // Security: Only allow proxying to local Agent Zero port
+                if (!endpoint.startsWith('http://127.0.0.1:50080') && !endpoint.startsWith('http://localhost:50080')) {
+                    throw new Error('Security Violation: Proxy target must be local Agent Zero instance (127.0.0.1:50080)');
+                }
+
+                console.info(`[Main] Proxying request to Agent Zero: ${endpoint}`);
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: headers || { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    // @ts-expect-error - timeout is supported in node fetch but not typed in RequestInit
+                    timeout: 60000
+                });
+
+                const status = response.status;
+                const statusText = response.statusText;
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    return { success: false, status, statusText, error: errorText };
+                }
+
+                const data = await response.json();
+                return { success: true, status, statusText, data };
+            } catch (error: any) {
+                console.error('[Main] Agent Zero Proxy Failed:', error);
                 return { success: false, error: String(error) };
             }
         });

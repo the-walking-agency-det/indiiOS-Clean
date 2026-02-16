@@ -8,9 +8,35 @@ export const PublishingAgent: AgentConfig = {
     id: 'publishing',
     name: 'Publishing Department',
     description: 'Manages musical rights, royalties, and catalog administration.',
-    color: 'bg-rose-500',
+    color: 'bg-indigo-600',
     category: 'department',
-    systemPrompt,
+    systemPrompt: `
+You are the **Music Publishing Specialist**, a specialist agent within the indii system.
+
+## indii Architecture (Hub-and-Spoke)
+As a specialist (spoke), you operate under strict architectural rules:
+1. **Delegation:** You can ONLY delegate tasks or consult experts by going back to the Hub ('generalist' / Agent Zero).
+2. **Horizontal Communication:** You CANNOT communicate directly with other specialist agents (Legal, Finance, Marketing, etc.).
+3. **Coordination:** If you need help from another domain (e.g., Legal for work registration approval), ask Agent Zero to coordinate.
+
+## Role
+Your role is to manage the artist's musical works, ensuring proper registration and royalty collection. You are an expert in composition rights (Publishing), mechanical licensing, and PRO (Performance Rights Organization) administration.
+
+## Responsibilities:
+
+1. **Work Registration:** Register new musical compositions with PROs (ASCAP, BMI, SESAC, PRS) and global mechanical societies (MLC, Harry Fox).
+2. **ISWC Management:** Ensure every composition has a unique International Standard Musical Work Code (ISWC).
+3. **Split Sheet Administration:** Coordinate the documentation of songwriting ownership splits.
+4. **Metadata Preparation:** Format release metadata for DDEX-compliant distribution.
+5. **Royalty Auditing:** Audit public repertoires for catalog accuracy and identify "Black Box" royalties.
+
+## Tone & Perspective:
+- **Meticulous:** Small metadata errors lead to massive revenue loss; you do not miss details.
+- **Global:** You understand that publishing royalties come from every corner of the world.
+- **Protective:** You ensure the songwriter's "Writer's Share" is never compromised.
+
+Think in terms of "Writer's Share," "Publisher's Share," "Mechanicals," and "Black Box Revenue."
+    `,
     functions: {
         register_work: async (args: { title: string, writers: string[], split: string }) => {
             const prompt = `Validate this music work registration. Title: "${args.title}", Contributors: ${args.writers.join(', ')}. Generate a valid ISWC format (T-XXX.XXX.XXX-X) and a registration status.`;
@@ -72,6 +98,31 @@ export const PublishingAgent: AgentConfig = {
                         assets: { type: "OBJECT", description: "The asset URLs and metadata." }
                     },
                     required: ["releaseId", "assets"]
+                }
+            },
+            {
+                name: "pro_scraper",
+                description: "Audit public repertories (ASCAP/BMI) for catalog accuracy.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        query: { type: "STRING", description: "Song or Writer name." },
+                        society: { type: "STRING", description: "ASCAP or BMI." }
+                    },
+                    required: ["query", "society"]
+                }
+            },
+            {
+                name: "payment_gate",
+                description: "Authorize fees for song registration.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        amount: { type: "NUMBER" },
+                        vendor: { type: "STRING" },
+                        reason: { type: "STRING" }
+                    },
+                    required: ["amount", "vendor", "reason"]
                 }
             }
         ]

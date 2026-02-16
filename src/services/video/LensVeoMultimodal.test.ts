@@ -18,6 +18,8 @@ vi.mock('@/services/firebase', () => ({
     functions: {},
     functionsWest1: {},
     db: {}
+    db: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('../firebase', () => ({

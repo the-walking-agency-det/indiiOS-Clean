@@ -3,7 +3,9 @@ import {
     Content,
     ContentPart,
     TextPart,
+    InlineDataPart,
     FunctionCallPart,
+    FunctionResponsePart,
     GenerateContentResponse,
     GenerateVideoRequest,
     GenerateVideoResponse,
@@ -24,7 +26,7 @@ import {
     UsageMetadata
 } from '@/shared/types/ai.dto';
 import { AppErrorCode, AppException } from '@/shared/types/errors';
-import { AI_MODELS } from '@/core/config/ai-models';
+import { AI_MODELS, AI_CONFIG } from '@/core/config/ai-models';
 // import { trace } from '../agent/observability/TraceService';
 import { RateLimiter } from './RateLimiter';
 import { delay as asyncDelay } from '@/utils/async';
@@ -63,8 +65,22 @@ function isFunctionCallPart(part: ContentPart): part is FunctionCallPart {
  * Wraps raw API response to provide consistent accessor methods
  */
 function wrapResponse(rawResponse: GenerateContentResponse): WrappedResponse {
+    let thoughtSignature: string | undefined;
+
+    // Extract thoughtSignature from the first part of the first candidate if available
+    if (rawResponse.candidates && rawResponse.candidates.length > 0) {
+        const candidate = rawResponse.candidates[0];
+        if (candidate.content?.parts && candidate.content.parts.length > 0) {
+            const part = candidate.content.parts[0];
+            if ('thoughtSignature' in part) {
+                thoughtSignature = part.thoughtSignature;
+            }
+        }
+    }
+
     return {
         response: rawResponse,
+        thoughtSignature,
         text: (): string => {
             const candidates = rawResponse.candidates;
             if (candidates && candidates.length > 0) {
@@ -191,14 +207,31 @@ export class AIService {
                 const timeoutMs = options.timeout ?? 60000;
                 const signal = options.signal;
 
-                const generateOp = async () => {
+                const generateOp = async (retryOnAuthError = true): Promise<WrappedResponse> => {
                     try {
+                        // Inject thoughtSignature if present (Critical for Gemini 3 function calling)
+                        if (options.thoughtSignature && contents && (contents as Content[]).length > 0) {
+                            const validContents = contents as Content[];
+                            const lastContent = validContents[validContents.length - 1];
+                            if (lastContent.parts.length > 0) {
+                                const lastPart = lastContent.parts[lastContent.parts.length - 1];
+                                if ('text' in lastPart || 'inlineData' in lastPart || 'functionCall' in lastPart || 'functionResponse' in lastPart) {
+                                    (lastPart as TextPart | InlineDataPart | FunctionCallPart | FunctionResponsePart).thoughtSignature = options.thoughtSignature;
+                                }
+                            }
+                        }
+
                         const result = await firebaseAI.generateContent(
                             contents as Content[], // asserted from above logic
                             model,
                             options.config,
                             options.systemInstruction,
-                            options.tools as unknown as Tool[]
+                            options.tools as unknown as Tool[],
+                            {
+                                signal,
+                                safetySettings: options.safetySettings,
+                                toolConfig: options.toolConfig
+                            }
                         );
 
                         // Map firebase/ai candidate to legacy Candidate
@@ -206,8 +239,18 @@ export class AIService {
                             content: {
                                 role: 'model',
                                 parts: (c.content?.parts || []).map(p => {
-                                    if ('text' in p) return { text: p.text || '' } as TextPart;
-                                    if ('functionCall' in p) return { functionCall: p.functionCall } as FunctionCallPart;
+                                    if ('text' in p) {
+                                        return {
+                                            text: p.text || '',
+                                            thoughtSignature: 'thoughtSignature' in p ? (p as { thoughtSignature: string }).thoughtSignature : undefined
+                                        } as TextPart;
+                                    }
+                                    if ('functionCall' in p) {
+                                        return {
+                                            functionCall: p.functionCall as { name: string; args: Record<string, unknown> },
+                                            thoughtSignature: 'thoughtSignature' in p ? (p as { thoughtSignature: string }).thoughtSignature : undefined
+                                        } as FunctionCallPart;
+                                    }
                                     return { text: '' } as TextPart;
                                 })
                             },
@@ -217,7 +260,7 @@ export class AIService {
 
                         if (options.cache !== false && cacheKey) {
                             // Default TTL or from options if added later
-                            this.cache.set(cacheKey, result.response as any, options.cacheTTL);
+                            this.cache.set(cacheKey, result.response as unknown as GenerateContentResponse, options.cacheTTL);
                         }
 
                         return wrapResponse({
@@ -225,6 +268,18 @@ export class AIService {
                         });
 
                     } catch (error: any) {
+                        // 🛡️ SELF-HEALING: Handle 403 Forbidden (App Check/Referrer Failures)
+                        if (retryOnAuthError && (error?.message?.includes('403') || error?.status === 403 || error?.code === 403)) {
+                            logger.warn('[AIService] 403 Forbidden detected. Activating Self-Healing (Fallback Mode)...');
+                            try {
+                                await firebaseAI.initializeFallbackMode();
+                                return generateOp(false); // Retry once with new mode
+                            } catch (fallbackErr) {
+                                logger.error('[AIService] Self-Healing failed:', fallbackErr);
+                                // Fall through to standard error handling
+                            }
+                        }
+
                         // Pass through retryable errors to be handled by withRetry
                         if (
                             error?.code === 'resource-exhausted' ||
@@ -311,6 +366,7 @@ export class AIService {
         return requestPromise;
     }
 
+
     /**
      * Retry logic with exponential backoff for transient errors
      */
@@ -351,8 +407,19 @@ export class AIService {
         try {
             await this.rateLimiter.acquire();
 
-            const contents = options.contents ?? [];
+            const contents = Array.isArray(options.contents) ? [...options.contents] : (options.contents ? [options.contents] : []);
             const tools = options.tools ?? [];
+
+            // Inject thoughtSignature if present
+            if (options.thoughtSignature && contents.length > 0) {
+                const lastContent = contents[contents.length - 1];
+                if (lastContent.parts.length > 0) {
+                    const lastPart = lastContent.parts[lastContent.parts.length - 1];
+                    if ('text' in lastPart || 'inlineData' in lastPart || 'functionCall' in lastPart || 'functionResponse' in lastPart) {
+                        (lastPart as TextPart | InlineDataPart | FunctionCallPart | FunctionResponsePart).thoughtSignature = options.thoughtSignature;
+                    }
+                }
+            }
 
             return await firebaseAI.generateContentStream(
                 contents as Content[],
@@ -360,7 +427,11 @@ export class AIService {
                 options.config,
                 options.systemInstruction,
                 tools as unknown as Tool[],
-                { signal: options.signal } // Pass the abort signal to Firebase AI
+                {
+                    signal: options.signal,
+                    safetySettings: options.safetySettings,
+                    toolConfig: options.toolConfig
+                }
             );
         } catch (error: any) {
             // Handle abort errors gracefully
@@ -393,13 +464,25 @@ export class AIService {
             return await this.withRetry(() => firebaseAI.generateImage(
                 options.prompt,
                 options.model,
-                options.config as any
+                options.config as Record<string, unknown>
             ));
         } catch (error) {
             const err = AppException.fromError(error, AppErrorCode.INTERNAL_ERROR);
             logger.error('[AIService] Image Gen Error:', err.message);
             throw err;
         }
+    }
+
+    /**
+     * MULTIMODAL: Analyze an image (base64 or URL).
+     * Now unified to use FirebaseAIService for consistency.
+     */
+    async analyzeImage(
+        prompt: string,
+        imageBase64: string,
+        mimeType: string = 'image/jpeg'
+    ): Promise<string> {
+        return this.withRetry(() => firebaseAI.analyzeImage(prompt, imageBase64, mimeType));
     }
 
     /**

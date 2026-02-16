@@ -66,6 +66,50 @@ const CampaignDashboard: React.FC = () => {
         setIsAIModalOpen(true);
     }, []);
 
+    // E2E Test Injection Hook
+    useEffect(() => {
+        const handleTestInjection = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            if (customEvent.detail && customEvent.detail.posts) {
+                console.log('CampaignDashboard: Received Test Injection', customEvent.detail);
+
+                setSelectedCampaign(prev => {
+                    if (!prev) {
+                        console.warn('CampaignDashboard: No selected campaign to inject into.');
+                        return prev;
+                    }
+                    return {
+                        ...prev,
+                        posts: customEvent.detail.posts
+                    };
+                });
+            }
+        };
+
+        window.addEventListener('TEST_INJECT_CAMPAIGN_UPDATE', handleTestInjection);
+
+        // MAESTRO: Allow injecting a full campaign selection for E2E handoff testing
+        const handleTestSetCampaign = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            if (customEvent.detail && customEvent.detail.campaign) {
+                console.log('CampaignDashboard: Received Test Set Campaign', customEvent.detail.campaign);
+                setSelectedCampaign(customEvent.detail.campaign);
+            }
+        };
+
+        // Only enable this backdoor in development/test
+        if (import.meta.env.DEV) {
+            window.addEventListener('TEST_INJECT_SET_CAMPAIGN', handleTestSetCampaign);
+        }
+
+        return () => {
+            window.removeEventListener('TEST_INJECT_CAMPAIGN_UPDATE', handleTestInjection);
+            if (import.meta.env.DEV) {
+                window.removeEventListener('TEST_INJECT_SET_CAMPAIGN', handleTestSetCampaign);
+            }
+        };
+    }, []);
+
 
     return (
         <div className="flex h-full bg-background overflow-hidden text-foreground font-sans selection:bg-dept-marketing/30">

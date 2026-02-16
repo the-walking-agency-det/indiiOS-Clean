@@ -48,11 +48,80 @@ if (typeof window !== 'undefined') {
     });
 
     HTMLCanvasElement.prototype.toDataURL = vi.fn(() => 'data:image/png;base64,mock');
+
+    // Mock getComputedStyle (jsdom limitation)
+    if (!window.getComputedStyle || window.getComputedStyle.toString().includes('Not implemented')) {
+        window.getComputedStyle = vi.fn().mockImplementation(() => ({
+            getPropertyValue: vi.fn().mockReturnValue(''),
+            removeProperty: vi.fn(),
+            setProperty: vi.fn(),
+            length: 0,
+            item: vi.fn().mockReturnValue(''),
+        }));
+    }
+
+    // Mock matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: vi.fn().mockImplementation(query => ({
+            matches: false,
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })),
+    });
+}
+
+// ============================================================================
+// LOCALSTORAGE MOCK - Ensure localStorage is always available in tests
+// ============================================================================
+if (typeof globalThis.localStorage === 'undefined' || !(globalThis.localStorage?.getItem)) {
+    const store: Record<string, string> = {};
+    const localStorageMock = {
+        getItem: vi.fn((key: string) => store[key] ?? null),
+        setItem: vi.fn((key: string, value: string) => { store[key] = String(value); }),
+        removeItem: vi.fn((key: string) => { delete store[key]; }),
+        clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[k]); }),
+        get length() { return Object.keys(store).length; },
+        key: vi.fn((index: number) => Object.keys(store)[index] ?? null),
+    };
+    Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true, configurable: true });
 }
 
 // ============================================================================
 // FIREBASE MOCKS - Centralized for all test files
 // ============================================================================
+
+// Mock the @/services/firebase module FIRST to prevent module-level initialization
+// This is critical because firebase.ts has side effects that call real Firebase APIs at import time
+vi.mock('@/services/firebase', () => ({
+    app: { name: 'mock-app', options: {} },
+    db: {},
+    storage: {},
+    auth: {
+        currentUser: { uid: 'test-uid', email: 'test@test.com', getIdToken: vi.fn().mockResolvedValue('test-token') },
+        onAuthStateChanged: vi.fn((callback) => {
+            // Simulate immediate callback with authenticated user
+            if (typeof callback === 'function') {
+                setTimeout(() => callback({ uid: 'test-uid', email: 'test@test.com' }), 0);
+            }
+            return () => { }; // Return unsubscribe function
+        }),
+        signInWithEmailAndPassword: vi.fn(),
+        signOut: vi.fn()
+    },
+    functions: {},
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
+    messaging: null,
+    appCheck: null,
+    ai: { instance: null },
+    getFirebaseAI: vi.fn(() => null)
+}));
 
 // Mock Firebase App
 vi.mock('firebase/app', () => ({
@@ -100,8 +169,8 @@ vi.mock('firebase/firestore', () => {
         collection: vi.fn(() => ({ id: 'mock-coll-id' })),
         doc: vi.fn(() => ({ id: crypto.randomUUID() })),
         addDoc: vi.fn(() => Promise.resolve({ id: 'mock-doc-id' })),
-        getDoc: vi.fn(() => Promise.resolve({ exists: true, data: () => ({}) })),
-        getDocs: vi.fn(() => Promise.resolve({ docs: [], empty: true })),
+        getDoc: vi.fn(() => Promise.resolve({ exists: () => true, data: () => ({}), id: 'mock-doc-id' })),
+        getDocs: vi.fn(() => Promise.resolve({ docs: [], empty: true, size: 0, forEach: vi.fn() })),
         setDoc: vi.fn(() => Promise.resolve()),
         updateDoc: vi.fn(() => Promise.resolve()),
         deleteDoc: vi.fn(() => Promise.resolve()),
@@ -116,14 +185,14 @@ vi.mock('firebase/firestore', () => {
         arrayRemove: vi.fn((...args) => args),
         increment: vi.fn((n) => n),
         serverTimestamp: vi.fn(() => new Date()),
-        getDocsViaCache: vi.fn(() => Promise.resolve({ docs: [], empty: true })),
-        getDocViaCache: vi.fn(() => Promise.resolve({ exists: true, data: () => ({}) })),
+        getDocsViaCache: vi.fn(() => Promise.resolve({ docs: [], empty: true, size: 0, forEach: vi.fn() })),
+        getDocViaCache: vi.fn(() => Promise.resolve({ exists: () => true, data: () => ({}), id: 'mock-doc-id' })),
         disableNetwork: vi.fn(() => Promise.resolve()),
         enableNetwork: vi.fn(() => Promise.resolve()),
         persistentLocalCache: vi.fn(() => ({})),
         persistentMultipleTabManager: vi.fn(() => ({})),
         runTransaction: vi.fn((cb) => cb({
-            get: vi.fn(() => Promise.resolve({ exists: true, data: () => ({}) })),
+            get: vi.fn(() => Promise.resolve({ exists: () => true, data: () => ({}), id: 'mock-doc-id' })),
             set: vi.fn(),
             update: vi.fn(),
             delete: vi.fn()
@@ -162,6 +231,13 @@ vi.mock('firebase/remote-config', () => ({
     })),
     getRemoteConfig: vi.fn(() => ({})),
     initializeRemoteConfig: vi.fn(() => ({}))
+}));
+
+// Mock Firebase Messaging
+vi.mock('firebase/messaging', () => ({
+    getMessaging: vi.fn(() => ({})),
+    getToken: vi.fn(() => Promise.resolve('mock-fcm-token')),
+    onMessage: vi.fn(() => () => { })
 }));
 
 // Mock Firebase App Check
@@ -211,3 +287,63 @@ vi.mock('firebase/ai', () => ({
         return {};
     })
 }));
+
+// Mock AgentZeroService to prevent 60s interaction timeouts in tests
+vi.mock('@/services/agent/AgentZeroService', () => ({
+    AgentZeroService: vi.fn(),
+    agentZeroService: {
+        sendMessage: vi.fn().mockResolvedValue({ message: 'Mock Agent Zero Response' }),
+        executeTask: vi.fn().mockResolvedValue({ status: 'success', data: { response: 'Mock Task Response' } }),
+        provisionProject: vi.fn().mockResolvedValue({ status: 'success' }),
+        syncProject: vi.fn().mockResolvedValue({ status: 'success' }),
+        getHistory: vi.fn().mockResolvedValue([])
+    }
+}));
+
+// Mock lucide-react with Proxy-based auto-generating stub factory
+// This ensures ANY icon import works without needing to enumerate them all
+vi.mock('lucide-react', async () => {
+    const React = await import('react');
+
+    const createMockIcon = (name: string) => {
+        const MockIcon = (props: Record<string, unknown>) => {
+            return React.createElement('svg', {
+                'data-testid': `icon-${name}`,
+                ...props
+            });
+        };
+        MockIcon.displayName = name;
+        return MockIcon;
+    };
+
+    // Cache generated icons so the same reference is returned for repeated accesses
+    const iconCache = new Map<string, ReturnType<typeof createMockIcon>>();
+
+    // Use a Proxy to auto-generate mock icons for any named export
+    return new Proxy({ __esModule: true }, {
+        get(_target, prop: string) {
+            if (prop === '__esModule') return true;
+            if (prop === 'default') return undefined;
+            // Internal Proxy/Symbol properties
+            if (typeof prop === 'symbol' || prop === 'then') return undefined;
+            if (!iconCache.has(prop)) {
+                iconCache.set(prop, createMockIcon(prop));
+            }
+            return iconCache.get(prop);
+        },
+        has(_target, prop: string) {
+            // Report all string properties as existing so vitest doesn't throw
+            return typeof prop === 'string';
+        }
+    });
+});
+
+// Mock CloudStorageService to prevent test hangs during dynamic imports
+// This is critical for tests that instantiate services which lazy-load CloudStorageService
+vi.mock('@/services/CloudStorageService', () => ({
+    CloudStorageService: {
+        smartSave: vi.fn().mockResolvedValue({ url: 'mock-storage-url' }),
+        compressImage: vi.fn().mockResolvedValue({ dataUri: 'data:image/png;base64,mock-compressed' }),
+    },
+}));
+

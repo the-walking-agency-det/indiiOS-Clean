@@ -12,7 +12,11 @@ import { GenerateSpeechRequestSchema } from "./lib/audio";
 import { LongFormVideoJobSchema, generateLongFormVideoFn, stitchVideoFn } from "./lib/long_form_video";
 import { generateVideoFn } from "./lib/video_generation";
 import { generateImageV3Fn, editImageFn } from "./lib/image_generation";
+import { analyzeAudioFn } from "./lib/audio";
 import { FUNCTION_AI_MODELS } from "./config/models";
+import { estimateVideoCost } from "./config/pricing";
+import { enforceRateLimit, RATE_LIMITS } from "./lib/rateLimit";
+// import { generateThumbnail } from "./lib/image_resizing";
 
 // Vertex AI SDK
 // import { VertexAI } from "@google-cloud/vertexai";
@@ -20,6 +24,9 @@ import { GoogleGenAI } from "@google/genai"; // Keep for specific legacy/stream 
 
 // Initialize Firebase Admin
 admin.initializeApp();
+
+// App Check enforcement flag - set to true when reCAPTCHA Enterprise is configured
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === 'true';
 
 /**
  * Security Helper: Validate Organization Access
@@ -104,7 +111,9 @@ const requireAdmin = (context: functions.https.CallableContext) => {
 const getAllowedOrigins = (): string[] => {
     const origins = [
         'https://indiios-studio.web.app',
+        'https://indiios-studio.firebaseapp.com',
         'https://indiios-v-1-1.web.app',
+        'https://indiios-v-1-1.firebaseapp.com',
         'https://studio.indiios.com',
         'https://indiios.com',
         'app://.',  // Electron app
@@ -191,7 +200,8 @@ export const triggerVideoJob = functions
     .runWith({
         secrets: [inngestEventKey],
         timeoutSeconds: 60,
-        memory: "256MB"
+        memory: "256MB",
+        enforceAppCheck: ENFORCE_APP_CHECK
     })
     .https.onCall(async (data: unknown, context: functions.https.CallableContext) => {
         if (!context.auth) {
@@ -202,6 +212,10 @@ export const triggerVideoJob = functions
         }
 
         const userId = context.auth.uid;
+
+        // Rate limit: 10 video generation requests per minute
+        await enforceRateLimit(userId, "triggerVideoJob", RATE_LIMITS.generation);
+
         // Construct input matching the schema
         const safeData = (typeof data === 'object' && data !== null) ? data : {};
         const inputData: any = { ...safeData, userId };
@@ -221,6 +235,14 @@ export const triggerVideoJob = functions
         await validateOrgAccess(userId, orgId);
 
         try {
+            // Calculate estimated cost
+            const estimatedCost = estimateVideoCost({
+                model: options.model,
+                durationSeconds: options.durationSeconds || options.duration,
+                resolution: options.resolution,
+                generateAudio: options.generateAudio
+            });
+
             // 1. Create Initial Job Record in Firestore (Atomic Create to prevent overwrites)
             await admin.firestore().collection("videoJobs").doc(jobId).create({
                 id: jobId,
@@ -228,6 +250,8 @@ export const triggerVideoJob = functions
                 orgId: orgId || "personal",
                 prompt: prompt,
                 status: "queued",
+                estimatedCost: estimatedCost,
+                options: options,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
@@ -273,7 +297,8 @@ export const triggerLongFormVideoJob = functions
     .runWith({
         secrets: [inngestEventKey],
         timeoutSeconds: 60,
-        memory: "256MB"
+        memory: "256MB",
+        enforceAppCheck: ENFORCE_APP_CHECK
     })
     .https.onCall(async (data: unknown, context: functions.https.CallableContext) => {
         if (!context.auth) {
@@ -283,6 +308,9 @@ export const triggerLongFormVideoJob = functions
             );
         }
         const userId = context.auth.uid;
+
+        // Rate limit: 10 long-form video requests per minute
+        await enforceRateLimit(userId, "triggerLongFormVideoJob", RATE_LIMITS.generation);
 
         // Zod Validation
         const safeData = (typeof data === 'object' && data !== null) ? data : {};
@@ -297,7 +325,7 @@ export const triggerLongFormVideoJob = functions
         }
 
         // Destructure validated data
-        const { prompts, jobId, orgId, totalDuration, startImage, ...options } = validation.data;
+        const { prompts, jobId, orgId, totalDuration, startImage, options } = validation.data;
 
         // SECURITY: Verify Org Access
         await validateOrgAccess(userId, orgId);
@@ -365,6 +393,17 @@ export const triggerLongFormVideoJob = functions
             // ------------------------------------------------------------------
 
             // 4. Create Parent Job Record
+            // Calculate estimated cost for long-form (sum of segments)
+            // SENTRY FIX (PR #1200): Use DEFAULT_SEGMENT_DURATION_SECONDS (5s) instead of hardcoded 8s to prevent cost inflation.
+            const estimatedCostPerSegment = estimateVideoCost({
+                model: options.model,
+                durationSeconds: 5, // Aligned with DEFAULT_SEGMENT_DURATION_SECONDS in long_form_video.ts
+                resolution: options.resolution,
+                generateAudio: options.generateAudio
+            });
+            const totalEstimatedCost = parseFloat((estimatedCostPerSegment * prompts.length).toFixed(4));
+
+
             // 1. Create Parent Job Record (Atomic Create)
             await admin.firestore().collection("videoJobs").doc(jobId).create({
                 id: jobId,
@@ -375,13 +414,14 @@ export const triggerLongFormVideoJob = functions
                 isLongForm: true,
                 totalSegments: prompts.length,
                 completedSegments: 0,
+                estimatedCost: totalEstimatedCost,
+                options: options,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
             // 5. Publish Event to Inngest for Long Form
             const inngest = getInngestClient();
-
             await inngest.send({
                 name: "video/long_form.requested",
                 data: {
@@ -422,7 +462,8 @@ export const renderVideo = functions
     .runWith({
         secrets: [inngestEventKey],
         timeoutSeconds: 60,
-        memory: "256MB"
+        memory: "256MB",
+        enforceAppCheck: ENFORCE_APP_CHECK
     })
     .https.onCall(async (data: unknown, context: functions.https.CallableContext) => {
         if (!context.auth) {
@@ -549,8 +590,8 @@ export const inngestApi = functions
 // Image Generation v3 (Nano Banana Pro / Gemini 3 Pro Image)
 // Deployed to us-west1 for Model Availability
 export const generateImageV3 = generateImageV3Fn();
-
 export const editImage = editImageFn();
+export const analyzeAudio = analyzeAudioFn();
 
 export const generateSpeech = functions
     .runWith({ secrets: [geminiApiKey], timeoutSeconds: 60, memory: "512MB" })
@@ -558,6 +599,9 @@ export const generateSpeech = functions
         if (!context.auth) {
             throw new functions.https.HttpsError("unauthenticated", "User must be authenticated.");
         }
+
+        // Rate limit: 10 speech generation requests per minute
+        await enforceRateLimit(context.auth.uid, "generateSpeech", RATE_LIMITS.generation);
 
         const validation = GenerateSpeechRequestSchema.safeParse(data);
         if (!validation.success) {
@@ -793,6 +837,10 @@ import * as bigqueryService from './analytics/bigqueryService';
 import * as touringService from './lib/touring';
 import * as marketingService from './lib/marketing';
 
+// export const imageResizing = {
+//     generateThumbnail
+// };
+
 /**
  * List GKE Clusters
  */
@@ -977,3 +1025,136 @@ import { getUsageStats } from './subscription/getUsageStats';
 import { trackUsage } from './subscription/trackUsage';
 
 export { getSubscription, createCheckoutSession, getCustomerPortal, cancelSubscription, resumeSubscription, getUsageStats, trackUsage };
+
+// ----------------------------------------------------------------------------
+// Health Check Endpoint
+// ----------------------------------------------------------------------------
+
+/**
+ * GDPR Data Export - Returns all user data as a JSON bundle.
+ *
+ * Collects data from: user profile, projects, history, brand assets,
+ * knowledge base entries, and metadata. Does NOT include binary files
+ * (images/audio stored in Cloud Storage) - those URLs are included.
+ */
+export const exportUserData = functions
+    .runWith({ timeoutSeconds: 120, memory: "512MB" })
+    .https.onCall(async (_data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Authentication required.");
+        }
+
+        const userId = context.auth.uid;
+        const db = admin.firestore();
+        const exportData: Record<string, unknown> = {
+            exportedAt: new Date().toISOString(),
+            userId,
+            email: context.auth.token.email || null,
+        };
+
+        // User profile
+        try {
+            const profileSnap = await db.collection("users").doc(userId).get();
+            exportData.profile = profileSnap.exists ? profileSnap.data() : null;
+        } catch {
+            exportData.profile = null;
+        }
+
+        // Projects
+        try {
+            const projectsSnap = await db.collection("users").doc(userId).collection("projects").get();
+            exportData.projects = projectsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch {
+            exportData.projects = [];
+        }
+
+        // History
+        try {
+            const historySnap = await db.collection("users").doc(userId).collection("history").get();
+            exportData.history = historySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch {
+            exportData.history = [];
+        }
+
+        // Organizations the user belongs to
+        try {
+            const orgsSnap = await db.collection("organizations")
+                .where(`members.${userId}`, "!=", null)
+                .get();
+            exportData.organizations = orgsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch {
+            exportData.organizations = [];
+        }
+
+        // Knowledge base
+        try {
+            const kbSnap = await db.collection("users").doc(userId).collection("knowledge").get();
+            exportData.knowledgeBase = kbSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch {
+            exportData.knowledgeBase = [];
+        }
+
+        functions.logger.info(`[GDPR] Data export completed for user ${userId}`);
+        return exportData;
+    });
+
+/**
+ * GDPR Account Deletion Request - Queues deletion of all user data.
+ * Marks the account for deletion and returns a confirmation token.
+ * Actual deletion happens asynchronously via a scheduled function.
+ */
+export const requestAccountDeletion = functions
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .https.onCall(async (_data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Authentication required.");
+        }
+
+        const userId = context.auth.uid;
+        const db = admin.firestore();
+
+        // Record the deletion request
+        await db.collection("_deletion_requests").doc(userId).set({
+            userId,
+            email: context.auth.token.email || null,
+            requestedAt: admin.firestore.FieldValue.serverTimestamp(),
+            status: "pending",
+        });
+
+        functions.logger.info(`[GDPR] Deletion request recorded for user ${userId}`);
+
+        return {
+            success: true,
+            message: "Account deletion request received. Your data will be removed within 30 days per our data retention policy.",
+            requestId: userId,
+        };
+    });
+
+/**
+ * Health check endpoint for uptime monitoring.
+ * Returns service status and basic diagnostics.
+ */
+export const healthCheck = functions
+    .runWith({ timeoutSeconds: 10, memory: "128MB" })
+    .https.onRequest(async (_req, res) => {
+        const status: Record<string, unknown> = {
+            status: "ok",
+            timestamp: new Date().toISOString(),
+            version: "0.1.0-beta.2",
+            region: process.env.FUNCTION_REGION || "us-central1",
+        };
+
+        // Check Firestore connectivity
+        try {
+            await admin.firestore().collection("_health").doc("ping").set({
+                lastCheck: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            status.firestore = "connected";
+        } catch {
+            status.firestore = "error";
+            status.status = "degraded";
+        }
+
+        const httpStatus = status.status === "ok" ? 200 : 503;
+        res.status(httpStatus).json(status);
+    });

@@ -16,6 +16,8 @@ vi.mock('@/services/subscription/SubscriptionService', () => ({
 vi.mock('@/services/firebase', () => ({
     auth: { currentUser: { uid: 'test-user' } },
     functions: {},
+    functionsWest1: {},
+    remoteConfig: {},
     db: {}
 }));
 vi.mock('firebase/functions', () => ({
@@ -212,6 +214,7 @@ describe('VideoGenerationService - Distributor Integration', () => {
 
             const callArgs = mockTriggerLongFormJob.mock.calls[0][0];
             expect(callArgs.aspectRatio).toBe('9:16');
+            expect(callArgs.options.aspectRatio).toBe('9:16');
             // Prompt segments should contain Canvas optimization
             expect(callArgs.prompts[0]).toContain('Optimized for Spotify Canvas');
         });

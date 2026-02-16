@@ -14,7 +14,7 @@ import { AI_MODELS } from '@/core/config/ai-models';
 // Prevent crash if config is missing (e.g. CI/Dev without env vars)
 const safeConfig = firebaseConfig.apiKey ? firebaseConfig : {
     ...firebaseConfig,
-    apiKey: "AIzaSy_FAKE_KEY_FOR_DEV_BYPASS_00000000", // valid format placeholder
+    apiKey: "AIzaSy_FAKE_KEY_FOR_DEV_BYPASS_00000000",
     projectId: "demo-project",
     authDomain: "demo-project.firebaseapp.com"
 };
@@ -114,6 +114,17 @@ remoteConfig.defaultConfig = {
     vertex_location: 'global'
 };
 
+// Initialize Messaging (Client-side only)
+import { getMessaging } from 'firebase/messaging';
+export const messaging = typeof window !== 'undefined' ? (() => {
+    try {
+        return getMessaging(app);
+    } catch (e) {
+        console.warn('Firebase Messaging not supported:', e);
+        return null;
+    }
+})() : null;
+
 // Initialize App Check
 let appCheck = null;
 if (typeof window !== 'undefined') {
@@ -132,8 +143,15 @@ if (typeof window !== 'undefined') {
 
     // Initialize App Check if we have a valid key
     // SKIP in Electron unless a debug token is explicitly provided (ReCaptcha Enterprise requires web origin)
+    // Or skip in development for bypass
+    // Initialize App Check if we have a valid key
+    // ALLOW in DEV if debug token is present (Fixes localhost "Permission Denied")
+    // SKIP in Electron unless a debug token is explicitly provided
     const isElectron = !!window.electronAPI;
-    const shouldInitAppCheck = env.appCheckKey && (!isElectron || env.appCheckDebugToken);
+    const shouldInitAppCheck = env.appCheckKey && (
+        (!env.DEV && (!isElectron || env.appCheckDebugToken)) ||
+        (env.DEV && env.appCheckDebugToken)
+    );
 
     if (shouldInitAppCheck) {
         if (isElectron && env.appCheckDebugToken) {

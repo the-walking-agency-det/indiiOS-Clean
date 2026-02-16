@@ -25,7 +25,8 @@ const mocks = vi.hoisted(() => ({
 
 // Mock 'electron'
 vi.mock('electron', () => ({
-    ipcMain: mocks.ipcMain
+    ipcMain: mocks.ipcMain,
+    app: { getAppPath: () => '/app', getPath: () => '/tmp', isPackaged: false }
 }));
 
 // Mock 'fluent-ffmpeg'
@@ -53,6 +54,14 @@ vi.mock('crypto', () => ({
 // Mock dependencies
 vi.mock('../services/APIService', () => ({
     apiService: { getSongMetadata: vi.fn() }
+}));
+
+// Mock AccessControlService to allow valid paths
+vi.mock('../security/AccessControlService', () => ({
+    accessControlService: {
+        verifyAccess: vi.fn(() => true),
+        requestAccess: vi.fn(() => true)
+    }
 }));
 
 // Import handler

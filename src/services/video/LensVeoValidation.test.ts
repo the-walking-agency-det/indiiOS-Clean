@@ -38,11 +38,15 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/services/firebase', () => ({
     auth: mocks.auth,
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {}
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('../firebase', () => ({
     functions: {},
+    functionsWest1: {},
     db: {},
     auth: mocks.auth
 }));
@@ -74,6 +78,7 @@ describe('Lens 🎥 - Veo 3.1 & Gemini 3 Native Generation Pipeline', () => {
         vi.useFakeTimers();
         vi.clearAllMocks();
         service = new VideoGenerationService();
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
         // Default: Quota OK
         mocks.subscriptionService.canPerformAction.mockResolvedValue({ allowed: true });
         // Default: Trigger OK
@@ -150,11 +155,8 @@ describe('Lens 🎥 - Veo 3.1 & Gemini 3 Native Generation Pipeline', () => {
 
             const jobPromise = service.waitForJob('lens-veo-job-id');
             vi.advanceTimersByTime(20);
-            const job = await jobPromise;
 
-            // In a real player, this would be a critical failure.
-            // Here we verify that we CAN detect it.
-            expect(job.output.metadata.mime_type).not.toBe('video/mp4');
+            await expect(jobPromise).rejects.toThrow(/Security Violation: Invalid MIME type/);
         });
 
         it('should strictly respect aspect_ratio request in metadata', async () => {

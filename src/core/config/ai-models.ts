@@ -12,11 +12,15 @@ export const APPROVED_MODELS = {
     TEXT_AGENT: 'gemini-3-pro-preview',
     TEXT_FAST: 'gemini-3-flash-preview',
     IMAGE_GEN: 'gemini-3-pro-image-preview',
-    IMAGE_FAST: 'gemini-2.5-flash-image',
-    AUDIO_PRO: 'gemini-2.5-pro-preview-tts',
-    AUDIO_FLASH: 'gemini-2.5-flash-preview-tts',
-    VIDEO_GEN: 'veo-3.1-generate-preview',
-    BROWSER_AGENT: 'gemini-2.5-pro-ui-checkpoint'
+    IMAGE_FAST: 'gemini-3-pro-image-preview',
+    AUDIO_PRO: 'gemini-3-pro-preview',
+    AUDIO_FLASH: 'gemini-3-flash-preview',
+    AUDIO_TTS: 'gemini-2.5-pro-preview-tts',
+    VIDEO_PRO: 'veo-3.1-generate-preview',
+    VIDEO_FAST: 'veo-3.1-fast-generate-preview',
+    VIDEO_GEN: 'veo-3.1-generate-preview', // Alias for backward compatibility
+    BROWSER_AGENT: 'gemini-3-pro-preview',
+    EMBEDDING_DEFAULT: 'models/embedding-001'
 } as const;
 
 export const AI_MODELS = {
@@ -31,10 +35,13 @@ export const AI_MODELS = {
     AUDIO: {
         PRO: APPROVED_MODELS.AUDIO_PRO,
         FLASH: APPROVED_MODELS.AUDIO_FLASH,
+        TTS: APPROVED_MODELS.AUDIO_TTS,
     },
     VIDEO: {
-        GENERATION: APPROVED_MODELS.VIDEO_GEN,
-        EDIT: APPROVED_MODELS.VIDEO_GEN
+        PRO: APPROVED_MODELS.VIDEO_PRO,
+        FAST: APPROVED_MODELS.VIDEO_FAST,
+        EDIT: APPROVED_MODELS.VIDEO_PRO,
+        GENERATION: APPROVED_MODELS.VIDEO_PRO // Backward compatibility
     },
     BROWSER: {
         AGENT: APPROVED_MODELS.BROWSER_AGENT,
@@ -53,9 +60,20 @@ export const AI_CONFIG = {
             thinkingConfig: { thinkingLevel: "LOW" }
         }
     },
+    MEDIA_RESOLUTION: {
+        DEFAULT: 'MEDIA_RESOLUTION_HIGH',
+        LOW: 'MEDIA_RESOLUTION_LOW'
+    },
     IMAGE: {
         DEFAULT: {
-            imageConfig: { imageSize: '2K' }
+            imageConfig: { imageSize: '4K' }, // Nano Banana Pro supports up to 4K
+            mediaResolution: 'MEDIA_RESOLUTION_HIGH',
+            maxReferenceImages: 14
+        },
+        FAST: {
+            imageConfig: { imageSize: '1K' }, // Nano Banana Flash supports up to 1K
+            mediaResolution: 'MEDIA_RESOLUTION_LOW',
+            maxReferenceImages: 8
         }
     },
     VIDEO: {
@@ -72,17 +90,27 @@ export const AI_CONFIG = {
 } as const;
 
 /**
- * Model Pricing (Approximate USD per 1M tokens or per generation)
+ * Model Pricing (USD per 1M tokens) 
+ * 
+ * Data sourced from Nano Banana series specifications:
+ * - Pro: $120.00 / 1M Output
+ * - Flash: $30.00 / 1M Output
  */
 export const MODEL_PRICING = {
-    [APPROVED_MODELS.TEXT_AGENT]: { input: 1.25, output: 3.75 },
-    [APPROVED_MODELS.TEXT_FAST]: { input: 0.10, output: 0.40 },
-    [APPROVED_MODELS.IMAGE_GEN]: { perGeneration: 0.04 },
-    [APPROVED_MODELS.IMAGE_FAST]: { perGeneration: 0.005 },
-    [APPROVED_MODELS.VIDEO_GEN]: { perGeneration: 0.05 },
-    [APPROVED_MODELS.AUDIO_PRO]: { perGeneration: 0.01 },
-    [APPROVED_MODELS.AUDIO_FLASH]: { perGeneration: 0.005 },
-    [APPROVED_MODELS.BROWSER_AGENT]: { input: 1.25, output: 3.75 },
+    'gemini-3-pro-preview': { input: 2.50, output: 7.50 },
+    'gemini-3-flash-preview': { input: 0.10, output: 0.40 },
+    'gemini-3-pro-image-preview': { output: 120.00, resolution: "4K", capacity: 14 },
+    'veo-3.1-generate-preview': {
+        perSecond: 0.20,     // 720p/1080p Video Only
+        perSecond4K: 0.40,   // 4K Video Only
+        audioAddOn: 0.20     // Flat add-on for audio (up to 1080p)
+    },
+    'veo-3.1-fast-generate-preview': {
+        perSecond: 0.10,     // 720p/1080p Video Only
+        perSecond4K: 0.30,   // 4K Video Only
+        audioAddOn: 0.05     // Flat add-on for audio
+    },
+    'gemini-2.5-pro-preview-tts': { input: 0.60, output: 4.00 },
 } as const;
 
 /**
@@ -98,11 +126,10 @@ export function calculateVideoTimeout(durationSeconds: number): number {
 // RUNTIME VALIDATION
 // ============================================================================
 
-const FORBIDDEN_PATTERNS = [
-    /gemini-1\./i,
-    /gemini-2\.0/i,
-    /^gemini-pro$/i,
-    /gemini-pro-vision/i,
+const FORBIDDEN_PATTERNS: RegExp[] = [
+    /gemini-1\./i,            // Block all legacy 1.x models
+    /gemini-2\.0/i,           // Block 2.0 models — allow 2.5.x (TTS, image, pro, flash)
+    /imagen-3/i,
 ];
 
 function validateModels(): void {
@@ -140,6 +167,7 @@ validateModels();
 // Export type helpers
 export type TextModel = typeof AI_MODELS.TEXT[keyof typeof AI_MODELS.TEXT];
 export type ImageModel = typeof AI_MODELS.IMAGE[keyof typeof AI_MODELS.IMAGE];
+export type AudioModel = typeof AI_MODELS.AUDIO[keyof typeof AI_MODELS.AUDIO];
 export type VideoModel = typeof AI_MODELS.VIDEO[keyof typeof AI_MODELS.VIDEO];
 export type BrowserModel = typeof AI_MODELS.BROWSER[keyof typeof AI_MODELS.BROWSER];
 

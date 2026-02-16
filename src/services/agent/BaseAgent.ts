@@ -1,5 +1,6 @@
 import { SpecializedAgent, AgentResponse, AgentProgressCallback, AgentConfig, ToolDefinition, FunctionDeclaration, AgentContext, VALID_AGENT_IDS_LIST, VALID_AGENT_IDS, ValidAgentId, WhiskState, AnyToolFunction } from './types';
 import { AI_MODELS, AI_CONFIG, MODEL_PRICING } from '@/core/config/ai-models';
+import type { Tool } from '@/shared/types/ai.dto';
 import { ZodType } from 'zod';
 import { LoopDetector, DelegationLoopDetector } from './LoopDetector';
 import { AgentExecutionContext, ExecutionContextFactory } from './context/AgentExecutionContext';
@@ -590,12 +591,13 @@ ${task}
         const MAX_ITERATIONS = 15;
         const toolCalls: any[] = [];
         let lastToolResult: any = undefined;
+        let currentThoughtSignature: string | undefined = undefined;
 
         // Phase 2: Clear loop detector for new task execution
         this.loopDetector.clear();
 
         // Phase 3: Create isolated execution context for this agent run
-        const executionContext = ExecutionContextFactory.fromAgentContext(
+        const executionContext = await ExecutionContextFactory.fromAgentContext(
             {
                 userId: context?.userId,
                 projectId: context?.projectId,
@@ -614,7 +616,8 @@ ${task}
                 const budgetCheck = await MembershipService.checkBudget(0);
                 if (!budgetCheck.allowed) {
                     console.warn(`[BaseAgent] Budget exceeded in ${this.id}. Halting execution.`);
-                    await executionContext.rollback();
+                    // executionContext.rollback() is already synchronous, but for consistency if we ever make it async:
+                    executionContext.rollback();
                     return {
                         text: 'Task halted: Budget exceeded.',
                         error: 'Budget exceeded',
@@ -637,11 +640,17 @@ ${task}
                         ]
                     }],
                     config: { ...AI_CONFIG.THINKING.LOW },
-                    tools: allTools as any
+                    tools: allTools as Tool[],
+                    thoughtSignature: currentThoughtSignature
                 });
 
+                // Transfer thought signature for function calling continuity
+                if (response.thoughtSignature) {
+                    currentThoughtSignature = response.thoughtSignature;
+                }
+
                 // LEDGER: Record Spend based on Token Usage
-                const usage = response.usage?.();
+                const usage = response.usage?.() as any;
                 if (usage && context?.userId) {
                     const pricing = MODEL_PRICING[AI_MODELS.TEXT.AGENT];
                     // Ensure we are using a text model pricing schema (input/output)
@@ -735,13 +744,14 @@ ${task}
                     // Phase 3: Commit execution context changes on successful completion
                     if (executionContext.hasUncommittedChanges()) {
                         console.log(`[BaseAgent] Committing changes for ${this.id}: ${executionContext.getChangeSummary()}`);
-                        executionContext.commit();
+                        await executionContext.commit();
                     }
 
                     return {
                         text: finalResponse,
                         data: lastToolResult,
                         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                        thoughtSignature: currentThoughtSignature,
                         usage: usage ? {
                             promptTokens: usage.promptTokenCount || 0,
                             completionTokens: usage.candidatesTokenCount || 0,

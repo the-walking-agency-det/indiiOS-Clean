@@ -5,6 +5,23 @@ import { RequestBatcher } from '../../../utils/RequestBatcher';
 const mockEmbedContent = vi.fn();
 const mockBatchEmbedContents = vi.fn();
 
+// Mock env config to provide fake API key
+vi.mock('@/config/env', () => ({
+    env: {
+        apiKey: 'test-api-key-for-batching',
+        VITE_API_KEY: 'test-api-key-for-batching',
+        DEV: true
+    },
+    firebaseConfig: {
+        apiKey: 'test-firebase-key',
+        authDomain: 'test.firebaseapp.com',
+        projectId: 'test-project',
+        storageBucket: 'test.appspot.com',
+        messagingSenderId: '123',
+        appId: '1:123:web:abc'
+    }
+}));
+
 // Mock Firebase
 vi.mock('@/services/firebase', () => ({
     getFirebaseAI: vi.fn(() => ({})),
@@ -29,14 +46,15 @@ vi.mock('firebase/remote-config', () => ({
     getValue: vi.fn(() => ({ asString: () => '' }))
 }));
 
-// Mock Google Generative AI (Fallback)
-vi.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: vi.fn(function () {
+// Mock Google GenAI SDK (Fallback) - new @google/genai package
+vi.mock('@google/genai', () => ({
+    GoogleGenAI: vi.fn(function () {
         return {
-            getGenerativeModel: vi.fn(() => ({
-                embedContent: mockEmbedContent,
-                batchEmbedContents: mockBatchEmbedContents
-            }))
+            models: {
+                generateContent: vi.fn(),
+                generateContentStream: vi.fn(),
+                embedContent: mockEmbedContent
+            }
         };
     })
 }));

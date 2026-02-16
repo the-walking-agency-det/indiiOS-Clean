@@ -77,15 +77,15 @@ export default function CreativePanel({ toggleRightPanel }: CreativePanelProps) 
                                     </div>
                                     <div>
                                         <span className="text-xs font-bold text-white tracking-wide">Reference Mixer</span>
-                                        {(whiskState.subjects.filter(i => i.checked).length +
-                                            whiskState.scenes.filter(i => i.checked).length +
-                                            whiskState.styles.filter(i => i.checked).length +
-                                            whiskState.motion.filter(i => i.checked).length) > 0 && (
+                                        {((whiskState.subjects?.filter(i => i.checked).length || 0) +
+                                            (whiskState.scenes?.filter(i => i.checked).length || 0) +
+                                            (whiskState.styles?.filter(i => i.checked).length || 0) +
+                                            (whiskState.motion?.filter(i => i.checked).length || 0)) > 0 && (
                                                 <p className="text-[9px] text-purple-400">
-                                                    {whiskState.subjects.filter(i => i.checked).length +
-                                                        whiskState.scenes.filter(i => i.checked).length +
-                                                        whiskState.styles.filter(i => i.checked).length +
-                                                        whiskState.motion.filter(i => i.checked).length} locked
+                                                    {(whiskState.subjects?.filter(i => i.checked).length || 0) +
+                                                        (whiskState.scenes?.filter(i => i.checked).length || 0) +
+                                                        (whiskState.styles?.filter(i => i.checked).length || 0) +
+                                                        (whiskState.motion?.filter(i => i.checked).length || 0)} locked
                                                 </p>
                                             )}
                                     </div>
@@ -147,18 +147,15 @@ export default function CreativePanel({ toggleRightPanel }: CreativePanelProps) 
                             {whiskState.targetMedia !== 'image' && (
                                 <div className="flex bg-black/40 p-1 rounded-lg">
                                     <button
-                                        onClick={() => setStudioControls({ cameraMovement: 'Static' })} // HACK: reusing cameraMovement to store mode temporarily or we should add a proper mode
-                                        // Better: just use a local state or add 'mode' to store. 
-                                        // For now, let's assume 'Static' = Standard, 'Transition' = Interpolation if valid. 
-                                        // Actually, let's use the `videoInputs` existence as the toggle? No, better to have explicit UI.
-                                        // I will add `isTransitionMode` to local state since it's UI-only logic, 
-                                        // but wait, I need to know if I should send `first_frame`.
-                                        // Let's check if start/end frame are populated.
-                                        className="flex-1 text-[10px] py-1 text-center text-gray-400"
+                                        onClick={() => setStudioControls({ isTransitionMode: false })}
+                                        className={`flex-1 text-[10px] py-1 text-center rounded ${!studioControls.isTransitionMode ? 'text-white bg-white/10' : 'text-gray-400'}`}
                                     >
                                         Standard
                                     </button>
-                                    <button className="flex-1 text-[10px] py-1 text-center text-blue-400 bg-blue-500/10 rounded">
+                                    <button
+                                        onClick={() => setStudioControls({ isTransitionMode: true })}
+                                        className={`flex-1 text-[10px] py-1 text-center rounded ${studioControls.isTransitionMode ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400'}`}
+                                    >
                                         Interpolation Setup
                                     </button>
                                 </div>

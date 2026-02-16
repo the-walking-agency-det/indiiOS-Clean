@@ -16,10 +16,14 @@ export const FUNCTION_AI_MODELS = {
     },
     VIDEO: {
         GENERATION: 'veo-3.1-generate-preview',
-        FAST: 'veo-2.0-generate-001',
+        PRO: 'veo-3.1-generate-preview', // Alias for internal consistency
+        FAST: 'veo-3.1-fast-generate-preview',
     },
     SPEECH: {
         GENERATION: 'gemini-2.5-pro-tts',
+    },
+    AUDIO: {
+        ANALYSIS: 'gemini-3-pro-preview', // Multimodal audio support (Corrected per Model Policy)
     }
 } as const;
 

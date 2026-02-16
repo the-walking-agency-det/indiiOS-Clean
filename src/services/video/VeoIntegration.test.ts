@@ -31,17 +31,27 @@ vi.mock('firebase/functions', () => ({
 vi.mock('firebase/firestore', () => ({
     doc: mocks.doc,
     onSnapshot: mocks.onSnapshot,
-    getFirestore: vi.fn()
+    getFirestore: vi.fn(),
+    serverTimestamp: vi.fn(() => ({ seconds: 1629824800, nanoseconds: 0 })),
+    Timestamp: { now: () => ({ seconds: 1629824800, nanoseconds: 0 }) },
+    collection: vi.fn(),
+    addDoc: vi.fn().mockResolvedValue({ id: 'doc-id' }),
+    setDoc: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/services/firebase', () => ({
     auth: mocks.auth,
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {},
+    getFirebaseAI: vi.fn()
+    getFirebaseAI: vi.fn(),
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('../firebase', () => ({ // Handle relative import in service
     functions: {},
+    functionsWest1: {},
     db: {},
     auth: mocks.auth
 }));
@@ -68,6 +78,7 @@ describe('Veo 3.1 Integration Pipeline', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         service = new VideoGenerationService();
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
         mocks.subscriptionService.canPerformAction.mockResolvedValue({ allowed: true });
         mocks.httpsCallable.mockReturnValue(async () => ({ data: { jobId: 'job-uuid-123' } }));
     });
@@ -122,7 +133,7 @@ describe('Veo 3.1 Integration Pipeline', () => {
                     })
                 });
             }, 10);
-            return () => {};
+            return () => { };
         });
 
         // Act

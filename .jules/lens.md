@@ -23,3 +23,15 @@
 **Action:** Enhanced `LensVeoFlashProRace.test.ts` to verify:
 - **Out-of-Order Protection:** Service ignores "Flash" updates if "Pro" metadata (Quality Level 2) has already been processed for the same job.
 - **Upgrade Continuity:** Service correctly accepts "Pro" updates even after "Flash" has been rendered, ensuring the user gets the best available quality.
+
+## 2026-01-26 - [Veo Asset Integrity & URL Refresh]
+**Learning:** Veo signed URLs expire (1h), but the backend refreshes them in-place. The client-side "Quality Tier Protection" must allow "Pro -> Pro" updates (same quality) to propagate the new URL, while still blocking "Pro -> Flash" (downgrade).
+**Action:** Created `LensVeoAssetIntegrity.test.ts` to verify:
+- **Refresh Token Flow:** Confirmed that identical quality updates (Pro -> Pro) with new URLs are accepted by the subscription listener.
+- **Massive Payload Handling:** Verified service resilience against large metadata blobs (simulating debug logs or complex motion vectors).
+## 2026-01-26 - [Veo 3.1 Aspect Ratio Compliance]
+**Learning:** Veo 3.1 generation pipeline must strictly adhere to aspect ratio constraints, especially for distributor-specific formats like Spotify Canvas (9:16). Explicit user overrides must take precedence over distributor defaults.
+**Action:** Implemented `LensVeoAspectRatio.test.ts` to verify:
+- **Explicit 16:9:** Requests are correctly passed to the backend.
+- **Distributor Fallback:** Users with "DistroKid" get automatic 9:16 (Canvas) defaults.
+- **User Override:** Users can force 16:9 even if their distributor suggests otherwise.

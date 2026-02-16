@@ -34,13 +34,17 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/services/firebase', () => ({
     auth: mocks.auth,
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {},
+    remoteConfig: {}
 }));
 
 vi.mock('../firebase', () => ({
     functions: {},
+    functionsWest1: {},
     db: {},
-    auth: mocks.auth
+    auth: mocks.auth,
+    remoteConfig: {}
 }));
 
 vi.mock('@/services/subscription/SubscriptionService', () => ({
@@ -66,6 +70,7 @@ describe('Lens 🎥 - Veo 3.1 & Gemini 3 Native Generation Pipeline', () => {
         vi.useFakeTimers();
         vi.clearAllMocks();
         service = new VideoGenerationService();
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
         // Default: Quota OK
         mocks.subscriptionService.canPerformAction.mockResolvedValue({ allowed: true });
         // Default: Trigger OK

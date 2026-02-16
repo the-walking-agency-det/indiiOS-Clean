@@ -15,7 +15,10 @@ vi.mock('@/services/firebase', () => ({
         currentUser: { uid: 'lens-verifier' }
     },
     db: {},
-    functions: {}
+    functions: {},
+    functionsWest1: {}
+    functionsWest1: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 // Mock SubscriptionService to always allow

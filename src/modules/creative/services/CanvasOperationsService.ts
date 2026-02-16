@@ -33,7 +33,7 @@ export class CanvasOperationsService {
         });
 
         if (imageUrl) {
-            fabric.Image.fromURL(imageUrl).then((img: fabric.Image) => {
+            fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' }).then((img: fabric.Image) => {
                 if (!this.canvas) return;
                 scaleImageToCanvas(img, this.canvas);
                 this.canvas.add(img);
@@ -202,8 +202,33 @@ export class CanvasOperationsService {
     }
 
     /**
-     * Prepare masks for multi-edit processing
-     * Extracts base image and color-coded masks from canvas
+     * Workflow A: Visual Prompting
+     * Returns a flattened image containing both the original content and the user's colorful highlights.
+     * Best for gemini-3-pro-image-preview.
+     */
+    async prepareVisualPrompt(): Promise<{ mimeType: string, data: string } | null> {
+        if (!this.canvas) return null;
+
+        // Ensure all layers are visible for flattened export
+        const objects = this.canvas.getObjects();
+        objects.forEach(obj => (obj.visible = true));
+
+        // Export flattened canvas at 1x multiplier for prompt precision
+        const dataUrl = this.canvas.toDataURL({
+            format: 'png',
+            multiplier: 1
+        });
+
+        return {
+            mimeType: 'image/png',
+            data: dataUrl.split(',')[1]
+        };
+    }
+
+    /**
+     * Workflow B: Strict Masking
+     * Extracts isolated binary masks (White on Black) for each annotated color.
+     * Best for gemini-2.5-flash-image.
      */
     prepareMasksForEdit(
         definitions: Record<string, string>,
@@ -220,9 +245,14 @@ export class CanvasOperationsService {
         const maskObjects = originalObjects.filter(obj => obj.type === 'path');
         const contentObjects = originalObjects.filter(obj => obj.type !== 'path');
 
-        // Generate base image (content only, no masks)
+        // Step 1: Generate Base Image (Content only, hide all annotations)
         maskObjects.forEach(obj => (obj.visible = false));
-        this.canvas.backgroundColor = '#000000';
+        contentObjects.forEach(obj => (obj.visible = true));
+
+        // Store original canvas background
+        const originalBg = this.canvas.backgroundColor;
+        this.canvas.backgroundColor = '#000000'; // Black background for clean content extraction if transparent
+
         const baseDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
         const baseImage = {
             mimeType: 'image/png',
@@ -231,11 +261,12 @@ export class CanvasOperationsService {
 
         const masks: MaskData[] = [];
 
+        // Step 2: Extract Binary Masks for each defined color
         for (const [colorId, prompt] of activeDefinitions) {
             const colorDef = STUDIO_COLORS.find(c => c.id === colorId);
             if (!colorDef) continue;
 
-            const targetRgbaStart = hexToRgba(colorDef.hex, 0.5).slice(0, -4); // Remove ', 0.5)' for partial match
+            const targetRgbaStart = hexToRgba(colorDef.hex, 0.5).slice(0, -4);
 
             const colorPaths = maskObjects.filter(obj => {
                 const stroke = obj.stroke;
@@ -243,15 +274,18 @@ export class CanvasOperationsService {
             });
 
             if (colorPaths.length > 0) {
-                // Hide all objects
+                // Hide ALL objects initially
                 originalObjects.forEach(obj => (obj.visible = false));
 
-                // Show only matching paths as white
+                // Show only matching paths and transform them to pure WHITE
                 colorPaths.forEach(obj => {
                     obj.visible = true;
+                    // Store original properties to restore later
+                    (obj as any)._originalStroke = obj.stroke;
                     obj.set({ stroke: '#ffffff', fill: '' });
                 });
 
+                // Clear background to pure BLACK for strict binary mask
                 this.canvas.backgroundColor = '#000000';
                 const maskDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
 
@@ -263,17 +297,16 @@ export class CanvasOperationsService {
                     referenceImage: referenceImages[colorId] || undefined
                 });
 
-                // Restore visual state for these paths
-                const colorRgba = hexToRgba(colorDef.hex, 0.5);
+                // Restore original stroke for these paths
                 colorPaths.forEach(obj => {
-                    obj.set({ stroke: colorRgba });
+                    obj.set({ stroke: (obj as any)._originalStroke });
                 });
             }
         }
 
-        // Restore all visibility
+        // Restore visual state for the user
         originalObjects.forEach(obj => (obj.visible = true));
-        this.canvas.backgroundColor = '#1a1a1a';
+        this.canvas.backgroundColor = originalBg;
         this.canvas.renderAll();
 
         if (masks.length === 0) return null;
@@ -291,7 +324,9 @@ export class CanvasOperationsService {
     ): Promise<void> {
         if (!this.canvas) return;
 
-        const img = await fabric.Image.fromURL(candidateUrl);
+        const img = await fabric.Image.fromURL(candidateUrl, { crossOrigin: 'anonymous' });
+
+        // Ensure standard dimensions
         img.scaleToWidth(this.canvas.width!);
         img.set({
             left: this.canvas.width! / 2,
@@ -300,22 +335,141 @@ export class CanvasOperationsService {
             originY: 'center'
         });
 
-        // Clear old canvas and add new base
+        // Clear and update
         this.canvas.clear();
         this.canvas.backgroundColor = '#1a1a1a';
         this.canvas.add(img);
 
-        // Re-initialize brush if in magic fill mode
         if (magicFillEnabled) {
             this.canvas.isDrawingMode = true;
             this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
             this.canvas.freeDrawingBrush.width = 30;
             this.canvas.freeDrawingBrush.color = hexToRgba(activeColor.hex, 0.5);
-        } else {
-            this.canvas.isDrawingMode = false;
         }
 
         this.canvas.renderAll();
+    }
+
+    /**
+     * Extracts a binary "Ghost Mask" for Gemini 3 Dual-View.
+     * White pixels = Edit Area.
+     * Black pixels = Keep Context.
+     */
+    extractGeminiMask(): string | null {
+        if (!this.canvas) return null;
+
+        // 1. Save State
+        const originalBg = this.canvas.backgroundColor;
+        const originalObjects = this.canvas.getObjects();
+        const originalState = originalObjects.map(obj => ({
+            visible: obj.visible,
+            stroke: obj.stroke,
+            fill: obj.fill,
+            opacity: obj.opacity
+        }));
+
+        // 2. Transform to Binary Mask Mode
+        this.canvas.backgroundColor = "#000000"; // Black Context
+        // this.canvas.backgroundImage = null; // CanvasOperationsService uses an image object, not backgroundImage property usually
+
+        originalObjects.forEach(obj => {
+            // Only mask "path" objects (user drawings) -> White
+            if (obj.type === 'path') {
+                obj.set({
+                    stroke: "#FFFFFF",
+                    fill: (obj.fill && obj.fill !== 'transparent') ? "#FFFFFF" : undefined, // Keep fill logic if present
+                    opacity: 1,
+                    visible: true
+                });
+            } else {
+                // Hide other content (base image, etc)
+                obj.visible = false;
+            }
+        });
+
+        this.canvas.renderAll();
+
+        // 3. Export
+        const dataUrl = this.canvas.toDataURL({
+            format: 'png',
+            multiplier: 1
+        });
+
+        // 4. Restore State
+        this.canvas.backgroundColor = originalBg;
+
+        originalObjects.forEach((obj, index) => {
+            const state = originalState[index];
+            obj.set({
+                visible: state.visible,
+                stroke: state.stroke,
+                fill: state.fill,
+                opacity: state.opacity
+            });
+        });
+
+        this.canvas.renderAll();
+
+        return dataUrl.split(',')[1];
+    }
+
+    /**
+     * Extracts a Multi-Color "Semantic Mask" for Pro Editing.
+     * Preserves stroke colors (at 100% opacity) to distinguish regions.
+     * Black pixels = Context.
+     */
+    extractSemanticMask(): string | null {
+        if (!this.canvas) return null;
+
+        // 1. Save State
+        const originalBg = this.canvas.backgroundColor;
+        const originalObjects = this.canvas.getObjects();
+        const originalState = originalObjects.map(obj => ({
+            visible: obj.visible,
+            stroke: obj.stroke,
+            opacity: obj.opacity
+        }));
+
+        // 2. Transform to Semantic Mask Mode
+        this.canvas.backgroundColor = "#000000";
+
+        originalObjects.forEach(obj => {
+            if (obj.type === 'path') {
+                // Determine the "True Color" (Opaque) from the stroke
+                // Usually stroke is rgba(r,g,b,0.5). We want rgb(r,g,b) or hex.
+                // For now, we trust the stroke color but pump opacity to 1.0
+                obj.set({
+                    opacity: 1.0,
+                    visible: true
+                });
+            } else {
+                obj.visible = false;
+            }
+        });
+
+        this.canvas.renderAll();
+
+        // 3. Export
+        const dataUrl = this.canvas.toDataURL({
+            format: 'png',
+            multiplier: 1
+        });
+
+        // 4. Restore State
+        this.canvas.backgroundColor = originalBg;
+
+        originalObjects.forEach((obj, index) => {
+            const state = originalState[index];
+            obj.set({
+                visible: state.visible,
+                stroke: state.stroke,
+                opacity: state.opacity
+            });
+        });
+
+        this.canvas.renderAll();
+
+        return dataUrl.split(',')[1];
     }
 
     /**
@@ -323,7 +477,6 @@ export class CanvasOperationsService {
      */
     async toJSON(): Promise<string | null> {
         if (!this.canvas) return null;
-        // In Fabric v6, toJSON is synchronous
         const json = this.canvas.toJSON();
         return JSON.stringify(json);
     }

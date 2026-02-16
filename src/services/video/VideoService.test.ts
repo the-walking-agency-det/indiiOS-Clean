@@ -23,12 +23,49 @@ vi.mock('@/config/env', () => ({
 
 // Mock AI models config
 vi.mock('@/core/config/ai-models', () => ({
+    APPROVED_MODELS: {
+        TEXT_AGENT: 'gemini-3-pro-preview',
+        TEXT_FAST: 'gemini-3-pro-preview',
+        IMAGE_GEN: 'gemini-3-pro-image-preview',
+        VIDEO_GEN: 'veo-3.1-generate-preview'
+    },
     AI_MODELS: {
         TEXT: { AGENT: 'gemini-3-pro-preview', FAST: 'gemini-3-pro-preview' },
         VIDEO: { GENERATION: 'veo-3.1-generate-preview', EDIT: 'veo-3.1-generate-preview' }
     },
     AI_CONFIG: {
         THINKING: { HIGH: { thinkingConfig: { thinkingLevel: 'HIGH' } } }
+    },
+    IMAGE_FAST: 'gemini-3-pro-image-preview',
+    AUDIO_PRO: 'gemini-3-pro-preview',
+    AUDIO_FLASH: 'gemini-3-pro-preview',
+    VIDEO_GEN: 'veo-3.1-generate-preview',
+    BROWSER_AGENT: 'gemini-3-pro-preview',
+    EMBEDDING_DEFAULT: 'models/embedding-001',
+    validateModels: () => { },
+    ModelIdSchema: { parse: (v: string) => v }
+}));
+
+// Mock MembershipService to avoid Firebase initialization
+vi.mock('@/services/MembershipService', () => ({
+    MembershipService: {
+        checkQuota: vi.fn().mockResolvedValue({ allowed: true, currentUsage: 0, maxAllowed: 100 }),
+        checkVideoDurationQuota: vi.fn().mockResolvedValue({ allowed: true, maxDuration: 60, tierName: 'Pro' }),
+        getCurrentTier: vi.fn().mockResolvedValue('pro'),
+        getUpgradeMessage: vi.fn().mockReturnValue('Upgrade please'),
+        formatDuration: vi.fn().mockReturnValue('1 minute'),
+        incrementUsage: vi.fn()
+    },
+    TIER_LIMITS: { free: {}, pro: {}, enterprise: {} }
+}));
+
+// Mock store to prevent side effects from dynamic imports
+vi.mock('@/core/store', () => ({
+    useStore: {
+        getState: vi.fn(() => ({
+            currentOrganizationId: 'test-org-id',
+            userProfile: { id: 'test-user-id' }
+        }))
     }
 }));
 

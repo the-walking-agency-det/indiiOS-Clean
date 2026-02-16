@@ -20,9 +20,11 @@ indiiOS is a multi-tenant, AI-native creative platform that unifies image genera
 indiiOS is powered by **indii**, an intelligent AI agent orchestration system that provides AI-driven assistance through a hub-and-spoke architecture.
 
 indii consists of:
+
 - **Agent Zero (Hub)**: Central coordinator for all agent interactions
 - **Specialist Agents (Spokes)**: Domain experts (Marketing, Finance, Video, etc.)
 - **AgentOrchestrator**: Intelligent routing system
+- **Hybrid Architecture**: Dockerized Python sidecar for secure execution
 
 Learn more about indii's architecture in [PHASE4_IMPLEMENTATION.md](PHASE4_IMPLEMENTATION.md)
 
@@ -75,6 +77,9 @@ Learn more about indii's architecture in [PHASE4_IMPLEMENTATION.md](PHASE4_IMPLE
 ### Agent System
 
 - **Hub (indii)** - Orchestrates conversations, injects org/project context, delegates to specialists
+- **Agent Zero Sidecar** - Dockerized Python runtime on `localhost` for secure tool execution and Python interoperability.
+- **R2A2 Security** - Reflective Risk-Awareness module with input scanning, injection detection, and confidence scoring.
+- **Secrets Broker** - Ephemeral handle-based credential management ensuring zero-trust secret handling.
 - **Specialists** - Legal, Marketing, Brand, Road Manager, Music, Video, Creative Director, and **Browser** agents
 - **Autonomous Browser Agent** - Fully self-driving Puppeteer instance powered by `gemini-2.5-pro-ui-checkpoint` for real-time web discovery and data extraction.
 - **Context Safety** - Firestore-scoped lookups ensure responses stay within the active workspace
@@ -240,6 +245,101 @@ npm run build:all
 # Deploy to Firebase
 firebase deploy
 ```
+
+### 5. Agent Zero Sidecar (Optional AI Enhancement)
+
+The **Agent Zero Sidecar** provides advanced AI capabilities through a secure Docker container, including image generation (Imagen 3), video synthesis (Veo 3.1), and audio analysis.
+
+#### Prerequisites
+
+- **Docker Desktop** installed and running
+- **Docker Compose** v2.0+
+- Ports **50080** (API) and **8880** (Tunnel) available
+
+#### Quick Start
+
+```bash
+# 1. Start the Agent Zero container
+docker compose up -d
+
+# 2. Verify health
+curl http://localhost:50080/healthz
+# Expected: {"status": "healthy", "service": "indii-agent", "version": "0.1.0"}
+
+# 3. Run verification tests
+python3 scripts/verify_bridge.py
+```
+
+#### Environment Variables
+
+Add these to your `.env` file:
+
+```env
+# Required for Agent Zero
+GOOGLE_API_KEY=your_google_api_key
+GEMINI_API_KEY=your_gemini_api_key  # Optional, falls back to GOOGLE_API_KEY
+
+# Optional
+EMBEDDING_MODEL=models/embedding-001
+```
+
+#### Using Agent Zero in the App
+
+1. Launch the Electron app (`npm run electron:dev`)
+2. Open the Chat Overlay
+3. Toggle the provider from **"Native"** to **"Zero"**
+4. Send messages - Agent Zero will handle complex tasks with tool execution
+
+#### Available Tools
+
+- **Image Generation** (`indii_image_gen`) - Generates images using Gemini Imagen 3
+- **Video Generation** (`indii_video_gen`) - Creates videos using Google Veo 3.1
+- **Audio Analysis** (`indii_audio_ear`) - Analyzes audio files with Gemini multimodal
+
+#### Verification Tests
+
+Run the complete test suite to verify all functionality:
+
+```bash
+# Infrastructure tests
+python3 scripts/test_volume_mapping.py
+python3 scripts/test_network_isolation.py
+
+# API handler tests
+python3 scripts/verify_bridge.py
+python3 scripts/test_context_bleed.py
+
+# Tooling tests
+python3 scripts/test_protocol.py
+python3 scripts/test_zeroization.py
+
+# Security tests
+python3 scripts/test_honeypot.py
+```
+
+#### Troubleshooting
+
+**Container won't start:**
+
+```bash
+docker logs indii-agent-working
+docker compose down && docker compose build && docker compose up -d
+```
+
+**Connection refused:**
+
+```bash
+# Check port availability
+lsof -i :50080
+
+# Restart container
+docker compose restart
+```
+
+**For detailed setup and advanced usage, see:**
+
+- [Agent Zero Quick Start Guide](docs/AGENT_ZERO_QUICKSTART.md)
+- [Agent Zero Test Results](docs/AGENT_ZERO_TEST_RESULTS.md)
 
 ---
 
@@ -409,6 +509,7 @@ Automated deployment triggers on push to `main` branch. See `.github/workflows/d
 | [docs/AUTONOMOUS_BROWSER_AGENT.md](./docs/AUTONOMOUS_BROWSER_AGENT.md)   | Self-driving browser internals           |
 | [docs/BACKEND_ARCHITECTURE.md](./docs/BACKEND_ARCHITECTURE.md)           | Firebase + Vertex AI service map         |
 | [docs/DDEX_IMPLEMENTATION_PLAN.md](./docs/DDEX_IMPLEMENTATION_PLAN.md)   | Distribution integration details         |
+| [docs/HYBRID_ARCHITECTURE_REVIEW.md](./docs/HYBRID_ARCHITECTURE_REVIEW.md)| Hybrid Architecture & Security Verification |
 
 ---
 

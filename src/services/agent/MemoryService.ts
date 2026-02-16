@@ -1,7 +1,7 @@
 
 import { FirestoreService } from '../FirestoreService';
 import { AI } from '../ai/AIService';
-import { AI_MODELS } from '@/core/config/ai-models';
+import { AI_MODELS, APPROVED_MODELS } from '@/core/config/ai-models';
 import { RequestBatcher } from '@/utils/RequestBatcher';
 
 export interface MemoryItem {
@@ -32,8 +32,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+/**
+ * MemoryService - Handles persistent episodic and semantic memory for the indii agent.
+ * 
+ * Provides vector-based retrieval and keyword fallback for finding relevant context
+ * within a project's memory store. Uses a batcher for embedding requests to optimize performance.
+ */
 class MemoryService {
-    private embeddingModel = 'text-embedding-004';
+    private embeddingModel = APPROVED_MODELS.EMBEDDING_DEFAULT;
 
     // Batcher for embedding requests to save tokens and improve performance
     private embeddingBatcher = new RequestBatcher<string, number[]>(
@@ -67,6 +73,16 @@ class MemoryService {
         }
     }
 
+    /**
+     * Store a new memory item in the project's memory collection.
+     * Automatically generates embeddings for semantic retrieval.
+     * 
+     * @param projectId - The project to associate the memory with.
+     * @param content - The data/fact to be remembered.
+     * @param type - The category of memory.
+     * @param importance - weight for retrieval (0 to 1).
+     * @param source - who provided the information.
+     */
     async saveMemory(
         projectId: string,
         content: string,
