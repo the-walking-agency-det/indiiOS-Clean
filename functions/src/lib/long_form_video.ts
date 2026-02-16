@@ -369,9 +369,14 @@ export const generateLongFormVideoFn = (inngestClient: any, geminiApiKey: any) =
 
                         if (nextStartImage) currentStartImage = nextStartImage;
 
+                            const frameFile = files[0];
                     } catch (e: any) {
                         console.warn(`[LongForm] Frame extraction failed for segment ${i}:`, e.message);
                         // Continue without chaining if extraction fails
+                    }
+                    
+                    // FIX #3: Better error handling for frame extraction - retry with fallback
+                    let extractionAttempts = 0;
                         // FIX #3: Better error handling for frame extraction - retry with fallback
                         let extractionAttempts = 0;
                         const maxExtractionAttempts = 2;
