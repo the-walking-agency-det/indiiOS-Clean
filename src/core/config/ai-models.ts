@@ -15,7 +15,10 @@ export const APPROVED_MODELS = {
     IMAGE_FAST: 'gemini-3-pro-image-preview',
     AUDIO_PRO: 'gemini-3-pro-preview',
     AUDIO_FLASH: 'gemini-3-flash-preview',
-    VIDEO_GEN: 'veo-3.1-generate-preview',
+    AUDIO_TTS: 'gemini-2.5-pro-preview-tts',
+    VIDEO_PRO: 'veo-3.1-generate-preview',
+    VIDEO_FAST: 'veo-3.1-fast-generate-preview',
+    VIDEO_GEN: 'veo-3.1-generate-preview', // Alias for backward compatibility
     BROWSER_AGENT: 'gemini-3-pro-preview',
     EMBEDDING_DEFAULT: 'models/embedding-001'
 } as const;
@@ -32,10 +35,13 @@ export const AI_MODELS = {
     AUDIO: {
         PRO: APPROVED_MODELS.AUDIO_PRO,
         FLASH: APPROVED_MODELS.AUDIO_FLASH,
+        TTS: APPROVED_MODELS.AUDIO_TTS,
     },
     VIDEO: {
-        GENERATION: APPROVED_MODELS.VIDEO_GEN,
-        EDIT: APPROVED_MODELS.VIDEO_GEN
+        PRO: APPROVED_MODELS.VIDEO_PRO,
+        FAST: APPROVED_MODELS.VIDEO_FAST,
+        EDIT: APPROVED_MODELS.VIDEO_PRO,
+        GENERATION: APPROVED_MODELS.VIDEO_PRO // Backward compatibility
     },
     BROWSER: {
         AGENT: APPROVED_MODELS.BROWSER_AGENT,
@@ -94,7 +100,17 @@ export const MODEL_PRICING = {
     'gemini-3-pro-preview': { input: 2.50, output: 7.50 },
     'gemini-3-flash-preview': { input: 0.10, output: 0.40 },
     'gemini-3-pro-image-preview': { output: 120.00, resolution: "4K", capacity: 14 },
-    'veo-3.1-generate-preview': { perGeneration: 0.05 },
+    'veo-3.1-generate-preview': {
+        perSecond: 0.20,     // 720p/1080p Video Only
+        perSecond4K: 0.40,   // 4K Video Only
+        audioAddOn: 0.20     // Flat add-on for audio (up to 1080p)
+    },
+    'veo-3.1-fast-generate-preview': {
+        perSecond: 0.10,     // 720p/1080p Video Only
+        perSecond4K: 0.30,   // 4K Video Only
+        audioAddOn: 0.05     // Flat add-on for audio
+    },
+    'gemini-2.5-pro-preview-tts': { input: 0.60, output: 4.00 },
 } as const;
 
 /**
@@ -111,8 +127,8 @@ export function calculateVideoTimeout(durationSeconds: number): number {
 // ============================================================================
 
 const FORBIDDEN_PATTERNS: RegExp[] = [
-    /gemini-1\./i,
-    /gemini-2\./i,
+    /gemini-1\./i,            // Block all legacy 1.x models
+    /gemini-2\.0/i,           // Block 2.0 models — allow 2.5.x (TTS, image, pro, flash)
     /imagen-3/i,
 ];
 
@@ -151,6 +167,7 @@ validateModels();
 // Export type helpers
 export type TextModel = typeof AI_MODELS.TEXT[keyof typeof AI_MODELS.TEXT];
 export type ImageModel = typeof AI_MODELS.IMAGE[keyof typeof AI_MODELS.IMAGE];
+export type AudioModel = typeof AI_MODELS.AUDIO[keyof typeof AI_MODELS.AUDIO];
 export type VideoModel = typeof AI_MODELS.VIDEO[keyof typeof AI_MODELS.VIDEO];
 export type BrowserModel = typeof AI_MODELS.BROWSER[keyof typeof AI_MODELS.BROWSER];
 

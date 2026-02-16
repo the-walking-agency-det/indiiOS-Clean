@@ -59,7 +59,7 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   },
-  AnimatePresence: ({ children }: any) => <>{children}</>,
+  AnimatePresence: ({ children }: any) => children,
 }));
 
 // Mock prompt-input components to avoid context issues or simplify structure?
@@ -88,14 +88,8 @@ describe('PromptArea Accessibility', () => {
     const dictateBtn = screen.getByRole('button', { name: /voice input/i });
     expect(dictateBtn).toBeInTheDocument();
 
-    // 3. Delegate/Module Button & Indii Toggle
-    // There are two "indii" buttons. One is the delegate menu trigger (left), one is the mode toggle (right).
-
-    const modeToggleBtn = screen.getByRole('button', { name: /switch to (indii|agent) mode/i });
-    expect(modeToggleBtn).toBeInTheDocument();
-
-    // The delegate button (module selector) is the one that is NOT the toggle button.
-    // Use the explicit aria-label "Select active agent"
+    // 3. Agent selector button (module selector)
+    // The delegate button uses aria-label "Select active agent"
     const delegateBtn = screen.getByRole('button', { name: /select active agent/i });
     expect(delegateBtn).toBeInTheDocument();
 
@@ -111,7 +105,7 @@ describe('PromptArea Accessibility', () => {
     // Expected classes: focus-visible:ring-2
     // We expect these to be MISSING initially.
 
-    const buttonsToCheck = [attachBtn, dictateBtn, dockBtn, modeToggleBtn, runBtn];
+    const buttonsToCheck = [attachBtn, dictateBtn, dockBtn, delegateBtn, runBtn];
 
     // We assert that they DO NOT have the classes yet (to confirm reproduction of "issue")
     // Or we can just try to assert they DO have them and let it fail.
@@ -121,12 +115,12 @@ describe('PromptArea Accessibility', () => {
     // Using simple class check string inclusion.
 
     buttonsToCheck.forEach(btn => {
-       // Ideally we want this to pass AFTER the fix.
-       // For now, I'll write the expectation for the FIX, and expect the test to FAIL.
-       // Or I can comment it out?
-       // No, I'll write the test to verify the fix.
-       expect(btn.className).toContain('focus-visible:ring-2');
-       expect(btn.className).toContain('focus-visible:ring-ring');
+      // Ideally we want this to pass AFTER the fix.
+      // For now, I'll write the expectation for the FIX, and expect the test to FAIL.
+      // Or I can comment it out?
+      // No, I'll write the test to verify the fix.
+      expect(btn.className).toContain('focus-visible:ring-2');
+      expect(btn.className).toContain('focus-visible:ring-ring');
     });
 
     // Also check the delegate button (left side)
