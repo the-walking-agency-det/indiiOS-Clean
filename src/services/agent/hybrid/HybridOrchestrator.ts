@@ -13,6 +13,16 @@ import type { AgentService } from '../AgentService';
  */
 export class HybridOrchestrator {
     private MAX_TURNS = 10;
+    private MAX_RESULT_LENGTH = 3000;
+
+    private truncate(text: any): string {
+        if (!text) return '';
+        const str = typeof text === 'string' ? text : JSON.stringify(text);
+        if (str.length > this.MAX_RESULT_LENGTH) {
+            return str.substring(0, this.MAX_RESULT_LENGTH) + '... [Result truncated]';
+        }
+        return str;
+    }
 
     async execute(context: AgentContext, userQuery: string, service?: AgentService): Promise<string> {
         const userId = auth.currentUser?.uid || 'anonymous';
@@ -98,7 +108,7 @@ export class HybridOrchestrator {
                     try {
                         if (!service) throw new Error('AgentService instance not provided for delegation');
                         const result = await service.runAgent(decision.callAgentId, decision.task, context, traceId);
-                        history.push({ turn: currentTurn, agent: decision.callAgentId, result: result.text });
+                        history.push({ turn: currentTurn, agent: decision.callAgentId, result: this.truncate(result.text) });
                         lastAgentResponse = result.text;
                     } catch (agentErr: any) {
                         console.error(`[indii:Hybrid] Specialist ${decision.callAgentId} failed:`, agentErr);
@@ -112,7 +122,7 @@ export class HybridOrchestrator {
                     try {
                         const { KnowledgeTools } = await import('../tools/KnowledgeTools');
                         const result = await KnowledgeTools.search_knowledge({ query: decision.args?.query || sanitizedQuery }, context);
-                        history.push({ turn: currentTurn, tool: 'knowledge_base', result: result.data?.answer });
+                        history.push({ turn: currentTurn, tool: 'knowledge_base', result: this.truncate(result.data?.answer) });
                         lastAgentResponse = result.data?.answer;
                     } catch (toolErr) {
                         console.error(`[indii:Hybrid] Tool knowledge_base failed:`, toolErr);
@@ -138,7 +148,7 @@ export class HybridOrchestrator {
                             result = await BrowserTools.browser_snapshot({}, context);
                         }
 
-                        history.push({ turn: currentTurn, tool: 'browser_control', result: result.data || result.message });
+                        history.push({ turn: currentTurn, tool: 'browser_control', result: this.truncate(result.data || result.message) });
                         lastAgentResponse = result.message || '';
                     } catch (toolErr) {
                         console.error(`[indii:Hybrid] Tool browser_control failed:`, toolErr);
@@ -152,7 +162,7 @@ export class HybridOrchestrator {
                     try {
                         const { agentZeroService } = await import('../AgentZeroService');
                         const result = await agentZeroService.sendMessage(decision.task || decision.args?.query || sanitizedQuery);
-                        history.push({ turn: currentTurn, tool: 'agent_zero_deep', result: result.message });
+                        history.push({ turn: currentTurn, tool: 'agent_zero_deep', result: this.truncate(result.message) });
                         lastAgentResponse = result.message;
                     } catch (azErr) {
                         console.error(`[indii:Hybrid] Agent Zero Container failed:`, azErr);

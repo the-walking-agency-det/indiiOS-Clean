@@ -2,7 +2,7 @@ import type { AgentMessage } from '@/core/store';
 // useStore removed
 
 export class HistoryManager {
-    private readonly MAX_HISTORY_LENGTH = 10;
+    private readonly MAX_TOTAL_TURNS = 20;
 
     /**
      * Retrieves the recent conversation history from the store.
@@ -12,7 +12,7 @@ export class HistoryManager {
         const { useStore } = await import('@/core/store');
         const { agentHistory } = useStore.getState();
         // Get the last N messages
-        return agentHistory.slice(-this.MAX_HISTORY_LENGTH);
+        return agentHistory.slice(-this.MAX_TOTAL_TURNS);
     }
 
     /**
