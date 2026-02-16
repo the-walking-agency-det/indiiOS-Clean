@@ -30,6 +30,8 @@ vi.mock('@/services/firebase', () => ({
     },
     db: {},
     functions: {}
+    functions: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('firebase/functions', () => ({

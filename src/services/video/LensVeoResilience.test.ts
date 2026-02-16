@@ -36,6 +36,8 @@ vi.mock('@/services/firebase', () => ({
     auth: { currentUser: mocks.currentUser },
     functions: {},
     db: {}
+    db: {},
+    remoteConfig: { defaultConfig: {} },
 }));
 
 vi.mock('firebase/firestore', () => ({
