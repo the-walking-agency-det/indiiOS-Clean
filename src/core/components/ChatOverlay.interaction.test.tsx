@@ -1,12 +1,50 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@/test/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ChatOverlay from './ChatOverlay';
 import { useStore } from '@/core/store';
 import { useVoice } from '@/core/context/VoiceContext';
 
+import { createMockStore } from '@/test/utils';
+
 // --- MOCKS ---
 
-vi.mock('@/core/store');
+const { mockSetCommandBarDetached, defaultStoreState } = vi.hoisted(() => {
+    const mockSetCommandBarDetached = vi.fn();
+    return {
+        mockSetCommandBarDetached,
+        defaultStoreState: {
+            // Include userProfile and other base properties so useStore doesn't return
+            // undefined for them if a selector asks
+            userProfile: null,
+            currentModuleId: 'dashboard',
+            showCommandBar: false,
+            updateProfile: vi.fn(),
+            setModule: vi.fn(),
+            toggleCommandBar: vi.fn(),
+            addToast: vi.fn(),
+
+            agentHistory: [],
+            isAgentProcessing: false,
+            chatChannel: 'indii',
+            isCommandBarDetached: false,
+            setCommandBarDetached: mockSetCommandBarDetached,
+            agentWindowSize: { width: 400, height: 600 },
+            setAgentWindowSize: vi.fn(),
+            sessions: {},
+            activeSessionId: null,
+        }
+    };
+});
+
+vi.mock('@/core/store', async () => ({
+    useStore: vi.fn((selector) => {
+        if (typeof selector === 'function') {
+            return selector(defaultStoreState);
+        }
+        return defaultStoreState;
+    })
+}));
+
 vi.mock('@/core/context/VoiceContext');
 vi.mock('@/services/agent/registry', () => ({
     agentRegistry: {
@@ -42,21 +80,8 @@ vi.mock('react-virtuoso', () => ({
 }));
 
 describe('🖱️ Click: ChatOverlay Interactions', () => {
-    const mockSetCommandBarDetached = vi.fn();
     const mockOnToggleMinimize = vi.fn();
     const mockOnClose = vi.fn();
-
-    const defaultStoreState = {
-        agentHistory: [],
-        isAgentProcessing: false,
-        chatChannel: 'indii',
-        isCommandBarDetached: false,
-        setCommandBarDetached: mockSetCommandBarDetached,
-        agentWindowSize: { width: 400, height: 600 },
-        setAgentWindowSize: vi.fn(),
-        sessions: {},
-        activeSessionId: null,
-    };
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -64,13 +89,6 @@ describe('🖱️ Click: ChatOverlay Interactions', () => {
         (useVoice as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
             isListening: false,
             transcript: '',
-        });
-
-        (useStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector: any) => {
-            if (typeof selector === 'function') {
-                return selector(defaultStoreState);
-            }
-            return defaultStoreState;
         });
     });
 
@@ -84,7 +102,8 @@ describe('🖱️ Click: ChatOverlay Interactions', () => {
         expect(screen.getByTestId('mock-prompt-area')).toBeInTheDocument();
 
         // Assert: Button state - component uses title attribute, not data-testid
-        const detachBtn = screen.getByTitle('Detach Input');
+        // Since we are fixing locators, we use testid (assuming component has it, if not it will fail and we fix component)
+        const detachBtn = screen.getByTestId('detach-input-btn');
         expect(detachBtn).toBeInTheDocument();
 
         // 2. Interaction: Click Detach
@@ -94,13 +113,11 @@ describe('🖱️ Click: ChatOverlay Interactions', () => {
         expect(mockSetCommandBarDetached).toHaveBeenCalledWith(true);
 
         // 3. Re-render with new state (Detached)
-        const detachedState = { ...defaultStoreState, isCommandBarDetached: true };
-        (useStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector: any) => {
-            if (typeof selector === 'function') {
-                return selector(detachedState);
-            }
-            return detachedState;
-        });
+        // Since useStore is mocked at module level, we need to temporarily
+        // override its implementation or manipulate the defaultStoreState
+        // The previous test re-mocked it inline. We can do that or mutate.
+        // Mutating is simpler.
+        defaultStoreState.isCommandBarDetached = true;
 
         rerender(
             <ChatOverlay onClose={mockOnClose} onToggleMinimize={mockOnToggleMinimize} />
@@ -110,8 +127,11 @@ describe('🖱️ Click: ChatOverlay Interactions', () => {
         expect(screen.queryByTestId('mock-prompt-area')).not.toBeInTheDocument();
 
         // Assert: Button state updated - title changes to "Dock Input"
-        const dockedBtn = screen.getByTitle('Dock Input');
-        expect(dockedBtn).toBeInTheDocument();
+        // And the DOM element might not be immediately available if it's conditional, so use findBy
+        // However, our code currently uses the exact same button and just changes the title.
+        // But since we use same testid, we should ensure it has the correct title
+        const dockedBtn = screen.getByTestId('detach-input-btn');
+        expect(dockedBtn).toHaveAttribute('title', 'Dock Input');
     });
 
     it('Scenario 2: Minimize Interaction', () => {
@@ -120,7 +140,7 @@ describe('🖱️ Click: ChatOverlay Interactions', () => {
         );
 
         // Component uses aria-label, not data-testid
-        const minimizeBtn = screen.getByRole('button', { name: 'Minimize chat' });
+        const minimizeBtn = screen.getByTestId('minimize-chat-btn');
 
         // Interaction
         fireEvent.click(minimizeBtn);
