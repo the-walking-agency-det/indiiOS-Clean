@@ -12,6 +12,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: [path.resolve(import.meta.dirname, './src/test/setup.ts')],
+    clearMocks: true,
+    restoreMocks: true,
+    environmentOptions: {
+      url: 'http://localhost/'
+    },
     watch: false,
     reporters: ['default', 'github-actions'],
     teardownTimeout: 1000,
@@ -30,6 +35,7 @@ export default defineConfig({
       'firestore.rules.test.ts',
       'storage.rules.test.ts',
       'A2UI/**',
+      '**/.claude/**',
     ]
   },
 });

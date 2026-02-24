@@ -55,10 +55,13 @@ export interface AgentSlice {
     // Legacy mapping (computed/synced from activeSession)
     agentHistory: AgentMessage[];
 
+    // Right Panel View State
+    rightPanelView: 'messages' | 'archives';
+    setRightPanelView: (view: 'messages' | 'archives') => void;
+
     // Session State
     sessions: Record<string, ConversationSession>;
     activeSessionId: string | null;
-    sessionsListenerUnsubscribe: (() => void) | null;
 
     // Dual-Chat Channel: 'indii' for orchestrator, 'agent' for specialists
     chatChannel: 'indii' | 'agent';
@@ -118,7 +121,6 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
     agentHistory: [],
     sessions: {},
     activeSessionId: null,
-    sessionsListenerUnsubscribe: null,
     availableAgents: [],
     isLoadingAgents: false,
     agentsError: null,
@@ -133,6 +135,9 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
     agentMode: 'assistant',
     isAgentProcessing: false,
     pendingApproval: null,
+    rightPanelView: 'messages',
+    setRightPanelView: (view) => set({ rightPanelView: view }),
+
     agentWindowSize: { width: 500, height: 800 },
 
     createSession: (title = 'New Conversation', initialAgents = ['indii']) => {
@@ -165,7 +170,8 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
         if (sessions[sessionId]) {
             set({
                 activeSessionId: sessionId,
-                agentHistory: sessions[sessionId].messages
+                agentHistory: sessions[sessionId].messages,
+                rightPanelView: 'messages' // Automatically switch back to chat when selecting a session
             });
         }
     },
@@ -201,12 +207,19 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
         };
     }),
 
-    updateSessionTitle: (sessionId, title) => set(state => ({
-        sessions: {
-            ...state.sessions,
-            [sessionId]: { ...state.sessions[sessionId], title }
-        }
-    })),
+    updateSessionTitle: (sessionId, title) => {
+        set(state => ({
+            sessions: {
+                ...state.sessions,
+                [sessionId]: { ...state.sessions[sessionId], title }
+            }
+        }));
+
+        // Persist the title change
+        import('@/services/agent/SessionService').then(({ sessionService }) => {
+            sessionService.updateSession(sessionId, { title }).catch(console.error);
+        });
+    },
 
     addAgentMessage: (msg) => set((state) => {
         // If no session exists, create one implicitly (safety net)
@@ -292,7 +305,10 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
         };
     }),
 
-    toggleAgentWindow: () => set((state) => ({ isAgentOpen: !state.isAgentOpen })),
+    toggleAgentWindow: () => set((state: any) => ({
+        isAgentOpen: !state.isAgentOpen,
+        isRightPanelOpen: !state.isAgentOpen // Open RightPanel when agent opens, close when it closes
+    })),
     setCommandBarDetached: (detached) => set({ isCommandBarDetached: detached }),
     setCommandBarInput: (input) => set({ commandBarInput: input }),
     setCommandBarAttachments: (attachments) => set({ commandBarAttachments: attachments }),
@@ -350,10 +366,6 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
     loadSessions: async () => {
         const { sessionService } = await import('@/services/agent/SessionService');
 
-        // Clean up existing listener if any
-        const currentUnsubscribe = get().sessionsListenerUnsubscribe;
-        if (currentUnsubscribe) currentUnsubscribe();
-
         try {
             const unsubscribe = sessionService.subscribeToSessions((sessions) => {
                 const sessionMap: Record<string, ConversationSession> = {};
@@ -385,7 +397,9 @@ export const createAgentSlice: StateCreator<AgentSlice> = (set, get) => ({
                 console.error('[AgentSlice] Sessions subscription error:', error);
             });
 
-            set({ sessionsListenerUnsubscribe: unsubscribe });
+            import('@/core/store').then(({ useStore }) => {
+                useStore.getState().registerSubscription('agent_sessions', unsubscribe);
+            });
         } catch (error) {
             console.error('[AgentSlice] Failed to initialize sessions subscription:', error);
         }

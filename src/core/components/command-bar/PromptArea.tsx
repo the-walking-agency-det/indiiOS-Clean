@@ -40,6 +40,8 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         setModule,
         toggleAgentWindow,
         isAgentOpen,
+        isRightPanelOpen,
+        toggleRightPanel,
         chatChannel,
         setChatChannel,
         isCommandBarDetached,
@@ -58,6 +60,8 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         setModule: state.setModule,
         toggleAgentWindow: state.toggleAgentWindow,
         isAgentOpen: state.isAgentOpen,
+        isRightPanelOpen: state.isRightPanelOpen,
+        toggleRightPanel: state.toggleRightPanel,
         chatChannel: state.chatChannel,
         setChatChannel: state.setChatChannel,
         isCommandBarDetached: state.isCommandBarDetached,
@@ -177,6 +181,8 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
 
             if (!isAgentOpen) {
                 toggleAgentWindow();
+            } else if (!isRightPanelOpen) {
+                toggleRightPanel();
             }
 
             try {
@@ -195,7 +201,7 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
             console.error("PromptArea: Fatal crash", fatalError);
             setIsProcessing(false);
         }
-    }, [commandBarInput, commandBarAttachments, isAgentOpen, toggleAgentWindow, currentModule, knownAgentIds, processAttachments, toast, isProcessing, isIndiiMode, setCommandBarInput, setCommandBarAttachments]);
+    }, [commandBarInput, commandBarAttachments, isAgentOpen, isRightPanelOpen, toggleAgentWindow, toggleRightPanel, currentModule, knownAgentIds, processAttachments, toast, isProcessing, isIndiiMode, setCommandBarInput, setCommandBarAttachments]);
 
     return (
         <div
