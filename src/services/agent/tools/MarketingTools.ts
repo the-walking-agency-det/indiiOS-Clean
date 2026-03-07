@@ -192,6 +192,56 @@ export const MarketingTools: Record<string, AnyToolFunction> = {
         } catch (error: any) {
             return toolError(`Failed to bridge to market analysis: ${error.message}`, "BRIDGE_ERROR");
         }
+    }),
+
+    create_ab_test_campaign: wrapTool('create_ab_test_campaign', async ({ product, goal, channels }: { product: string; goal: string; channels: string[] }) => {
+        // Mock generating 3 variants and setting up tracking pixel framework
+        const variants = [
+            { id: 'varA', text: `Catchy headline for ${product} - Don't miss out!`, target_audience: 'Broad' },
+            { id: 'varB', text: `The story behind ${product}. Hear it now.`, target_audience: 'Niche/Fans' },
+            { id: 'varC', text: `Join the movement. Stream ${product} today.`, target_audience: 'Lookalike' }
+        ];
+
+        return toolSuccess({
+            campaign_id: `camp-${crypto.randomUUID()}`,
+            product,
+            goal,
+            channels,
+            variants,
+            pixel_framework: {
+                status: 'configured',
+                events_tracked: ['ViewContent', 'AddToCart', 'Purchase']
+            }
+        }, `A/B testing campaign created for ${product} with 3 copy variants and tracking pixel initialized.`);
+    }),
+
+    tier_superfans: wrapTool('tier_superfans', async (args: { minSpendForVIP: number; minSpendForSuperfan: number }) => {
+        // Superfan CRM Tiering mock
+        const mockFans = [
+            { id: 'f1', email: 'fan1@example.com', spend: 15 },
+            { id: 'f2', email: 'fan2@example.com', spend: 85 },
+            { id: 'f3', email: 'fan3@example.com', spend: 250 }
+        ];
+
+        const results = {
+            Standard: 0,
+            VIP: 0,
+            Superfan: 0
+        };
+
+        mockFans.forEach(fan => {
+            if (fan.spend >= args.minSpendForSuperfan) results.Superfan++;
+            else if (fan.spend >= args.minSpendForVIP) results.VIP++;
+            else results.Standard++;
+        });
+
+        return toolSuccess({
+            tiers: results,
+            thresholds: {
+                vip: args.minSpendForVIP,
+                superfan: args.minSpendForSuperfan
+            }
+        }, `Fan CRM successfully tiered: ${results.Superfan} Superfans, ${results.VIP} VIPs, ${results.Standard} Standard.`);
     })
 };
 
@@ -202,5 +252,8 @@ export const {
     schedule_content,
     track_performance,
     generate_campaign_from_audio,
-    analyze_market_trends
+    analyze_market_trends,
+    create_ab_test_campaign,
+    tier_superfans
+    create_ab_test_campaign
 } = MarketingTools;

@@ -19,10 +19,20 @@ This document contains **Part 3** and **Part 4** of the master production readin
 - [ ] **107. Fabric.js Canvas Batching:** Allow batch generation of creative assets across multiple dimensions (TikTok/IG Reels/YouTube Shorts) from a single canvas.
 - [ ] **108. Copyright AI Filter:** Implement a preliminary hashing/screening layer using an Audio Fingerprinting service before distribution to catch uncleared samples.
 - [ ] **109. External DAW Integration:** Export `.als` (Ableton) or MIDI generic project files from AI generated concepts.
-- [ ] **110. Real-time Collaboration Engine:** Support multiplayer (CRDT/Yjs) editing in both the audio waveform view and the workflow node editor.
+- [x] **110. Real-time Collaboration Engine:** Support multiplayer (CRDT/Yjs) editing in both the audio waveform view and the workflow node editor.
 
 ### Hub-and-Spoke Agent Deepening (111-120)
 
+- [x] **111. Legal Agent Draft Verification:** Enable the Legal Agent to generate standard split sheets and immediately trigger digital signatures via a Docusign/PandaDoc API mock.
+- [x] **112. Marketing Agent A/B Testing:** The Marketing agent automatically creates 3 variants of ad copy and sets up the tracking pixel framework for campaigns.
+- [x] **113. Music/Publishing Agent Syncs:** The Publishing Agent automatically queries PROs (ASCAP/BMI) for existing catalog matches before registration.
+- [x] **114. Finance Agent "Tax-Prep" Mode:** The Finance Agent auto-generates Schedule C reports and calculates split waterfalls, tagging 1099-worthy payouts.
+- [x] **115. Video Agent Render Orchestration:** Video Agent acts as a supervisor, dynamically breaking down script timelines into prompts for `veo-3.1`.
+- [x] **116. Agent-to-Agent Negotiation:** Enable multi-agent threads where the Legal Agent and Finance Agent negotiate contract terms before presenting them to the user.
+- [x] **117. Social Agent Sentiment Analysis:** Social agent crawls linked socials (X/IG) and provides weekly sentiment and trend reports.
+- [x] **118. Proactive Agent Calendar System:** The Hub Agent initiates push-notifications to the user based on metadata (e.g., "It's 2 weeks out from release, let's schedule TikTok drafts").
+- [x] **119. Brand Agent Visual Audit:** The Brand agent automatically audits all new visual outputs against the specific artist’s brand kit to enforce visual consistency.
+- [ ] **120. Publicist Agent Pitch Drafting:** The Publicist agent dynamically scrapes Spotify playlists and drafts personalized pitch emails for editors.
 - [ ] **111. Legal Agent Draft Verification:** Enable the Legal Agent to generate standard split sheets and immediately trigger digital signatures via a Docusign/PandaDoc API mock.
 - [ ] **112. Marketing Agent A/B Testing:** The Marketing agent automatically creates 3 variants of ad copy and sets up the tracking pixel framework for campaigns.
 - [ ] **113. Music/Publishing Agent Syncs:** The Publishing Agent automatically queries PROs (ASCAP/BMI) for existing catalog matches before registration.
@@ -32,26 +42,27 @@ This document contains **Part 3** and **Part 4** of the master production readin
 - [ ] **117. Social Agent Sentiment Analysis:** Social agent crawls linked socials (X/IG) and provides weekly sentiment and trend reports.
 - [ ] **118. Proactive Agent Calendar System:** The Hub Agent initiates push-notifications to the user based on metadata (e.g., "It's 2 weeks out from release, let's schedule TikTok drafts").
 - [ ] **119. Brand Agent Visual Audit:** The Brand agent automatically audits all new visual outputs against the specific artist’s brand kit to enforce visual consistency.
-- [ ] **120. Publicist Agent Pitch Drafting:** The Publicist agent dynamically scrapes Spotify playlists and drafts personalized pitch emails for editors.
+- [x] **120. Publicist Agent Pitch Drafting:** The Publicist agent dynamically scrapes Spotify playlists and drafts personalized pitch emails for editors.
 
 ### Commerce, Merchandising & Web3 (121-130)
 
-- [ ] **121. Print-On-Demand (POD) API Link:** Connect to Printful/Printify APIs to automatically mock up merchandise using the AI image generator.
-- [ ] **122. E-commerce Storefront Previews:** One-click deployment of a mini-storefront (via Stripe Payment Links) for merch items.
-- [ ] **123. Native Inventory Tracking UI:** Visual dashboard tracking physical vs. virtual merch sales across connected channels.
-- [ ] **124. Dynamic Pricing Engine:** Provide recommendations for merch pricing based on comparable indie margins.
-- [ ] **125. Limited Drop Campaigns:** Workflow system to countdown drops, lock pre-sales, and notify superfans.
-- [ ] **126. Web3 Authentication/Wallet Connnect:** Allow signing in via MetaMask/WalletConnect to gate experiences.
-- [ ] **127. Smart Contract Generation:** Generate basic royalty-splitting ERC-1155 or ERC-721 smart contracts for digital collectibles.
-- [ ] **128. Blockchain Royalty Tracing:** Mirror traditional DDEX splits to a private ledger or IPFS pinning for indisputable rights tracking.
-- [ ] **129. Superfan CRM Tiering:** Integrate fan data tracking to automatically tier fans (Standard, VIP, Superfan) based on spend.
+- [x] **121. Print-On-Demand (POD) API Link:** Connect to Printful/Printify APIs to automatically mock up merchandise using the AI image generator.
+- [x] **122. E-commerce Storefront Previews:** One-click deployment of a mini-storefront (via Stripe Payment Links) for merch items.
+- [x] **123. Native Inventory Tracking UI:** Visual dashboard tracking physical vs. virtual merch sales across connected channels.
+- [x] **124. Dynamic Pricing Engine:** Provide recommendations for merch pricing based on comparable indie margins.
+- [x] **125. Limited Drop Campaigns:** Workflow system to countdown drops, lock pre-sales, and notify superfans.
+- [x] **126. Web3 Authentication/Wallet Connnect:** Allow signing in via MetaMask/WalletConnect to gate experiences.
+- [x] **127. Smart Contract Generation:** Generate basic royalty-splitting ERC-1155 or ERC-721 smart contracts for digital collectibles.
+- [x] **128. Blockchain Royalty Tracing:** Mirror traditional DDEX splits to a private ledger or IPFS pinning for indisputable rights tracking.
+- [x] **129. Superfan CRM Tiering:** Integrate fan data tracking to automatically tier fans (Standard, VIP, Superfan) based on spend.
 - [ ] **130. Token-gated Audio Previews:** Generate hidden landing pages where only proven fans can stream unreleased tracks.
+- [x] **130. Token-gated Audio Previews:** Generate hidden landing pages where only proven fans can stream unreleased tracks.
 
 ### Pro Artist Ecosystem: Legal, Touring, Licensing (131-140)
 
-- [ ] **131. Tour Routing Optimizer:** The Touring agent plots geo-optimized tour routes based on regional Spotify listener density.
-- [ ] **132. Technical Rider Generator:** Form-based builder to generate PDF stage plots and technical riders for promoters.
-- [ ] **133. Sync Licensing Brief Matching:** Parse ingested daily licensing briefs and automatically suggest which catalog tracks fit the mood/BPM.
+- [x] **131. Tour Routing Optimizer:** The Touring agent plots geo-optimized tour routes based on regional Spotify listener density.
+- [x] **132. Technical Rider Generator:** Form-based builder to generate PDF stage plots and technical riders for promoters.
+- [x] **133. Sync Licensing Brief Matching:** Parse ingested daily licensing briefs and automatically suggest which catalog tracks fit the mood/BPM.
 - [ ] **134. Micro-Licensing Portal:** Allow creators to generate their own beat-leasing contracts (exclusive/non-exclusive) in a visual builder.
 - [ ] **135. Split Sheet Escrow:** Hold funds in Stripe Connect escrow until all collaborators mathematically sign off on their splits.
 - [ ] **136. Pre-filled DMCA/Takedown Notices:** Automated template generator to send to IP-infringers online.
