@@ -255,4 +255,5 @@ export const {
     analyze_market_trends,
     create_ab_test_campaign,
     tier_superfans
+    create_ab_test_campaign
 } = MarketingTools;
