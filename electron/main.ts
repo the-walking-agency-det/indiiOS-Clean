@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, Tray, Menu, nativeImage, Notification } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, Tray, Menu, nativeImage, Notification, powerMonitor } from 'electron';
 import path from 'path';
 import log from 'electron-log';
 import { registerSystemHandlers } from './handlers/system';
@@ -361,6 +361,22 @@ if (!gotTheLock) {
         // Register Notification IPC
         ipcMain.on('show-notification', (_event, { title, body }) => {
             showNotification(title, body);
+        });
+
+        // Power Monitor (Item 165: CPU Throttling)
+        powerMonitor.on('on-battery', () => {
+            log.info('[PowerMonitor] System is on battery. Throttling CPU-heavy UI (Three.js/Animations).');
+            BrowserWindow.getAllWindows().forEach(win => win.webContents.send('power:on-battery'));
+        });
+
+        powerMonitor.on('on-ac', () => {
+            log.info('[PowerMonitor] System is on AC power. Restoring full UI performance.');
+            BrowserWindow.getAllWindows().forEach(win => win.webContents.send('power:on-ac'));
+        });
+
+        // Send initial state on load
+        ipcMain.handle('power:get-state', () => {
+            return powerMonitor.isOnBatteryPower() ? 'battery' : 'ac';
         });
 
         // Auto-updater (production only)
