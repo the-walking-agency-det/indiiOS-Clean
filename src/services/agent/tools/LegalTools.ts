@@ -80,5 +80,77 @@ Key Terms: ${args.terms}`;
             terms: `Purpose: ${args.purpose}. Standard confidentiality obligations apply.`
         });
         return result;
+    }),
+
+    generate_split_sheet: wrapTool('generate_split_sheet', async (args: {
+        trackTitle: string;
+        contributors: Array<{ name: string; role: string; percentage: number }>;
+    }) => {
+        // Validation
+        const total = args.contributors.reduce((acc, c) => acc + c.percentage, 0);
+        if (total !== 100) {
+            return toolSuccess({ error: `Percentages must add up to 100%. Current total: ${total}%` }, 'Failed to generate split sheet');
+        }
+
+        const terms = `Track Title: ${args.trackTitle}\nContributors:\n` + args.contributors.map(c => `- ${c.name} (${c.role}): ${c.percentage}%`).join('\n');
+
+        const result = await LegalTools.draft_contract({
+            type: 'Split Sheet',
+            parties: args.contributors.map(c => c.name),
+            terms: terms
+        });
+
+        return toolSuccess({
+            ...result,
+            message: `Split sheet generated for "${args.trackTitle}"`
+        }, result.message);
+    }),
+
+    trigger_digital_signature: wrapTool('trigger_digital_signature', async (args: {
+        contractId: string;
+        signers: Array<{ name: string; email: string }>;
+        provider?: 'Docusign' | 'PandaDoc';
+    }) => {
+        const provider = args.provider || 'Docusign';
+        logger.info(`[LegalTools] Triggering ${provider} mock API for contract ${args.contractId}`);
+
+        // Mocking the API response
+        return toolSuccess({
+            contractId: args.contractId,
+            provider,
+            envelopeId: `mock-env-${crypto.randomUUID()}`,
+            status: 'sent',
+            sentTo: args.signers.map(s => s.email)
+        }, `Digital signature requests sent via ${provider} to ${args.signers.length} signers.`);
+    }),
+
+    generate_dmca_takedown: wrapTool('generate_dmca_takedown', async (args: { infringingUrl: string; originalWorkTitle: string; rightsholderName: string }) => {
+        // Mock pre-filled DMCA/Takedown Notices generator (Item 136)
+        const mockDraft = `
+**DMCA TAKEDOWN NOTICE**
+To whom it may concern,
+I am the authorized representative for ${args.rightsholderName}.
+The following URL (${args.infringingUrl}) contains unauthorized use of the copyrighted work "${args.originalWorkTitle}".
+...
+        `.trim();
+
+        return toolSuccess({
+            infringingUrl: args.infringingUrl,
+            originalWorkTitle: args.originalWorkTitle,
+            rightsholderName: args.rightsholderName,
+            draftText: mockDraft,
+            status: 'Pre-filled Draft Created'
+        }, `DMCA Takedown Notice generated for "${args.originalWorkTitle}" against URL ${args.infringingUrl}. Draft ready for review and sending.`);
+    }),
+
+    verify_mechanical_license: wrapTool('verify_mechanical_license', async (args: { trackTitle: string; originalArtist: string }) => {
+        // Mock Mechanical Licensing Verification (Item 177)
+        return toolSuccess({
+            coverSong: args.trackTitle,
+            originalArtist: args.originalArtist,
+            hfaStatus: 'Clearance Required',
+            userAcknowledged: false,
+            link: `https://www.songfile.com/`
+        }, `Mechanical licensing verification required for cover song "${args.trackTitle}". User must acknowledge HFA/Music Reports compliance before delivery.`);
     })
 };
