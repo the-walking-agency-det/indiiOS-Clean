@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { MapPin, Sparkles, Megaphone, Mail, ExternalLink, RefreshCw } from 'lucide-react';
 import { MarketingService } from '@/services/marketing/MarketingService';
 import { CampaignAsset } from '@/modules/marketing/types';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { MapPin, Sparkles, Filter } from 'lucide-react';
 import { VenueScoutService, ScoutEvent } from '../services/VenueScoutService';
 import { useAgentStore } from '../store/AgentStore';
 import BrowserAgentTester from './BrowserAgentTester';
@@ -377,6 +379,20 @@ const AgentDashboard: React.FC = () => {
                                 {/* Inline prompt area */}
                                 <div className="shrink-0 border-t border-slate-800 px-4 py-3">
                                     <PromptArea />
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'tasks' && (
+                            <div className="h-full overflow-hidden">
+                                <TaskTracker />
+                            </div>
+                        )}
+
+                        {activeTab !== 'scout' && activeTab !== 'browser' && activeTab !== 'chat' && activeTab !== 'tasks' && (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
+                                <div className="p-4 bg-slate-900 rounded-full border border-slate-800">
+                                    <Filter size={32} className="opacity-50" />
                                 </div>
                             </div>
                         )}
