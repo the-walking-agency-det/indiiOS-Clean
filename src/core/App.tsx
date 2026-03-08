@@ -74,7 +74,6 @@ const InvestorPortal = lazy(() => import('../modules/investor/InvestorPortal'));
 const GhostCapture = lazy(() => import('../modules/capture/GhostCapture'));
 const MemoryDashboard = lazy(() => import('../modules/memory/MemoryDashboard'));
 const MarketplaceModule = lazy(() => import('../modules/marketplace'));
-const MarketplaceStorefront = lazy(() => import('../modules/marketplace/components/MarketplaceStorefront'));
 
 // ============================================================================
 // Module Router - Maps module IDs to components
