@@ -43,6 +43,7 @@ async function checkAgentZero(): Promise<ServiceHealth> {
         const ctrl = new AbortController();
         const timeout = setTimeout(() => ctrl.abort(), 3000);
         const res = await fetch(`${AGENT_ZERO_URL}/ping`, { signal: ctrl.signal });
+        const res = await fetch('http://localhost:50080/ping', { signal: ctrl.signal });
         clearTimeout(timeout);
         return {
             name: 'Agent Zero Sidecar',
@@ -101,6 +102,8 @@ export const HealthPanel: React.FC = () => {
         : services.some(s => s.status === 'degraded' || s.status === 'checking')
         ? 'degraded'
         : 'healthy';
+            ? 'degraded'
+            : 'healthy';
 
     const OverallIcon = STATUS_CONFIG[overallStatus].icon;
 
@@ -117,6 +120,12 @@ export const HealthPanel: React.FC = () => {
                             ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                             : 'bg-red-500/10 text-red-400 border-red-500/20'
                     }`}>
+                    <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${overallStatus === 'healthy'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : overallStatus === 'degraded'
+                                ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                                : 'bg-red-500/10 text-red-400 border-red-500/20'
+                        }`}>
                         <OverallIcon size={11} className={overallStatus === 'checking' ? 'animate-spin' : ''} />
                         {overallStatus === 'healthy' ? 'All Systems Operational' : overallStatus === 'degraded' ? 'Partial Degradation' : 'System Issue'}
                     </span>

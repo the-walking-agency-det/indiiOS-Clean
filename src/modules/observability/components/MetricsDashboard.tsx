@@ -60,6 +60,11 @@ export const MetricsDashboard: React.FC = () => {
               cost: Number(data.cost.toFixed(4)),
               tokens: data.tokens,
           }))
+            name: name.replace('-agent', '').replace('_', ' '),
+            calls: data.count,
+            cost: Number(data.cost.toFixed(4)),
+            tokens: data.tokens,
+        }))
         : [];
 
     return (
@@ -77,6 +82,10 @@ export const MetricsDashboard: React.FC = () => {
                                     ? 'bg-slate-700 text-white'
                                     : 'text-slate-500 hover:text-white'
                             }`}
+                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${timeRange === range
+                                    ? 'bg-slate-700 text-white'
+                                    : 'text-slate-500 hover:text-white'
+                                }`}
                         >
                             {TIME_RANGE_LABELS[range]}
                         </button>
@@ -116,6 +125,8 @@ export const MetricsDashboard: React.FC = () => {
                                     : metrics.totalTokens > 1_000
                                     ? `${(metrics.totalTokens / 1_000).toFixed(1)}K`
                                     : metrics.totalTokens.toString()
+                                        ? `${(metrics.totalTokens / 1_000).toFixed(1)}K`
+                                        : metrics.totalTokens.toString()
                             }
                             icon={Cpu}
                             color="text-blue-400"
