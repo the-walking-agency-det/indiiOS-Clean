@@ -73,6 +73,7 @@ const InvestorPortal = lazy(() => import('../modules/investor/InvestorPortal'));
 const GhostCapture = lazy(() => import('../modules/capture/GhostCapture'));
 const MemoryDashboard = lazy(() => import('../modules/memory/MemoryDashboard'));
 const MarketplaceModule = lazy(() => import('../modules/marketplace'));
+const SelectOrg = lazy(() => import('../modules/select-org/SelectOrg'));
 
 // ============================================================================
 // Module Router - Maps module IDs to components
@@ -103,6 +104,8 @@ const MODULE_COMPONENTS: Partial<Record<ModuleId, React.LazyExoticComponent<Reac
     'merch': MerchStudio,
     'marketplace': MarketplaceModule,
     'audio-analyzer': AudioAnalyzer,
+    'observability': ObserverabilityDashboard,
+    'select-org': SelectOrg,
     'history': HistoryDashboard,
     'debug': MultimodalGauntlet,
     'investor': InvestorPortal,
