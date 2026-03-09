@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Filter, SlidersHorizontal, Music, Play, Plus } from 'lucide-react';
+import { useStore } from '@/core/store';
+import { getFirestore, collection, query, orderBy, getDocs } from 'firebase/firestore';
 
 interface CatalogTrack {
     id: string;
@@ -13,22 +15,37 @@ interface CatalogTrack {
     isCleared: boolean;
 }
 
-const MOCK_CATALOG: CatalogTrack[] = [
-    { id: '1', title: 'Neon Horizon', artist: 'Synthwave Dreams', genre: 'Electronic', mood: 'Energetic', bpm: 120, duration: '3:45', isCleared: true },
-    { id: '2', title: 'Midnight Stroll', artist: 'Jazz Cats', genre: 'Jazz', mood: 'Chill', bpm: 85, duration: '4:12', isCleared: true },
-    { id: '3', title: 'Urban Pulse', artist: 'Beatsmith', genre: 'Hip Hop', mood: 'Intense', bpm: 95, duration: '2:58', isCleared: false },
-    { id: '4', title: 'Ethereal Voices', artist: 'Choir X', genre: 'Classical', mood: 'Uplifting', bpm: 75, duration: '5:01', isCleared: true },
-    { id: '5', title: 'Bass Drop', artist: 'DJ Wubs', genre: 'Dubstep', mood: 'Aggressive', bpm: 140, duration: '3:15', isCleared: false },
-    { id: '6', title: 'Sunny Drive', artist: 'Indie Vibes', genre: 'Acoustic', mood: 'Happy', bpm: 110, duration: '2:30', isCleared: true },
-    { id: '7', title: 'Dark Corridors', artist: 'Cinematix', genre: 'Cinematic', mood: 'Suspense', bpm: 60, duration: '4:45', isCleared: true },
-    { id: '8', title: 'Lo-Fi Chill', artist: 'Study Beats', genre: 'Lo-Fi', mood: 'Relaxed', bpm: 70, duration: '3:20', isCleared: true },
-];
-
 export function CatalogSearchTab() {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [activeGenre, setActiveGenre] = useState<string>('All');
     const [isLoading, setIsLoading] = useState(false);
+    const [catalog, setCatalog] = useState<CatalogTrack[]>([]);
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const userProfile = useStore(s => s.userProfile);
+
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        const db = getFirestore();
+        const ref = collection(db, `users/${userProfile.id}/catalog`);
+        const q = query(ref, orderBy('title', 'asc'));
+        getDocs(q).then(snap => {
+            const tracks: CatalogTrack[] = snap.docs.map(doc => {
+                const d = doc.data();
+                return {
+                    id: doc.id,
+                    title: d.title || '',
+                    artist: d.artist || '',
+                    genre: d.genre || '',
+                    mood: d.mood || '',
+                    bpm: d.bpm || 0,
+                    duration: d.duration || '0:00',
+                    isCleared: d.isCleared ?? true,
+                };
+            });
+            setCatalog(tracks);
+        }).catch(() => setCatalog([])).finally(() => setCatalogLoading(false));
+    }, [userProfile?.id]);
 
     // Debounce search
     useEffect(() => {
@@ -41,7 +58,7 @@ export function CatalogSearchTab() {
 
     // Derived filtered generic data
     const filteredTracks = React.useMemo(() => {
-        let results = MOCK_CATALOG;
+        let results = catalog;
         if (debouncedQuery) {
             const lowerQuery = debouncedQuery.toLowerCase();
             results = results.filter(
@@ -55,9 +72,9 @@ export function CatalogSearchTab() {
             results = results.filter((track) => track.genre === activeGenre);
         }
         return results;
-    }, [debouncedQuery, activeGenre]);
+    }, [debouncedQuery, activeGenre, catalog]);
 
-    const genres = ['All', ...Array.from(new Set(MOCK_CATALOG.map(t => t.genre)))];
+    const genres = ['All', ...Array.from(new Set(catalog.map(t => t.genre)))];
 
     return (
         <div className="flex flex-col h-full gap-6">
@@ -113,7 +130,9 @@ export function CatalogSearchTab() {
             {/* Results Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-12">
                 <AnimatePresence mode="popLayout">
-                    {filteredTracks.length === 0 ? (
+                    {catalogLoading ? (
+                        <div className="col-span-full py-20 text-center text-gray-400 text-sm">Loading catalog...</div>
+                    ) : filteredTracks.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, Lock, Unlock, DollarSign, Users, AlertTriangle, CreditCard, Loader2 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useStore } from '@/core/store';
+import { getFirestore, collection, query, getDocs } from 'firebase/firestore';
 
 /* ================================================================== */
 /*  Split Sheet Escrow — Collaborative Funds Release Tool              */
@@ -16,20 +18,35 @@ interface Collaborator {
     accountId?: string;
 }
 
-const MOCK_COLLABORATORS: Collaborator[] = [
-    { id: '1', name: 'Marcus Webb', role: 'Producer', splitPct: 40, signed: false, accountId: 'acct_mock_marcus' },
-    { id: '2', name: 'Jasmine Cole', role: 'Vocalist', splitPct: 30, signed: false },
-    { id: '3', name: 'Devon Park', role: 'Co-Writer', splitPct: 20, signed: false },
-    { id: '4', name: 'Tara Singh', role: 'Mixing Engineer', splitPct: 10, signed: false },
-];
-
 const ESCROW_AMOUNT = 4800;
 
 export function SplitSheetEscrow() {
-    const [collaborators, setCollaborators] = useState<Collaborator[]>(MOCK_COLLABORATORS);
+    const userProfile = useStore(s => s.userProfile);
+    const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+    const [collabLoading, setCollabLoading] = useState(true);
     const [released, setReleased] = useState(false);
     const [releasing, setReleasing] = useState(false);
     const [releaseError, setReleaseError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!userProfile?.id) { setCollabLoading(false); return; }
+        const db = getFirestore();
+        const ref = collection(db, `users/${userProfile.id}/collaborators`);
+        getDocs(query(ref)).then(snap => {
+            const collabs: Collaborator[] = snap.docs.map(doc => {
+                const d = doc.data();
+                return {
+                    id: doc.id,
+                    name: d.name || 'Unknown',
+                    role: d.role || '',
+                    splitPct: d.splitPct || 0,
+                    signed: d.signed ?? false,
+                    accountId: d.accountId,
+                };
+            });
+            setCollaborators(collabs);
+        }).catch(() => setCollaborators([])).finally(() => setCollabLoading(false));
+    }, [userProfile?.id]);
 
     const signedCount = collaborators.filter(c => c.signed).length;
     const totalCount = collaborators.length;
@@ -91,7 +108,18 @@ export function SplitSheetEscrow() {
                 </div>
             </div>
 
-            {released ? (
+            {collabLoading && (
+                <div className="flex items-center justify-center py-20 text-gray-500 text-sm">Loading collaborators...</div>
+            )}
+
+            {!collabLoading && collaborators.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-2">
+                    <Users size={28} className="opacity-30" />
+                    <p className="text-sm">No collaborators found. Add collaborators to this project to use split sheet escrow.</p>
+                </div>
+            )}
+
+            {!collabLoading && collaborators.length > 0 && (released ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-16 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                     <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
                         <Unlock size={28} className="text-emerald-400" />
@@ -112,7 +140,7 @@ export function SplitSheetEscrow() {
                         ))}
                     </div>
                     <button
-                        onClick={() => { setReleased(false); setCollaborators(MOCK_COLLABORATORS); }}
+                        onClick={() => { setReleased(false); setCollaborators(prev => prev.map(c => ({ ...c, signed: false }))); }}
                         className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors mt-2"
                     >
                         Reset Demo
@@ -263,7 +291,7 @@ export function SplitSheetEscrow() {
                         </div>
                     </div>
                 </>
-            )}
+            ))}
 
             {!released && !allSigned && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">

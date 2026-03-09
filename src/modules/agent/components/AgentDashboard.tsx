@@ -24,6 +24,7 @@ import { ChatMessage } from '@/core/components/chat/ChatMessage';
 import { PromptArea } from '@/core/components/command-bar/PromptArea';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
+import { getFirestore, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 const STATUS_COLORS: Record<string, string> = {
     active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -108,56 +109,101 @@ const CampaignsTab: React.FC = () => {
     );
 };
 
-const MOCK_INBOX = [
-    { id: '1', from: 'Venue Contact', subject: 'Re: Booking inquiry – The Shelter', preview: "Hey, thanks for reaching out! We have a Friday slot open in April...", time: '2h ago', unread: true },
-    { id: '2', from: 'DistroKid', subject: 'Your release is live', preview: "Your track 'Midnight Drive' is now available on all platforms.", time: '1d ago', unread: false },
-    { id: '3', from: 'Sync Agent', subject: 'Licensing opportunity – Film project', preview: "A director is interested in licensing your catalog for...", time: '2d ago', unread: true },
-];
+interface InboxMessage {
+    id: string;
+    from: string;
+    subject: string;
+    preview: string;
+    time: string;
+    unread: boolean;
+}
 
 const InboxTab: React.FC = () => {
+    const userProfile = useStore(s => s.userProfile);
+    const [messages, setMessages] = useState<InboxMessage[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!userProfile?.id) {
+            setLoading(false);
+            return;
+        }
+        const db = getFirestore();
+        const ref = collection(db, `users/${userProfile.id}/inbox`);
+        const q = query(ref, orderBy('createdAt', 'desc'), limit(50));
+        getDocs(q)
+            .then(snap => {
+                const entries: InboxMessage[] = snap.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        from: data.from || 'Unknown',
+                        subject: data.subject || '',
+                        preview: data.preview || '',
+                        time: data.createdAt?.toDate?.()?.toLocaleDateString() || '',
+                        unread: data.unread ?? false,
+                    };
+                });
+                setMessages(entries);
+            })
+            .catch(() => setMessages([]))
+            .finally(() => setLoading(false));
+    }, [userProfile?.id]);
+
     return (
         <div className="absolute inset-0 overflow-y-auto custom-scrollbar p-6 space-y-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                     <Mail size={18} className="text-emerald-400" /> Inbox
-                    <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                        {MOCK_INBOX.filter(m => m.unread).length}
-                    </span>
+                    {!loading && messages.filter(m => m.unread).length > 0 && (
+                        <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                            {messages.filter(m => m.unread).length}
+                        </span>
+                    )}
                 </h2>
                 <p className="text-xs text-slate-600">Aggregated from connected integrations</p>
             </div>
 
-            <div className="space-y-1">
-                {MOCK_INBOX.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`flex items-start gap-3 p-4 rounded-xl border transition-colors cursor-pointer hover:border-slate-700 ${
-                            msg.unread ? 'bg-slate-900 border-slate-800' : 'bg-slate-900/40 border-transparent'
-                        }`}
-                    >
-                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-400">
-                            {msg.from[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <p className={`text-sm truncate ${msg.unread ? 'font-semibold text-white' : 'text-slate-300'}`}>
-                                    {msg.from}
-                                </p>
-                                <span className="text-xs text-slate-600 flex-shrink-0">{msg.time}</span>
+            {loading ? (
+                <div className="space-y-1">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-20 bg-slate-900 rounded-xl animate-pulse border border-slate-800" />
+                    ))}
+                </div>
+            ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-600 space-y-3">
+                    <Mail size={32} className="opacity-30" />
+                    <p className="text-sm text-center">Connect Gmail or Outlook in Settings to see your inbox.</p>
+                </div>
+            ) : (
+                <div className="space-y-1">
+                    {messages.map((msg) => (
+                        <div
+                            key={msg.id}
+                            className={`flex items-start gap-3 p-4 rounded-xl border transition-colors cursor-pointer hover:border-slate-700 ${
+                                msg.unread ? 'bg-slate-900 border-slate-800' : 'bg-slate-900/40 border-transparent'
+                            }`}
+                        >
+                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-400">
+                                {msg.from[0]}
                             </div>
-                            <p className={`text-xs truncate mt-0.5 ${msg.unread ? 'text-slate-300' : 'text-slate-500'}`}>
-                                {msg.subject}
-                            </p>
-                            <p className="text-xs text-slate-600 truncate mt-0.5">{msg.preview}</p>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className={`text-sm truncate ${msg.unread ? 'font-semibold text-white' : 'text-slate-300'}`}>
+                                        {msg.from}
+                                    </p>
+                                    <span className="text-xs text-slate-600 flex-shrink-0">{msg.time}</span>
+                                </div>
+                                <p className={`text-xs truncate mt-0.5 ${msg.unread ? 'text-slate-300' : 'text-slate-500'}`}>
+                                    {msg.subject}
+                                </p>
+                                <p className="text-xs text-slate-600 truncate mt-0.5">{msg.preview}</p>
+                            </div>
+                            {msg.unread && <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 mt-1.5" />}
                         </div>
-                        {msg.unread && <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 mt-1.5" />}
-                    </div>
-                ))}
-            </div>
-
-            <p className="text-center text-xs text-slate-700 pt-2">
-                Full email integration coming soon. Connect Gmail / Outlook in Settings.
-            </p>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

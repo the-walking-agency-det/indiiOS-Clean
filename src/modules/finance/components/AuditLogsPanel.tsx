@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Shield, Download, Radio, Filter, ChevronDown } from 'lucide-react';
+import { useStore } from '@/core/store';
+import { getFirestore, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 /* ================================================================== */
 /*  Item 158 — Audit Logs GUI                                          */
@@ -18,47 +20,49 @@ interface LogEntry {
     status: LogStatus;
 }
 
-const MOCK_LOGS: LogEntry[] = [
-    { id: 1, timestamp: '2026-03-07 09:41:02', user: 'system', agent: 'DistributionAgent', action: 'DDEX_UPLOAD', resource: 'release/midnight-circuit-v2', status: 'success' },
-    { id: 2, timestamp: '2026-03-07 09:38:45', user: 'the.walking.agency.det@gmail.com', agent: 'none', action: 'LOGIN', resource: 'auth/session', status: 'success' },
-    { id: 3, timestamp: '2026-03-07 09:35:12', user: 'system', agent: 'FinanceAgent', action: 'ROYALTY_CALC', resource: 'finance/payout-march', status: 'success' },
-    { id: 4, timestamp: '2026-03-07 09:30:04', user: 'system', agent: 'DistributionAgent', action: 'SFTP_PUSH', resource: 'distributor/TuneCore', status: 'failure' },
-    { id: 5, timestamp: '2026-03-07 09:28:33', user: 'the.walking.agency.det@gmail.com', agent: 'none', action: 'FILE_UPLOAD', resource: 'storage/audio/glass-waves.wav', status: 'success' },
-    { id: 6, timestamp: '2026-03-07 09:22:18', user: 'system', agent: 'LicensingAgent', action: 'SYNC_LICENSE_CHECK', resource: 'license/track-3942', status: 'success' },
-    { id: 7, timestamp: '2026-03-07 09:18:07', user: 'system', agent: 'PublicistAgent', action: 'PRESS_RELEASE_SEND', resource: 'marketing/pr-midnight-circuit', status: 'success' },
-    { id: 8, timestamp: '2026-03-07 09:15:44', user: 'system', agent: 'FinanceAgent', action: 'STRIPE_PAYOUT_INIT', resource: 'payment/payout-4421', status: 'failure' },
-    { id: 9, timestamp: '2026-03-07 09:10:22', user: 'the.walking.agency.det@gmail.com', agent: 'none', action: 'RELEASE_CREATE', resource: 'distribution/release/GlassWaves-EP', status: 'success' },
-    { id: 10, timestamp: '2026-03-07 09:05:55', user: 'system', agent: 'SocialAgent', action: 'INSTAGRAM_POST', resource: 'social/post-82937', status: 'success' },
-    { id: 11, timestamp: '2026-03-06 23:59:01', user: 'system', agent: 'DistributionAgent', action: 'ISRC_ASSIGN', resource: 'release/neon-drift', status: 'success' },
-    { id: 12, timestamp: '2026-03-06 22:44:30', user: 'system', agent: 'FinanceAgent', action: 'TAX_FORM_REQUEST', resource: 'tax/w8ben-sofia-almeida', status: 'success' },
-    { id: 13, timestamp: '2026-03-06 21:33:15', user: 'system', agent: 'AudioAgent', action: 'FIDELITY_AUDIT', resource: 'audio/midnight-circuit-master.wav', status: 'success' },
-    { id: 14, timestamp: '2026-03-06 20:22:08', user: 'the.walking.agency.det@gmail.com', agent: 'none', action: 'CONTRACT_SIGN', resource: 'legal/contract-8821', status: 'success' },
-    { id: 15, timestamp: '2026-03-06 19:11:40', user: 'system', agent: 'MarketingAgent', action: 'CAMPAIGN_LAUNCH', resource: 'marketing/campaign-spring2026', status: 'failure' },
-    { id: 16, timestamp: '2026-03-06 18:00:22', user: 'system', agent: 'LicensingAgent', action: 'SYNC_PITCH', resource: 'licensing/pitch-4492', status: 'success' },
-    { id: 17, timestamp: '2026-03-06 17:45:11', user: 'system', agent: 'VideoAgent', action: 'VEO_RENDER', resource: 'video/visualizer-midnight', status: 'success' },
-    { id: 18, timestamp: '2026-03-06 16:30:05', user: 'the.walking.agency.det@gmail.com', agent: 'none', action: 'EXPORT_CSV', resource: 'finance/ledger-export', status: 'success' },
-    { id: 19, timestamp: '2026-03-06 15:20:49', user: 'system', agent: 'DistributionAgent', action: 'DDEX_VALIDATE', resource: 'release/glass-waves-ep', status: 'failure' },
-    { id: 20, timestamp: '2026-03-06 14:10:33', user: 'system', agent: 'PublicistAgent', action: 'MEDIA_LIST_UPDATE', resource: 'contacts/press-list-march', status: 'success' },
-];
-
-const ACTION_TYPES = ['ALL', ...Array.from(new Set(MOCK_LOGS.map((l) => l.action)))];
-const AGENT_NAMES = ['ALL', ...Array.from(new Set(MOCK_LOGS.map((l) => l.agent)))];
-
 export function AuditLogsPanel() {
+    const userProfile = useStore(s => s.userProfile);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [logsLoading, setLogsLoading] = useState(true);
     const [isLive, setIsLive] = useState(false);
     const [dateFilter, setDateFilter] = useState('ALL');
     const [agentFilter, setAgentFilter] = useState('ALL');
     const [actionFilter, setActionFilter] = useState('ALL');
 
+    useEffect(() => {
+        if (!userProfile?.id) return;
+        const db = getFirestore();
+        const ref = collection(db, `users/${userProfile.id}/audit_logs`);
+        const q = query(ref, orderBy('timestamp', 'desc'), limit(100));
+        getDocs(q).then(snap => {
+            const entries: LogEntry[] = snap.docs.map(doc => {
+                const d = doc.data();
+                return {
+                    id: Number(doc.id) || Math.random(),
+                    timestamp: d.timestamp?.toDate?.()?.toISOString().replace('T', ' ').slice(0, 19) || d.timestamp || '',
+                    user: d.user || 'system',
+                    agent: d.agent || 'none',
+                    action: d.action || '',
+                    resource: d.resource || '',
+                    status: (d.status as LogStatus) || 'success',
+                };
+            });
+            setLogs(entries);
+        }).catch(() => setLogs([])).finally(() => setLogsLoading(false));
+    }, [userProfile?.id]);
+
+    const ACTION_TYPES = useMemo(() => ['ALL', ...Array.from(new Set(logs.map(l => l.action)))], [logs]);
+    const AGENT_NAMES = useMemo(() => ['ALL', ...Array.from(new Set(logs.map(l => l.agent)))], [logs]);
+    const UNIQUE_DATES = useMemo(() => Array.from(new Set(logs.map(l => l.timestamp.slice(0, 10)))).sort().reverse(), [logs]);
+
     const filteredLogs = useMemo(() => {
-        return MOCK_LOGS.filter((log) => {
+        return logs.filter((log) => {
             if (agentFilter !== 'ALL' && log.agent !== agentFilter) return false;
             if (actionFilter !== 'ALL' && log.action !== actionFilter) return false;
-            if (dateFilter === '2026-03-07' && !log.timestamp.startsWith('2026-03-07')) return false;
-            if (dateFilter === '2026-03-06' && !log.timestamp.startsWith('2026-03-06')) return false;
+            if (dateFilter !== 'ALL' && !log.timestamp.startsWith(dateFilter)) return false;
             return true;
         });
-    }, [agentFilter, actionFilter, dateFilter]);
+    }, [logs, agentFilter, actionFilter, dateFilter]);
 
     function handleExportCSV() {
         const headers = ['Timestamp', 'User', 'Agent', 'Action', 'Resource', 'Status'];
@@ -124,8 +128,7 @@ export function AuditLogsPanel() {
                         className="appearance-none bg-white/[0.03] border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-[10px] text-white focus:outline-none focus:border-cyan-500/50 cursor-pointer"
                     >
                         <option value="ALL">All Dates</option>
-                        <option value="2026-03-07">Mar 7</option>
-                        <option value="2026-03-06">Mar 6</option>
+                        {UNIQUE_DATES.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                     <ChevronDown size={9} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 </div>
@@ -173,7 +176,11 @@ export function AuditLogsPanel() {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredLogs.map((log, i) => (
+                        {logsLoading ? (
+                            <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-xs">Loading audit logs...</td></tr>
+                        ) : filteredLogs.length === 0 ? (
+                            <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-xs">No audit logs found.</td></tr>
+                        ) : filteredLogs.map((log, i) => (
                             <motion.tr
                                 key={log.id}
                                 initial={{ opacity: 0 }}
