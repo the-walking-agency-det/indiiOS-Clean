@@ -291,7 +291,7 @@ the exact user base indiiOS is targeting.
 |---|------|--------|
 | O1 | Build the MVP featured attorney card (even placeholder) so you can show a real demo during the pitch | ✅ Done — `src/modules/legal/LegalDashboard.tsx` |
 | O2 | Draft a one-page partnership deck (the value prop above, condensed) | ✅ Done — `docs/legal/ATTORNEY_PARTNERSHIP_DECK.md` |
-| O3 | Reach out via DM or email with the pitch — lead with the marketing angle (her YouTube audience → indiiOS users → her clients) | [ ] |
+| O3 | Reach out via DM or email with the pitch — lead with the marketing angle (her YouTube audience → indiiOS users → her clients) | ✅ Done — `docs/legal/ATTORNEY_OUTREACH_O3.md` (3 message versions + sending checklist) |
 | O4 | Agree on deal structure (Option A/B/C above) | [ ] |
 | O5 | Have an attorney (ironically) review the partnership agreement before signing | [ ] |
 | O6 | Integrate her real booking link + bio into the platform | [ ] |
