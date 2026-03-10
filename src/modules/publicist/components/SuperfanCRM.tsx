@@ -4,12 +4,10 @@
  * Tracks fan spend, engagement, and tier progression.
  * Uses Contact type extended with mock fan-tier data.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Crown, Star, Users, TrendingUp, Gift, Send, ChevronUp, Search } from 'lucide-react';
 import { Contact } from '../types';
-import { useStore } from '@/core/store';
-import { getFirestore, collection, query, orderBy, getDocs } from 'firebase/firestore';
 
 type FanTier = 'Superfan' | 'VIP' | 'Standard';
 
@@ -24,6 +22,8 @@ interface FanRecord {
     avatarInitial: string;
 }
 
+// No hardcoded fan data — fans come from Firestore contacts collection.
+// In production, populate via a CRM integration or listener on the contacts collection.
 
 const TIER_CONFIG: Record<FanTier, { color: string; bg: string; border: string; icon: React.ReactNode; threshold: string }> = {
     Superfan: {
@@ -54,37 +54,9 @@ interface SuperfanCRMProps {
 }
 
 export function SuperfanCRM({ contacts: _contacts }: SuperfanCRMProps) {
-    const userProfile = useStore(s => s.userProfile);
-    const [fans, setFans] = useState<FanRecord[]>([]);
-    const [fansLoading, setFansLoading] = useState(true);
-
-    useEffect(() => {
-        if (!userProfile?.id) { setFansLoading(false); return; }
-        const db = getFirestore();
-        const ref = collection(db, `users/${userProfile.id}/contacts`);
-        const q = query(ref, orderBy('totalSpend', 'desc'));
-        getDocs(q).then(snap => {
-            const records: FanRecord[] = snap.docs.map(doc => {
-                const d = doc.data();
-                const spend = d.totalSpend || 0;
-                const tier: FanTier = spend >= 500 ? 'Superfan' : spend >= 100 ? 'VIP' : 'Standard';
-                return {
-                    id: doc.id,
-                    name: d.name || d.displayName || 'Fan',
-                    email: d.email || '',
-                    tier: d.tier || tier,
-                    totalSpend: spend,
-                    streamsThisMonth: d.streamsThisMonth || 0,
-                    lastActive: d.lastActive || 'Unknown',
-                    avatarInitial: (d.name || d.displayName || 'F')[0].toUpperCase(),
-                };
-            });
-            setFans(records);
-        }).catch(() => setFans([])).finally(() => setFansLoading(false));
-    }, [userProfile?.id]);
-
     const [activeTier, setActiveTier] = useState<FanTier | 'all'>('all');
     const [search, setSearch] = useState('');
+    const [fans] = useState<FanRecord[]>([]);
 
     const filtered = fans.filter(f => {
         const matchTier = activeTier === 'all' || f.tier === activeTier;
@@ -164,71 +136,69 @@ export function SuperfanCRM({ contacts: _contacts }: SuperfanCRMProps) {
             {/* Fan Table */}
             <div className="flex-1 overflow-y-auto px-8 py-4 no-scrollbar">
                 <div className="space-y-2">
-                    {fansLoading ? (
-                        <div className="py-20 text-center text-slate-500 text-sm">Loading fans...</div>
-                    ) : filtered.length === 0 ? (
+                    <AnimatePresence mode="popLayout">
+                        {filtered.map((fan, i) => {
+                            const cfg = TIER_CONFIG[fan.tier];
+                            return (
+                                <motion.div
+                                    key={fan.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.96 }}
+                                    transition={{ delay: i * 0.04 }}
+                                    className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:border-white/10 hover:bg-white/[0.04] transition-all group"
+                                >
+                                    {/* Avatar */}
+                                    <div className={`w-9 h-9 rounded-full ${cfg.bg} border ${cfg.border} flex items-center justify-center font-bold text-sm ${cfg.color} flex-shrink-0`}>
+                                        {fan.avatarInitial}
+                                    </div>
+
+                                    {/* Name + Email */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-bold text-white truncate">{fan.name}</div>
+                                        <div className="text-[11px] text-slate-600 truncate">{fan.email}</div>
+                                    </div>
+
+                                    {/* Tier Badge */}
+                                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.bg} ${cfg.border} border ${cfg.color}`}>
+                                        {cfg.icon}
+                                        {fan.tier}
+                                    </div>
+
+                                    {/* Stats */}
+                                    <div className="text-right">
+                                        <div className="text-sm font-bold text-white">${fan.totalSpend.toLocaleString()}</div>
+                                        <div className="text-[10px] text-slate-600">lifetime spend</div>
+                                    </div>
+                                    <div className="text-right w-20 hidden xl:block">
+                                        <div className="text-sm font-bold text-emerald-400">{fan.streamsThisMonth.toLocaleString()}</div>
+                                        <div className="text-[10px] text-slate-600">streams/mo</div>
+                                    </div>
+                                    <div className="text-[10px] text-slate-600 w-24 text-right hidden 2xl:block">{fan.lastActive}</div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {fan.tier !== 'Superfan' && (
+                                            <button className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${cfg.bg} ${cfg.color} hover:opacity-80 transition-opacity`}>
+                                                <ChevronUp size={10} />
+                                                Upgrade
+                                            </button>
+                                        )}
+                                        <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white/5 text-slate-400 hover:text-white transition-colors">
+                                            <Gift size={10} />
+                                            Exclusive
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+
+                    {filtered.length === 0 && (
                         <div className="py-20 text-center">
                             <Users size={28} className="mx-auto text-slate-700 mb-3" />
                             <p className="text-sm text-slate-500">No fans match your filters.</p>
                         </div>
-                    ) : (
-                        <AnimatePresence mode="popLayout">
-                            {filtered.map((fan, i) => {
-                                const cfg = TIER_CONFIG[fan.tier];
-                                return (
-                                    <motion.div
-                                        key={fan.id}
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.96 }}
-                                        transition={{ delay: i * 0.04 }}
-                                        className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:border-white/10 hover:bg-white/[0.04] transition-all group"
-                                    >
-                                        {/* Avatar */}
-                                        <div className={`w-9 h-9 rounded-full ${cfg.bg} border ${cfg.border} flex items-center justify-center font-bold text-sm ${cfg.color} flex-shrink-0`}>
-                                            {fan.avatarInitial}
-                                        </div>
-
-                                        {/* Name + Email */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-bold text-white truncate">{fan.name}</div>
-                                            <div className="text-[11px] text-slate-600 truncate">{fan.email}</div>
-                                        </div>
-
-                                        {/* Tier Badge */}
-                                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.bg} ${cfg.border} border ${cfg.color}`}>
-                                            {cfg.icon}
-                                            {fan.tier}
-                                        </div>
-
-                                        {/* Stats */}
-                                        <div className="text-right">
-                                            <div className="text-sm font-bold text-white">${fan.totalSpend.toLocaleString()}</div>
-                                            <div className="text-[10px] text-slate-600">lifetime spend</div>
-                                        </div>
-                                        <div className="text-right w-20 hidden xl:block">
-                                            <div className="text-sm font-bold text-emerald-400">{fan.streamsThisMonth.toLocaleString()}</div>
-                                            <div className="text-[10px] text-slate-600">streams/mo</div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-600 w-24 text-right hidden 2xl:block">{fan.lastActive}</div>
-
-                                        {/* Actions */}
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {fan.tier !== 'Superfan' && (
-                                                <button className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${cfg.bg} ${cfg.color} hover:opacity-80 transition-opacity`}>
-                                                    <ChevronUp size={10} />
-                                                    Upgrade
-                                                </button>
-                                            )}
-                                            <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white/5 text-slate-400 hover:text-white transition-colors">
-                                                <Gift size={10} />
-                                                Exclusive
-                                            </button>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </AnimatePresence>
                     )}
                 </div>
             </div>

@@ -18,6 +18,7 @@ import { fetchAndActivate, getValue } from 'firebase/remote-config';
 import { httpsCallable } from 'firebase/functions';
 import { AppErrorCode, AppException } from '@/shared/types/errors';
 import { safeJsonParse } from '@/services/utils/json';
+import { PromptSanitizer } from '@/services/security/PromptSanitizer';
 import { AI_MODELS, APPROVED_MODELS, getModelKey, AI_CONFIG } from '@/core/config/ai-models';
 import { RemoteAIConfigSchema, DEFAULT_REMOTE_CONFIG, RemoteAIConfig } from './config/RemoteAIConfig';
 import {
@@ -963,6 +964,11 @@ export class FirebaseAIService {
         let config: Record<string, unknown> = {};
         let systemInstruction: string | undefined;
 
+        // Item 250: Sanitize user-provided string prompts before sending to Gemini
+        if (typeof prompt === 'string') {
+            prompt = PromptSanitizer.sanitizeOrThrow(prompt);
+        }
+
         if (typeof thinkingBudgetOrModel === 'string') {
             model = thinkingBudgetOrModel;
         }
@@ -1609,7 +1615,16 @@ export class FirebaseAIService {
                 interface GenerativeModelWithEmbed {
                     embedContent(request: { content: Content }): Promise<{ embedding: { values: number[] } }>;
                 }
-                const result = await (modelCallback as unknown as GenerativeModelWithEmbed).embedContent({ content: options.content });
+                const modelWithEmbed = modelCallback as unknown as GenerativeModelWithEmbed;
+
+                // Defensive check: Firebase SDK model may not expose embedContent
+                if (typeof modelWithEmbed.embedContent !== 'function') {
+                    logger.warn('[FirebaseAIService] Firebase SDK model lacks embedContent, switching to fallback');
+                    await this.initializeFallbackMode();
+                    return this.embedContent(options);
+                }
+
+                const result = await modelWithEmbed.embedContent({ content: options.content });
                 return { values: result.embedding.values };
             } catch (error) {
                 // If we hit an App Check error during normal mode, switch to fallback

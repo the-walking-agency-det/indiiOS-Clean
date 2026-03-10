@@ -15,7 +15,7 @@ interface BudgetStatus {
 }
 
 const STATE_CONFIG: Record<BreakerState, {
-    icon: React.FC<{ size?: number; className?: string }>;
+    icon: React.FC<{ size?: string | number; className?: string }>;
     color: string;
     bg: string;
     label: string;
@@ -61,8 +61,7 @@ export const CircuitBreakerPanel: React.FC = () => {
     const checkBudget = useCallback(async () => {
         setBreakerState('loading');
         try {
-            const membershipService = new MembershipService();
-            const result = await membershipService.checkBudget(0);
+            const result = await MembershipService.checkBudget(0);
             setBudget(result);
 
             if (!result.allowed) {
@@ -82,8 +81,31 @@ export const CircuitBreakerPanel: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        checkBudget();
-    }, [checkBudget]);
+        let cancelled = false;
+        (async () => {
+            try {
+                const result = await MembershipService.checkBudget(0);
+                if (cancelled) return;
+                setBudget(result);
+
+                if (!result.allowed) {
+                    setBreakerState('open');
+                } else if (result.requiresApproval) {
+                    setBreakerState('half-open');
+                } else {
+                    setBreakerState('closed');
+                }
+
+                setLastChecked(new Date());
+            } catch {
+                if (!cancelled) {
+                    setBreakerState('closed');
+                    setBudget(null);
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const config = STATE_CONFIG[breakerState];
     const StateIcon = config.icon;

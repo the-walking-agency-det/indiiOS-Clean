@@ -368,14 +368,14 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         cssVar: '--color-dept-licensing',
     },
     marketplace: {
-        // Marketplace — Blue for commerce/discovery
-        text: 'text-blue-400',
-        bg: 'bg-blue-500/10',
-        border: 'border-blue-500',
-        ring: 'focus-within:ring-blue-500/50',
-        hoverText: 'hover:text-blue-300',
-        hoverBg: 'hover:bg-blue-500/5',
-        cssVar: '--color-dept-distribution',
+        // Marketplace shares Brand's amber (product identity)
+        text: 'text-dept-brand',
+        bg: 'bg-dept-brand/10',
+        border: 'border-dept-brand',
+        ring: 'focus-within:ring-dept-brand/50',
+        hoverText: 'hover:text-dept-brand',
+        hoverBg: 'hover:bg-dept-brand/5',
+        cssVar: '--color-dept-brand',
     },
 };
 

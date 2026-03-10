@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { useState, useRef, useEffect } from 'react';
-import { MapPin, Sparkles, Megaphone, Mail, ExternalLink, RefreshCw } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { MapPin, Sparkles, Megaphone, Mail, ExternalLink, RefreshCw, Filter } from 'lucide-react';
 import { MarketingService } from '@/services/marketing/MarketingService';
 import { CampaignAsset } from '@/modules/marketing/types';
 import { VenueScoutService, ScoutEvent } from '../services/VenueScoutService';
@@ -20,11 +20,10 @@ import { Venue } from '../types';
 import { logger } from '@/utils/logger';
 import { ModuleErrorBoundary } from '@/core/components/ModuleErrorBoundary';
 import { agentService } from '@/services/agent/AgentService';
-import { ChatMessage } from '@/core/components/chat/ChatMessage';
+import { MessageItem } from '@/core/components/chat/ChatMessage';
 import { PromptArea } from '@/core/components/command-bar/PromptArea';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
-import { getFirestore, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 const STATUS_COLORS: Record<string, string> = {
     active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -109,80 +108,34 @@ const CampaignsTab: React.FC = () => {
     );
 };
 
-interface InboxMessage {
-    id: string;
-    from: string;
-    subject: string;
-    preview: string;
-    time: string;
-    unread: boolean;
-}
+// No hardcoded inbox data — messages come from connected email integrations.
 
 const InboxTab: React.FC = () => {
-    const userProfile = useStore(s => s.userProfile);
-    const [messages, setMessages] = useState<InboxMessage[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [messages] = useState<Array<{ id: string; from: string; subject: string; preview: string; time: string; unread: boolean }>>([]);
 
-    useEffect(() => {
-        if (!userProfile?.id) {
-            setLoading(false);
-            return;
-        }
-        const db = getFirestore();
-        const ref = collection(db, `users/${userProfile.id}/inbox`);
-        const q = query(ref, orderBy('createdAt', 'desc'), limit(50));
-        getDocs(q)
-            .then(snap => {
-                const entries: InboxMessage[] = snap.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        from: data.from || 'Unknown',
-                        subject: data.subject || '',
-                        preview: data.preview || '',
-                        time: data.createdAt?.toDate?.()?.toLocaleDateString() || '',
-                        unread: data.unread ?? false,
-                    };
-                });
-                setMessages(entries);
-            })
-            .catch(() => setMessages([]))
-            .finally(() => setLoading(false));
-    }, [userProfile?.id]);
+    const unreadCount = messages.filter(m => m.unread).length;
 
     return (
         <div className="absolute inset-0 overflow-y-auto custom-scrollbar p-6 space-y-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                     <Mail size={18} className="text-emerald-400" /> Inbox
-                    {!loading && messages.filter(m => m.unread).length > 0 && (
+                    {unreadCount > 0 && (
                         <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                            {messages.filter(m => m.unread).length}
+                            {unreadCount}
                         </span>
                     )}
                 </h2>
                 <p className="text-xs text-slate-600">Aggregated from connected integrations</p>
             </div>
 
-            {loading ? (
-                <div className="space-y-1">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-20 bg-slate-900 rounded-xl animate-pulse border border-slate-800" />
-                    ))}
-                </div>
-            ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-600 space-y-3">
-                    <Mail size={32} className="opacity-30" />
-                    <p className="text-sm text-center">Connect Gmail or Outlook in Settings to see your inbox.</p>
-                </div>
-            ) : (
+            {messages.length > 0 ? (
                 <div className="space-y-1">
                     {messages.map((msg) => (
                         <div
                             key={msg.id}
-                            className={`flex items-start gap-3 p-4 rounded-xl border transition-colors cursor-pointer hover:border-slate-700 ${
-                                msg.unread ? 'bg-slate-900 border-slate-800' : 'bg-slate-900/40 border-transparent'
-                            }`}
+                            className={`flex items-start gap-3 p-4 rounded-xl border transition-colors cursor-pointer hover:border-slate-700 ${msg.unread ? 'bg-slate-900 border-slate-800' : 'bg-slate-900/40 border-transparent'
+                                }`}
                         >
                             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-400">
                                 {msg.from[0]}
@@ -203,7 +156,17 @@ const InboxTab: React.FC = () => {
                         </div>
                     ))}
                 </div>
+            ) : (
+                <div className="py-20 text-center">
+                    <Mail size={32} className="mx-auto text-slate-700 mb-3" />
+                    <p className="text-sm font-medium text-slate-400">No messages yet</p>
+                    <p className="text-xs text-slate-600 mt-1">Connect Gmail or Outlook in Settings to aggregate your inbox here.</p>
+                </div>
             )}
+
+            <p className="text-center text-xs text-slate-700 pt-2">
+                Full email integration coming soon. Connect Gmail / Outlook in Settings.
+            </p>
         </div>
     );
 };
@@ -213,14 +176,14 @@ const AgentDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'scout' | 'campaigns' | 'inbox' | 'browser' | 'chat' | 'tasks'>('scout');
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const chatBottomRef = useRef<HTMLDivElement>(null);
-    const { messages } = useStore(useShallow(s => ({ messages: s.messages })));
+    const { agentMessages } = useStore(useShallow(s => ({ agentMessages: s.agentHistory })));
 
     // Auto-scroll chat to bottom on new messages
     useEffect(() => {
         if (activeTab === 'chat') {
             chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [messages, activeTab]);
+    }, [agentMessages, activeTab]);
     const { venues, isScanning, setScanning, addVenue } = useAgentStore();
     const { showToast } = useToast();
     const [city, setCity] = useState('Nashville');
@@ -408,14 +371,14 @@ const AgentDashboard: React.FC = () => {
 
                                 {/* Message history */}
                                 <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-2">
-                                    {messages.length === 0 && (
+                                    {agentMessages.length === 0 && (
                                         <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-3">
                                             <Sparkles size={28} className="opacity-40" />
                                             <p className="text-sm">Start a conversation with your AI team.</p>
                                         </div>
                                     )}
-                                    {messages.map((msg) => (
-                                        <ChatMessage key={msg.id} message={msg} />
+                                    {agentMessages.map((msg) => (
+                                        <MessageItem key={msg.id} msg={msg} />
                                     ))}
                                     <div ref={chatBottomRef} />
                                 </div>
@@ -432,6 +395,15 @@ const AgentDashboard: React.FC = () => {
                                 <TaskTracker />
                             </div>
                         )}
+
+                        {activeTab !== 'scout' && activeTab !== 'browser' && activeTab !== 'chat' && activeTab !== 'tasks' && (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
+                                <div className="p-4 bg-slate-900 rounded-full border border-slate-800">
+                                    <Filter size={32} className="opacity-50" />
+                                </div>
+                            </div>
+                        )}
+
 
                         {activeTab === 'campaigns' && (
                             <CampaignsTab />

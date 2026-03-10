@@ -5,6 +5,7 @@ import { useStore } from './store';
 import Sidebar from './components/Sidebar';
 import RightPanel from './components/RightPanel';
 import CommandBar from './components/CommandBar';
+import ChatOverlay from './components/ChatOverlay';
 import { ToastProvider } from './context/ToastContext';
 import { VoiceProvider } from './context/VoiceContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -351,11 +352,13 @@ function ModuleRenderer({ moduleId }: ModuleRendererProps) {
 
 export default function App() {
     // ⚡ Bolt Optimization: useShallow
-    const { currentModule, user, authLoading } = useStore(
+    const { currentModule, user, authLoading, isAgentOpen, toggleAgentWindow } = useStore(
         useShallow(state => ({
             currentModule: state.currentModule,
             user: state.user,
-            authLoading: state.authLoading
+            authLoading: state.authLoading,
+            isAgentOpen: state.isAgentOpen,
+            toggleAgentWindow: state.toggleAgentWindow,
         }))
     );
 
@@ -421,7 +424,7 @@ export default function App() {
 
                                     <main id="main-content" className="flex-1 flex flex-col min-w-0 bg-background relative">
                                         <div className="flex-1 overflow-y-auto relative custom-scrollbar">
-                                            <ErrorBoundary>
+                                            <ErrorBoundary key={currentModule}>
                                                 <Suspense fallback={<LoadingFallback />}>
                                                     <ModuleRenderer moduleId={currentModule as ModuleId} />
                                                 </Suspense>
@@ -466,6 +469,13 @@ export default function App() {
                             {showChrome && (
                                 <ErrorBoundary>
                                     <CommandBar />
+                                </ErrorBoundary>
+                            )}
+
+                            {/* Floating Chat Overlay — draggable, resizable */}
+                            {isAgentOpen && (
+                                <ErrorBoundary>
+                                    <ChatOverlay onClose={toggleAgentWindow} />
                                 </ErrorBoundary>
                             )}
 

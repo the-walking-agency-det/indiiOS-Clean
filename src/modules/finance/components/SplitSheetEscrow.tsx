@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2, Clock, Lock, Unlock, DollarSign, Users, AlertTriangle, CreditCard, Loader2 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useStore } from '@/core/store';
-import { getFirestore, collection, query, getDocs } from 'firebase/firestore';
 
 /* ================================================================== */
 /*  Split Sheet Escrow — Collaborative Funds Release Tool              */
@@ -18,35 +16,16 @@ interface Collaborator {
     accountId?: string;
 }
 
-const ESCROW_AMOUNT = 4800;
+// No hardcoded collaborator or escrow data.
+// Collaborators are added dynamically via the UI.
+// In production, these are loaded from a Firestore 'split_sheets' collection.
 
 export function SplitSheetEscrow() {
-    const userProfile = useStore(s => s.userProfile);
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-    const [collabLoading, setCollabLoading] = useState(true);
+    const [escrowAmount, setEscrowAmount] = useState(0);
     const [released, setReleased] = useState(false);
     const [releasing, setReleasing] = useState(false);
     const [releaseError, setReleaseError] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (!userProfile?.id) { setCollabLoading(false); return; }
-        const db = getFirestore();
-        const ref = collection(db, `users/${userProfile.id}/collaborators`);
-        getDocs(query(ref)).then(snap => {
-            const collabs: Collaborator[] = snap.docs.map(doc => {
-                const d = doc.data();
-                return {
-                    id: doc.id,
-                    name: d.name || 'Unknown',
-                    role: d.role || '',
-                    splitPct: d.splitPct || 0,
-                    signed: d.signed ?? false,
-                    accountId: d.accountId,
-                };
-            });
-            setCollaborators(collabs);
-        }).catch(() => setCollaborators([])).finally(() => setCollabLoading(false));
-    }, [userProfile?.id]);
 
     const signedCount = collaborators.filter(c => c.signed).length;
     const totalCount = collaborators.length;
@@ -81,7 +60,7 @@ export function SplitSheetEscrow() {
             const transferPromises = collaborators
                 .filter(c => c.accountId)
                 .map(c => {
-                    const splitAmount = Math.round((ESCROW_AMOUNT * 100 * c.splitPct) / 100); // cents
+                    const splitAmount = Math.round((escrowAmount * 100 * c.splitPct) / 100); // cents
                     return createTransfer({ amount: splitAmount, destinationId: c.accountId! });
                 });
 
@@ -108,25 +87,14 @@ export function SplitSheetEscrow() {
                 </div>
             </div>
 
-            {collabLoading && (
-                <div className="flex items-center justify-center py-20 text-gray-500 text-sm">Loading collaborators...</div>
-            )}
-
-            {!collabLoading && collaborators.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-2">
-                    <Users size={28} className="opacity-30" />
-                    <p className="text-sm">No collaborators found. Add collaborators to this project to use split sheet escrow.</p>
-                </div>
-            )}
-
-            {!collabLoading && collaborators.length > 0 && (released ? (
+            {released ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-16 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                     <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
                         <Unlock size={28} className="text-emerald-400" />
                     </div>
                     <div className="text-center">
                         <p className="text-xl font-black text-white">Funds Released!</p>
-                        <p className="text-sm text-emerald-400 mt-1">${ESCROW_AMOUNT.toLocaleString()} distributed via Stripe Connect</p>
+                        <p className="text-sm text-emerald-400 mt-1">${escrowAmount.toLocaleString()} distributed via Stripe Connect</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3 w-full max-w-sm mt-2">
                         {collaborators.map(c => (
@@ -134,16 +102,16 @@ export function SplitSheetEscrow() {
                                 <p className="text-xs font-bold text-white">{c.name}</p>
                                 <p className="text-[10px] text-gray-500 mt-0.5">{c.role}</p>
                                 <p className="text-sm font-black text-emerald-400 mt-1">
-                                    ${((ESCROW_AMOUNT * c.splitPct) / 100).toFixed(2)}
+                                    ${((escrowAmount * c.splitPct) / 100).toFixed(2)}
                                 </p>
                             </div>
                         ))}
                     </div>
                     <button
-                        onClick={() => { setReleased(false); setCollaborators(prev => prev.map(c => ({ ...c, signed: false }))); }}
+                        onClick={() => { setReleased(false); setCollaborators([]); setEscrowAmount(0); }}
                         className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors mt-2"
                     >
-                        Reset Demo
+                        Reset
                     </button>
                 </div>
             ) : (
@@ -154,7 +122,7 @@ export function SplitSheetEscrow() {
                             <DollarSign size={20} className="text-emerald-400" />
                         </div>
                         <div className="flex-1">
-                            <p className="text-2xl font-black text-white">${ESCROW_AMOUNT.toLocaleString()}</p>
+                            <p className="text-2xl font-black text-white">${escrowAmount.toLocaleString()}</p>
                             <p className="text-xs text-gray-500 mt-0.5">Total escrowed — locked until all parties sign</p>
                         </div>
                         <div className="text-right">
@@ -185,7 +153,7 @@ export function SplitSheetEscrow() {
                     {/* Collaborator List */}
                     <div className="space-y-2">
                         {collaborators.map(c => {
-                            const amount = (ESCROW_AMOUNT * c.splitPct) / 100;
+                            const amount = (escrowAmount * c.splitPct) / 100;
                             return (
                                 <div
                                     key={c.id}
@@ -291,7 +259,7 @@ export function SplitSheetEscrow() {
                         </div>
                     </div>
                 </>
-            ))}
+            )}
 
             {!released && !allSigned && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">

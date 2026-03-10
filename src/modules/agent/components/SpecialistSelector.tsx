@@ -12,25 +12,27 @@ export const SpecialistSelector: React.FC<SpecialistSelectorProps> = ({
     selectedAgentId,
     onSelect,
 }) => {
-    const [agents, setAgents] = useState<SpecializedAgent[]>([]);
+    const [agents, setAgents] = useState<SpecializedAgent[]>(() => {
+        try {
+            return agentRegistry.getAll();
+        } catch {
+            return [];
+        }
+    });
     const [open, setOpen] = useState(false);
 
+    // Retry loading agents if registry wasn't warmed up at mount
     useEffect(() => {
-        // Load registered agents — warmup may already have run
-        try {
-            const all = agentRegistry.getAll();
-            setAgents(all);
-        } catch {
-            // Registry not warmed up yet — try after a delay
-            setTimeout(() => {
-                try {
-                    setAgents(agentRegistry.getAll());
-                } catch {
-                    // silently fail — no agents available
-                }
-            }, 1000);
-        }
-    }, []);
+        if (agents.length > 0) return;
+        const timer = setTimeout(() => {
+            try {
+                setAgents(agentRegistry.getAll());
+            } catch {
+                // silently fail — no agents available
+            }
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
@@ -61,11 +63,10 @@ export const SpecialistSelector: React.FC<SpecialistSelectorProps> = ({
                             {/* Auto option */}
                             <button
                                 onClick={() => { onSelect(null); setOpen(false); }}
-                                className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                                    selectedAgentId === null
-                                        ? 'bg-emerald-500/20 text-emerald-300'
-                                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                                }`}
+                                className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors ${selectedAgentId === null
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                    }`}
                             >
                                 <Sparkles size={14} className="mt-0.5 shrink-0 text-emerald-400" />
                                 <div>
@@ -80,11 +81,10 @@ export const SpecialistSelector: React.FC<SpecialistSelectorProps> = ({
                                         <button
                                             key={agent.id}
                                             onClick={() => { onSelect(agent.id); setOpen(false); }}
-                                            className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                                                selectedAgentId === agent.id
-                                                    ? 'bg-emerald-500/20 text-emerald-300'
-                                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                                            }`}
+                                            className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors ${selectedAgentId === agent.id
+                                                ? 'bg-emerald-500/20 text-emerald-300'
+                                                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                                }`}
                                         >
                                             <Bot size={14} className="mt-0.5 shrink-0" />
                                             <div>

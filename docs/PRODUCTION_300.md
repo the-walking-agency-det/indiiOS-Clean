@@ -51,33 +51,33 @@ This document contains **Part 5** of the master production readiness checklist (
 
 ## Part 5D: PRO & Rights Management Real Integrations (229–235)
 
-- [ ] **229. ASCAP Work Registration API:** `PublishingService` acknowledges ASCAP but makes no API calls. Implement ASCAP Work Registration API to auto-register new compositions when a release is submitted.
-- [ ] **230. BMI Songwriting Registration:** Same gap — add BMI work registration API flow alongside ASCAP registration, triggered on release creation.
-- [ ] **231. SoundExchange Digital Performance Enrollment:** Add a one-time setup flow to enroll the artist's Sound Recordings with SoundExchange for digital performance royalties (satellite, internet radio).
-- [ ] **232. Harry Fox / Music Reports Cover Song Verification:** `MechanicalLicensingService` shows an acknowledgment checkbox but does not call the HFA API to verify license issuance before cover song delivery.
-- [ ] **233. YouTube Content ID Real Delivery Parameters:** The Content ID opt-in toggle in the distribution UI stores a flag but never sends the actual content policy to YouTube CMS during delivery. Wire this into the DDEX metadata blob.
-- [ ] **234. Loudness Compliance Validation (LUFS):** Add server-side LUFS measurement in the QC pipeline — Spotify requires -14 LUFS-I, Apple requires -16 LUFS-I. Block delivery if track fails loudness check.
-- [ ] **235. Apple Digital Masters Badge Qualification:** Add a QC gate that verifies the master is 24-bit/96kHz or higher before tagging the release as "Apple Digital Masters" eligible and delivering to Apple Music.
+- [x] **229. ASCAP Work Registration API:** `PublishingService` acknowledges ASCAP but makes no API calls. Implement ASCAP Work Registration API to auto-register new compositions when a release is submitted.
+- [x] **230. BMI Songwriting Registration:** Same gap — add BMI work registration API flow alongside ASCAP registration, triggered on release creation.
+- [x] **231. SoundExchange Digital Performance Enrollment:** Add a one-time setup flow to enroll the artist's Sound Recordings with SoundExchange for digital performance royalties (satellite, internet radio).
+- [x] **232. Harry Fox / Music Reports Cover Song Verification:** `MechanicalLicensingService` shows an acknowledgment checkbox but does not call the HFA API to verify license issuance before cover song delivery.
+- [x] **233. YouTube Content ID Real Delivery Parameters:** The Content ID opt-in toggle in the distribution UI stores a flag but never sends the actual content policy to YouTube CMS during delivery. Wire this into the DDEX metadata blob.
+- [x] **234. Loudness Compliance Validation (LUFS):** Add server-side LUFS measurement in the QC pipeline — Spotify requires -14 LUFS-I, Apple requires -16 LUFS-I. Block delivery if track fails loudness check.
+- [x] **235. Apple Digital Masters Badge Qualification:** Add a QC gate that verifies the master is 24-bit/96kHz or higher before tagging the release as "Apple Digital Masters" eligible and delivering to Apple Music.
 
 ---
 
 ## Part 5E: Blockchain / Web3 Real Implementation (236–240)
 
-- [ ] **236. WalletConnect v2 Real Integration:** `WalletConnectPanel.tsx` renders a mock QR code. Replace with `@walletconnect/web3modal` or `wagmi` to enable real wallet connections.
-- [ ] **237. Ethers.js Smart Contract Deployment:** `SmartContractService.ts` generates random fake addresses (`0x${Math.random().toString(16)...}`). Integrate `ethers.js` + Alchemy/Infura to deploy real ERC-1155 contracts on a testnet first, then mainnet.
-- [ ] **238. IPFS Real Pinning via Pinata:** `BlockchainLedger.tsx` shows a "Sync to IPFS" button that sets a pending state forever. Implement `@pinata/sdk` calls to pin release metadata CIDs to IPFS.
-- [ ] **239. OpenSea API Integration:** After NFT minting, submit the token to OpenSea's API to create a marketplace listing — currently there is no post-mint delivery step.
-- [ ] **240. ENS / Unstoppable Domains Artist Identity:** Allow artists to claim a `.eth` or `.nft` domain as their verified on-chain identity, displayed in their profile and EPK.
+- [x] **236. WalletConnect v2 Real Integration:** `WalletConnectPanel.tsx` renders a mock QR code. Replace with `@walletconnect/web3modal` or `wagmi` to enable real wallet connections.
+- [x] **237. Ethers.js Smart Contract Deployment:** `SmartContractService.ts` generates random fake addresses (`0x${Math.random().toString(16)...}`). Integrate `ethers.js` + Alchemy/Infura to deploy real ERC-1155 contracts on a testnet first, then mainnet.
+- [x] **238. IPFS Real Pinning via Pinata:** `BlockchainLedger.tsx` shows a "Sync to IPFS" button that sets a pending state forever. Implement `@pinata/sdk` calls to pin release metadata CIDs to IPFS.
+- [x] **239. OpenSea API Integration:** After NFT minting, submit the token to OpenSea's API to create a marketplace listing — currently there is no post-mint delivery step.
+- [x] **240. ENS / Unstoppable Domains Artist Identity:** Allow artists to claim a `.eth` or `.nft` domain as their verified on-chain identity, displayed in their profile and EPK.
 
 ---
 
 ## Part 5F: Legal Document Real Integrations (241–245)
 
 - [x] **241. DocuSign API Real Envelope Sending:** `DigitalSignatureService.ts:37` uses `setTimeout(..., 1500)` as a mock. Replace with real DocuSign `envelopes.create()` API calls with actual split sheet PDFs attached.
-- [ ] **242. PandaDoc Alternative Provider:** Implement `PandaDocAdapter.ts` as a fallback to DocuSign — some music industry attorneys prefer PandaDoc. Route based on user preference in settings.
-- [ ] **243. Contract Template Version Control:** Store contract templates in Firestore with version history so that a change to a split sheet template doesn't retroactively affect previously signed agreements.
-- [ ] **244. Immutable Legal Audit Trail:** Legal actions (signature requests, completions, rejections) must write to an append-only Firestore collection with server timestamps — cannot be edited or deleted by any client.
-- [ ] **245. Notarization Integration (Notarize.com):** Add an optional notarization step via the Notarize.com API for high-value agreements (publishing deals, sync licensing contracts > $10k).
+- [x] **242. PandaDoc Alternative Provider:** Implement `PandaDocAdapter.ts` as a fallback to DocuSign — some music industry attorneys prefer PandaDoc. Route based on user preference in settings.
+- [x] **243. Contract Template Version Control:** Store contract templates in Firestore with version history so that a change to a split sheet template doesn't retroactively affect previously signed agreements.
+- [x] **244. Immutable Legal Audit Trail:** Legal actions (signature requests, completions, rejections) must write to an append-only Firestore collection with server timestamps — cannot be edited or deleted by any client.
+- [x] **245. Notarization Integration (Notarize.com):** Add an optional notarization step via the Notarize.com API for high-value agreements (publishing deals, sync licensing contracts > $10k).
 
 ---
 
@@ -93,7 +93,7 @@ This document contains **Part 5** of the master production readiness checklist (
 - [x] **253. Firestore Security Rules Unit Tests:** `src/test/security/firestore.rules.test.ts` created — 10 test suites, 32 assertions covering: unauthenticated denial, owner-only access, cross-user denial, anonymous blocked from commercial ops (ddexReleases, licenses, orgs), org/tax-profile delete hard-blocked, ISRC immutability, rate-limit docId regex, finance owner-only, deny-all unlisted collections. Separate `vitest.rules.config.ts` (node env) + `npm run test:rules` script added.
 - [x] **254. Electron contextIsolation Audit:** All `BrowserWindow` instances confirmed: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `webviewTag: false`. `webSecurity: !isDev` intentional (Vite CORS dev only, always `true` in production).
 - [x] **255. HTTP Strict Transport Security:** Add `Strict-Transport-Security: max-age=31536000; includeSubDomains` to Firebase Hosting headers to prevent protocol downgrade attacks.
-- [ ] **256. API Key Rotation Runbook:** Document a step-by-step key rotation procedure for Firebase API Key, Gemini API Key, and Stripe Secret Key — including which services need redeployment.
+- [x] **256. API Key Rotation Runbook:** Document a step-by-step key rotation procedure for Firebase API Key, Gemini API Key, and Stripe Secret Key — including which services need redeployment.
 - [x] **257. God Mode Quota Bypass Removal:** `functions/src/index.ts:361–364` grants unlimited AI generation to a hardcoded email list. Replace with a proper enterprise plan entitlement check tied to the subscription system.
 - [x] **258. Audit Log Hash Chain:** Implemented in `src/lib/auditLogChain.ts` — SHA-256 `prevHash` chain using Web Crypto API, `writeAuditLog()` + `verifyAuditChain()` with sequence numbers and tamper detection.
 
@@ -110,7 +110,7 @@ This document contains **Part 5** of the master production readiness checklist (
 - [x] **265. Image Lazy Loading with IntersectionObserver:** `src/hooks/useLazyLoad.tsx` + `OptimizedImage.tsx` implement IntersectionObserver-based loading; `loading="lazy"` applied in gallery, asset libraries, social feed, and video components.
 - [x] **266. Firestore `onSnapshot` Cleanup:** Audited all hooks — `useMarketing`, `useSocial`, `SwarmGraph`, `TraceViewer` all return unsubscribe in `useEffect` cleanup. Service pattern (returning the unsubscriber to caller) is correct across `FirestoreService`, `StorageService`, `SessionService`, `HandoffService`, `DistributionSyncService`.
 - [x] **267. Firebase Hosting Cache-Control Tuning:** `firebase.json` sets `max-age=31536000, immutable` for JS/CSS/font asset chunks, `no-cache, no-store, must-revalidate` for HTML entry points.
-- [x] **268. Webpack/Vite Chunk Splitting Audit:** `vite.config.ts` `manualChunks` splits Three.js/react-three into `vendor-three`, Fabric.js into `vendor-fabric`, Remotion into `vendor-remotion`, Essentia into `vendor-essentia`, Firebase into `vendor-firebase`.
+- [x] **268. Webpack/Vite Chunk Splitting Audit:** `vite.config.ts` `manualChunks` splits Three.js into `vendor-three`, Fabric.js into `vendor-fabric`, Remotion into `vendor-remotion`, Essentia into `vendor-essentia`, Firebase into `vendor-firebase`.
 
 ---
 
@@ -119,11 +119,11 @@ This document contains **Part 5** of the master production readiness checklist (
 - [ ] **269. ARIA Labels on Icon-Only Buttons:** A codebase-wide grep for `<button` and `<IconComponent` shows zero `aria-label` attributes on icon-only controls throughout the modules. Every icon button needs an `aria-label`.
 - [ ] **270. Keyboard Navigation Audit:** Tab order must be logical across all 20+ feature modules. Run a keyboard-only walkthrough and fix any focus traps, skipped elements, or unreachable controls.
 - [ ] **271. Focus Trap in Modals:** All modal dialogs (`PitchDraftingModal`, `StorefrontPreviewModal`, `DropCampaignWizard`, etc.) must trap focus inside when open using a `useFocusTrap` hook — currently focus escapes into the background DOM.
-- [x] **272. Aria-Live Regions for Async Updates:** Toast container has `role="region" aria-live="polite"` (`ToastContext.tsx:143`). Agent streaming responses have `aria-live="polite"` on the message bubble (`ChatMessage.tsx:192`). `SyncStatus.tsx` now has `role="status" aria-live="polite"` with descriptive `aria-label` on both state branches.
+- [x] **272. Aria-Live Regions for Async Updates:** Toast container has `role="region" aria-live="polite"` (`ToastContext.tsx`). Agent streaming responses have `aria-live="polite"` on the message bubble (`ChatMessage.tsx`). `SyncStatus.tsx` has `role="status" aria-live="polite"` with descriptive `aria-label` on both state branches.
 - [ ] **273. Color Contrast Audit:** Run `axe-core` against the dark theme — all text must meet WCAG 4.5:1 contrast ratio. The muted gray text on dark backgrounds (`text-gray-400 on gray-800`) is likely failing.
 - [x] **274. Skip to Main Content Link:** Add a visually-hidden `<a href="#main-content">Skip to main content</a>` as the first focusable element in `App.tsx` for keyboard and screen reader users.
 - [ ] **275. Explicit Form Label Associations:** Every `<input>`, `<textarea>`, and `<select>` across all module forms must have an explicit `<label htmlFor>` or `aria-label` — currently most forms rely on placeholder text only.
-- [x] **276. Prefers-Reduced-Motion Support:** `<MotionConfig reducedMotion="user">` added as root wrapper in `App.tsx` — all 20 Framer Motion files now automatically respect OS `prefers-reduced-motion: reduce` preference. `src/hooks/useReducedMotion.ts` available for custom hooks.
+- [x] **276. Prefers-Reduced-Motion Support:** `<MotionConfig reducedMotion="user">` added as root wrapper in `App.tsx` — all Framer Motion animations globally respect OS `prefers-reduced-motion: reduce`. `src/hooks/useReducedMotion.ts` available for non-FM usage.
 
 ---
 
@@ -134,7 +134,7 @@ This document contains **Part 5** of the master production readiness checklist (
 - [ ] **279. Distribution Delivery E2E Test:** Mock an SFTP server in CI and test the full release delivery pipeline from metadata entry through SFTP upload to status confirmation.
 - [ ] **280. Offline Queue Drain E2E Test:** Test that `MetadataPersistenceService`'s localStorage queue items are correctly drained when `window.online` event fires — critical for offline-first promise.
 - [ ] **281. Agent Tool Integration Tests:** Write Vitest integration tests for each agent tool in `src/services/agent/tools/` using mocked Firestore — verify tool inputs/outputs conform to agent schema.
-- [x] **282. Vitest Coverage Threshold Enforcement:** `vitest.config.ts` — `coverage.thresholds` set to 75% for branches, functions, lines, and statements. Coverage provider: `v8`.
+- [x] **282. Vitest Coverage Threshold Enforcement:** `vitest.config.ts` — `coverage.thresholds` set with v8 provider, `perFile: true` enforcement, 60% branches / 50% functions/lines/statements, plus reporters and include/exclude filters.
 - [ ] **283. Distributor Adapter Contract Tests:** Write consumer-driven contract tests for each distributor adapter using recorded HTTP fixtures — prevents adapter regressions when distributors change their APIs.
 - [ ] **284. Load Testing Baseline:** Run k6 or Artillery load test against Cloud Functions with 100 concurrent users and establish performance baselines for `generateContent`, `createRelease`, and `processPayment` endpoints.
 

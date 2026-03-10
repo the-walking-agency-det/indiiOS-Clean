@@ -69,6 +69,7 @@ export const test = base.extend<AuthFixtures>({
             await page.waitForTimeout(1_000);
         }
 
+        // eslint-disable-next-line react-hooks/rules-of-hooks
         await use(page);
     },
 });

@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // Enforce minimum Node.js version at build time
 const [major] = process.versions.node.split('.').map(Number);
@@ -63,6 +64,14 @@ export default defineConfig({
     // }, ['node_modules/**']),
     // Sentry source map upload (production only, when SENTRY_AUTH_TOKEN is set)
     ...(sentryPlugin ? [sentryPlugin] : []),
+    // Item 261: Bundle size analysis (production builds only)
+    process.env.ANALYZE === 'true' && visualizer({
+      filename: 'reports/bundle-stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
+      template: 'treemap',
+    }),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: path.resolve(__dirname, 'src'),
@@ -164,7 +173,7 @@ export default defineConfig({
     },
     rollupOptions: {
       // Suppress warnings for Node.js builtins used in Electron-only code paths
-      external: ['child_process', 'fs', 'path', 'util', 'crypto'],
+      external: ['child_process', 'fs', 'path', 'util', 'crypto', '@remotion/cli', '@remotion/renderer'],
       onwarn(warning, warn) {
         // Suppress CIRCULAR_DEPENDENCY and MODULE_LEVEL_DIRECTIVE warnings from third-party libs
         if (warning.code === 'CIRCULAR_DEPENDENCY') return;
@@ -183,7 +192,7 @@ export default defineConfig({
           'vendor-fabric': ['fabric'],
           // Item 268: Heavy libs split into isolated chunks (loaded on-demand by lazy modules)
           'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
-          'vendor-remotion': ['remotion', '@remotion/renderer', '@remotion/cli'],
+          'vendor-remotion': ['remotion'],
           'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/functions', 'firebase/analytics'],
         },
       },

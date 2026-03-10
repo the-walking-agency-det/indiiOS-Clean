@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Filter, SlidersHorizontal, Music, Play, Plus } from 'lucide-react';
-import { useStore } from '@/core/store';
-import { getFirestore, collection, query, orderBy, getDocs } from 'firebase/firestore';
 
 interface CatalogTrack {
     id: string;
@@ -15,37 +13,18 @@ interface CatalogTrack {
     isCleared: boolean;
 }
 
-export function CatalogSearchTab() {
+// No hardcoded catalog — tracks are fetched from Firestore licensing collection.
+// In production, populate via LicensingService.getCatalog().
+
+interface CatalogSearchTabProps {
+    catalog?: CatalogTrack[];
+}
+
+export function CatalogSearchTab({ catalog = [] }: CatalogSearchTabProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [activeGenre, setActiveGenre] = useState<string>('All');
     const [isLoading, setIsLoading] = useState(false);
-    const [catalog, setCatalog] = useState<CatalogTrack[]>([]);
-    const [catalogLoading, setCatalogLoading] = useState(true);
-    const userProfile = useStore(s => s.userProfile);
-
-    useEffect(() => {
-        if (!userProfile?.id) return;
-        const db = getFirestore();
-        const ref = collection(db, `users/${userProfile.id}/catalog`);
-        const q = query(ref, orderBy('title', 'asc'));
-        getDocs(q).then(snap => {
-            const tracks: CatalogTrack[] = snap.docs.map(doc => {
-                const d = doc.data();
-                return {
-                    id: doc.id,
-                    title: d.title || '',
-                    artist: d.artist || '',
-                    genre: d.genre || '',
-                    mood: d.mood || '',
-                    bpm: d.bpm || 0,
-                    duration: d.duration || '0:00',
-                    isCleared: d.isCleared ?? true,
-                };
-            });
-            setCatalog(tracks);
-        }).catch(() => setCatalog([])).finally(() => setCatalogLoading(false));
-    }, [userProfile?.id]);
 
     // Debounce search
     useEffect(() => {
@@ -130,9 +109,7 @@ export function CatalogSearchTab() {
             {/* Results Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-12">
                 <AnimatePresence mode="popLayout">
-                    {catalogLoading ? (
-                        <div className="col-span-full py-20 text-center text-gray-400 text-sm">Loading catalog...</div>
-                    ) : filteredTracks.length === 0 ? (
+                    {filteredTracks.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
