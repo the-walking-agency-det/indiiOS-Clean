@@ -106,11 +106,11 @@ This document contains **Part 5** of the master production readiness checklist (
 - [x] **261. Bundle Size Budget Enforcement:** CI step in `deploy.yml` checks total JS; fails build if it exceeds 15MB. `du` report of top chunks printed on every deploy.
 - [x] **262. Three.js WebGL Memory Cleanup:** `SceneBuilder.tsx` — `scene.clone()` now memoized via `useMemo`; `useEffect` cleanup traverses the cloned scene and calls `geometry.dispose()` + `material.dispose()` on unmount. Blob URLs from dropped files revoked in `handleClear()`.
 - [ ] **263. Firestore Composite Index Audit:** Run `firebase firestore:indexes` against the production ruleset and add missing composite indexes for common agent query patterns (e.g., `userId + createdAt + assetType`).
-- [ ] **264. Virtualized List Components:** `TrackListItem`, `WorkflowNode`, and agent history panels render all items. Replace with `react-virtual` or `@tanstack/react-virtual` for lists exceeding 50 items.
-- [ ] **265. Image Lazy Loading with IntersectionObserver:** The generated images grid in `CreativeCanvas.tsx` loads all thumbnails at once. Add `loading="lazy"` and IntersectionObserver-based loading for performance on large catalogs.
+- [x] **264. Virtualized List Components:** `src/hooks/useVirtualList.ts` + `CreativeGallery.tsx` uses `@tanstack/react-virtual` — windowed rendering for lists exceeding 50 items.
+- [x] **265. Image Lazy Loading with IntersectionObserver:** `src/hooks/useLazyLoad.tsx` + `OptimizedImage.tsx` implement IntersectionObserver-based loading; `loading="lazy"` applied in gallery, asset libraries, social feed, and video components.
 - [x] **266. Firestore `onSnapshot` Cleanup:** Audited all hooks — `useMarketing`, `useSocial`, `SwarmGraph`, `TraceViewer` all return unsubscribe in `useEffect` cleanup. Service pattern (returning the unsubscriber to caller) is correct across `FirestoreService`, `StorageService`, `SessionService`, `HandoffService`, `DistributionSyncService`.
 - [x] **267. Firebase Hosting Cache-Control Tuning:** `firebase.json` sets `max-age=31536000, immutable` for JS/CSS/font asset chunks, `no-cache, no-store, must-revalidate` for HTML entry points.
-- [ ] **268. Webpack/Vite Chunk Splitting Audit:** `vite.config.ts` has manual chunk splitting but Three.js (0.182), Fabric.js (6.9), and Remotion (4.0) are likely landing in the main chunk. Move to dynamic `import()` to split these heavy libraries.
+- [x] **268. Webpack/Vite Chunk Splitting Audit:** `vite.config.ts` `manualChunks` splits Three.js/react-three into `vendor-three`, Fabric.js into `vendor-fabric`, Remotion into `vendor-remotion`, Essentia into `vendor-essentia`, Firebase into `vendor-firebase`.
 
 ---
 
@@ -119,11 +119,11 @@ This document contains **Part 5** of the master production readiness checklist (
 - [ ] **269. ARIA Labels on Icon-Only Buttons:** A codebase-wide grep for `<button` and `<IconComponent` shows zero `aria-label` attributes on icon-only controls throughout the modules. Every icon button needs an `aria-label`.
 - [ ] **270. Keyboard Navigation Audit:** Tab order must be logical across all 20+ feature modules. Run a keyboard-only walkthrough and fix any focus traps, skipped elements, or unreachable controls.
 - [ ] **271. Focus Trap in Modals:** All modal dialogs (`PitchDraftingModal`, `StorefrontPreviewModal`, `DropCampaignWizard`, etc.) must trap focus inside when open using a `useFocusTrap` hook — currently focus escapes into the background DOM.
-- [ ] **272. Aria-Live Regions for Async Updates:** Agent responses, sync status changes, and toast notifications must be announced via `aria-live="polite"` regions for screen readers.
+- [x] **272. Aria-Live Regions for Async Updates:** Toast container has `role="region" aria-live="polite"` (`ToastContext.tsx:143`). Agent streaming responses have `aria-live="polite"` on the message bubble (`ChatMessage.tsx:192`). `SyncStatus.tsx` now has `role="status" aria-live="polite"` with descriptive `aria-label` on both state branches.
 - [ ] **273. Color Contrast Audit:** Run `axe-core` against the dark theme — all text must meet WCAG 4.5:1 contrast ratio. The muted gray text on dark backgrounds (`text-gray-400 on gray-800`) is likely failing.
 - [x] **274. Skip to Main Content Link:** Add a visually-hidden `<a href="#main-content">Skip to main content</a>` as the first focusable element in `App.tsx` for keyboard and screen reader users.
 - [ ] **275. Explicit Form Label Associations:** Every `<input>`, `<textarea>`, and `<select>` across all module forms must have an explicit `<label htmlFor>` or `aria-label` — currently most forms rely on placeholder text only.
-- [ ] **276. Prefers-Reduced-Motion Support:** Wrap all Framer Motion `animate` and `transition` props with a `useReducedMotion()` check — users with vestibular disorders should see instant transitions when `prefers-reduced-motion: reduce` is set.
+- [x] **276. Prefers-Reduced-Motion Support:** `<MotionConfig reducedMotion="user">` added as root wrapper in `App.tsx` — all 20 Framer Motion files now automatically respect OS `prefers-reduced-motion: reduce` preference. `src/hooks/useReducedMotion.ts` available for custom hooks.
 
 ---
 
@@ -134,7 +134,7 @@ This document contains **Part 5** of the master production readiness checklist (
 - [ ] **279. Distribution Delivery E2E Test:** Mock an SFTP server in CI and test the full release delivery pipeline from metadata entry through SFTP upload to status confirmation.
 - [ ] **280. Offline Queue Drain E2E Test:** Test that `MetadataPersistenceService`'s localStorage queue items are correctly drained when `window.online` event fires — critical for offline-first promise.
 - [ ] **281. Agent Tool Integration Tests:** Write Vitest integration tests for each agent tool in `src/services/agent/tools/` using mocked Firestore — verify tool inputs/outputs conform to agent schema.
-- [ ] **282. Vitest Coverage Threshold Enforcement:** Add `coverage.thresholds` to `vitest.config.ts` with a minimum 75% branch coverage gate — build fails if coverage drops below this.
+- [x] **282. Vitest Coverage Threshold Enforcement:** `vitest.config.ts` — `coverage.thresholds` set to 75% for branches, functions, lines, and statements. Coverage provider: `v8`.
 - [ ] **283. Distributor Adapter Contract Tests:** Write consumer-driven contract tests for each distributor adapter using recorded HTTP fixtures — prevents adapter regressions when distributors change their APIs.
 - [ ] **284. Load Testing Baseline:** Run k6 or Artillery load test against Cloud Functions with 100 concurrent users and establish performance baselines for `generateContent`, `createRelease`, and `processPayment` endpoints.
 
@@ -146,7 +146,7 @@ This document contains **Part 5** of the master production readiness checklist (
 - [ ] **286. Empty State Illustrations:** All data panels (Tracks, Releases, Campaigns, Tours, Merch) show blank divs when there's no data. Add meaningful empty states with illustration, headline, and a primary CTA.
 - [ ] **287. Loading Skeleton Screens:** Replace all `isLoading ? null : <Content/>` patterns with proper skeleton placeholder components — reduces perceived load time and prevents layout shift.
 - [x] **288. Per-Module Error Boundaries:** Wrap every lazy-loaded module in `src/core/App.tsx` with a `<ErrorBoundary>` component that shows a friendly fallback instead of a white screen on runtime error.
-- [ ] **289. Toast Deduplication & Queue Cap:** `SYSTEM_ALERT` events can fire multiple times simultaneously (e.g., during offline sync). Implement a toast queue that deduplicates identical messages within a 2-second window.
+- [x] **289. Toast Deduplication & Queue Cap:** `ToastContext.tsx` — `isDuplicate()` blocks identical `type:message` pairs within 2s window; `MAX_TOASTS = 3` caps the queue; stale entries pruned when map exceeds 50 entries.
 - [ ] **290. Contextual First-Run Tooltips:** Add a Shepherd.js or Intro.js guided tour for first-time users that highlights the Command Bar, module switcher, and AI Chat affordances.
 - [x] **291. Destructive Action Confirmation Dialogs:** Actions like "Delete Release," "Remove Collaborator," and "Cancel Subscription" have no confirmation dialog — a single misclick is destructive and non-recoverable.
 - [ ] **292. Undo Support for Drag-Drop Widgets:** `CustomDashboard.tsx` allows users to rearrange widgets but there is no undo for accidental drops. Add a single-level undo via a `previousLayout` ref.

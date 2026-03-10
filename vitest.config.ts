@@ -36,6 +36,16 @@ export default defineConfig({
       'storage.rules.test.ts',
       'A2UI/**',
       '**/.claude/**',
-    ]
+    ],
+    // Item 282: Coverage threshold enforcement — build fails below 75% branch coverage
+    coverage: {
+      provider: 'v8',
+      thresholds: {
+        branches: 75,
+        functions: 75,
+        lines: 75,
+        statements: 75,
+      },
+    },
   },
 });
