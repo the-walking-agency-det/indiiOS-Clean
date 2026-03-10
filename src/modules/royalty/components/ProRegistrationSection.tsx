@@ -13,6 +13,8 @@ interface ProRegistrationSectionProps {
 const PRO_URLS: Record<'BMI' | 'ASCAP' | 'SESAC', { hub: string; login: string }> = {
     BMI:   { hub: 'https://www.bmi.com/creator',    login: 'https://www.bmi.com/login' },
     ASCAP: { hub: 'https://www.ascap.com/members',  login: 'https://www.ascap.com/members' },
+    BMI: { hub: 'https://www.bmi.com/creator', login: 'https://www.bmi.com/login' },
+    ASCAP: { hub: 'https://www.ascap.com/members', login: 'https://www.ascap.com/members' },
     SESAC: { hub: 'https://www.sesac.com/licensing', login: 'https://www.sesac.com/licensing' },
 };
 
@@ -84,6 +86,7 @@ export const ProRegistrationSection: React.FC<ProRegistrationSectionProps> = ({
                         <button
                             type="button"
                             onClick={() => { onSelectPro && onSelectPro('BMI'); window.open('https://www.bmi.com/creator', '_blank', 'noopener,noreferrer'); }}
+                            onClick={() => { if (onSelectPro) onSelectPro('BMI'); window.open('https://www.bmi.com/creator', '_blank', 'noopener,noreferrer'); }}
                             className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                         >
                             <span>Register with BMI</span>
@@ -92,6 +95,7 @@ export const ProRegistrationSection: React.FC<ProRegistrationSectionProps> = ({
                         <button
                             type="button"
                             onClick={() => { onSelectPro && onSelectPro('ASCAP'); window.open('https://www.ascap.com/help/new-to-ascap/ascap-member-registration', '_blank', 'noopener,noreferrer'); }}
+                            onClick={() => { if (onSelectPro) onSelectPro('ASCAP'); window.open('https://www.ascap.com/help/new-to-ascap/ascap-member-registration', '_blank', 'noopener,noreferrer'); }}
                             className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                         >
                             <span>Register with ASCAP</span>
