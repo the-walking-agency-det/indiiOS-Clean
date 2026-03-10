@@ -488,6 +488,82 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ],
       "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "sessions",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "scheduled_posts",
+      "fields": [
+        { "fieldPath": "authorId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledTime", "order": "ASCENDING" }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "posts",
+      "fields": [
+        { "fieldPath": "authorId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "alwaysOnMemories",
+      "fields": [
+        { "fieldPath": "consolidated", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ],
+      "queryScope": "COLLECTION_GROUP"
+    },
+    {
+      "collectionGroup": "alwaysOnMemories",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ],
+      "queryScope": "COLLECTION_GROUP"
+    },
+    {
+      "collectionGroup": "clearance_docs",
+      "fields": [
+        { "fieldPath": "releaseId", "order": "ASCENDING" },
+        { "fieldPath": "trackId", "order": "ASCENDING" }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "clearance_docs",
+      "fields": [
+        { "fieldPath": "releaseId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "clearance_docs",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ],
+      "queryScope": "COLLECTION"
+    },
+    {
+      "collectionGroup": "projects",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" }
+      ],
+      "queryScope": "COLLECTION"
     }
   ]
 }
