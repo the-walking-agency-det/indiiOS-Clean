@@ -2,6 +2,13 @@
 
 All notable changes to indiiOS are documented in this file.
 
+## [1.34.0](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/compare/v1.33.1...v1.34.0) (2026-03-24)
+
+
+### Features
+
+* **relay:** add server-side agent relay Cloud Function ([b43141d](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/b43141df81ff7bf41aa4f4f57fd3b766d5558001))
+
 ## [1.33.1](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/compare/v1.33.0...v1.33.1) (2026-03-24)
 
 
