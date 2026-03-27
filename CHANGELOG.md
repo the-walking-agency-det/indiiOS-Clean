@@ -2,6 +2,32 @@
 
 All notable changes to indiiOS are documented in this file.
 
+## [1.41.0](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/compare/v1.40.0...v1.41.0) (2026-03-27)
+
+
+### Features
+
+* **distribution:** wire DistributorQuickView + KeysStatusPanel to live store ([5d8c933](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/5d8c9330bcf3e786202eb1fd8dadcf305d552590))
+* **distribution:** wire QCVisualizer to real audio forensics pipeline ([9b58ea3](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/9b58ea31524555d161721dd4b6652712aecbc835))
+* **observability:** add live Scheduler Status panel to Observability Dashboard ([4f5a56a](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/4f5a56aff9656094bc4d8eb17bd876ade7aec924))
+* **orchestration:** implement memory inbox and digital handshake approval UI in dashboard ([89b2ba5](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/89b2ba50b9acf44f4d11e7b4db54b07b46e77633))
+* **scheduler:** add built-in task scheduler with Neural Sync heartbeat ([d019d16](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/d019d1699d8a05142ec7ab22d8fe31125a50b900))
+* **training:** add finance R7 expert uplift — 41 examples, 60.1% expert density ([c6130bd](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/c6130bdebd451a7a52ccc1728e6f66737f309069))
+* **wo8/wo10:** add stripe webhook tests (10/10) + fix MusicAgent production coaching scope violations ([66d6d08](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/66d6d0811daacc26f7cd45778d9ffc809b186442))
+
+
+### Bug Fixes
+
+* **distribution:** design review polish — health panel, quick actions, error state ([576f669](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/576f669d0d6ac039b3e91ce97b133326c2bbc946))
+* **distribution:** wire right-panel widgets to real store data ([08ef931](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/08ef93120ae5acff89f95396d55251657d816d02))
+* **finance:** design review polish — dynamic dates, dead refresh btn, DSP empty state, tax disclaimer ([c53a739](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/c53a739731329c2318a7ed123c23c511293668a4))
+* **scheduler:** remove duplicate zombie body from SchedulerClientService ([277b80b](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/277b80bb7040ba1e31ba7b90d470761c80d4a50a))
+* **storage:** prevent IDB DataError when profile id is missing ([2d01f06](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/2d01f0680c02c90b261de8a082a381af6444c248))
+* **touring:** design review polish — cookie banner, date pickers, empty states, vehicle status ([008ba10](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/008ba10b0fafc48721cc55940cbe379e6b8b1486))
+* **types:** achieve zero tsc errors across distribution, observability, merchandise, video modules ([e88816c](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/e88816c39230262d2114d26c86181bf13594177a))
+* **workflow:** design review polish — dead interactions, false presence badge, alert→toast ([e5c8b23](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/e5c8b239815467a7c338620e5bf0c62a9c0df3da))
+* **workflow:** real viewport save + collision-free node IDs ([8c2056a](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/commit/8c2056a7e6723506983d6757f758d40be3e3a98d))
+
 ## [1.40.0](https://github.com/the-walking-agency-det/indiiOS-Alpha-Electron/compare/v1.39.0...v1.40.0) (2026-03-27)
 
 
