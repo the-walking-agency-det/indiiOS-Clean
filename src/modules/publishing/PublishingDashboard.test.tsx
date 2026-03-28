@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PublishingDashboard from './PublishingDashboard';
@@ -77,8 +77,8 @@ vi.mock('./components/PublishingSkeleton', () => ({
 // Mock motion to avoid animation issues in tests
 vi.mock('motion/react', () => ({
     motion: {
-        div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-        button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+        div: ({ children, layout, layoutId, initial, animate, exit, transition, whileHover, whileTap, variants, ...props }: any) => <div {...props}>{children}</div>,
+        button: ({ children, layout, layoutId, initial, animate, exit, transition, whileHover, whileTap, variants, ...props }: any) => <button {...props}>{children}</button>,
     },
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -186,7 +186,7 @@ describe('PublishingDashboard', () => {
         render(<PublishingDashboard />);
 
         // Verify releases are rendered
-        expect(screen.getByText('Apple')).toBeInTheDocument();
+        expect(screen.getAllByText('Apple')[0]).toBeInTheDocument();
         expect(screen.getByText('Berry')).toBeInTheDocument();
 
         // Switch to list view and select items manually
@@ -224,14 +224,14 @@ describe('PublishingDashboard', () => {
         // Search
         const searchInput = screen.getByPlaceholderText('Search by title, artist, or ISRC...');
         fireEvent.change(searchInput, { target: { value: 'Apple' } });
-        expect(screen.getByText('Apple')).toBeInTheDocument();
+        expect(screen.getAllByText('Apple')[0]).toBeInTheDocument();
         expect(screen.queryByText('Berry')).not.toBeInTheDocument();
 
         // Filter
         fireEvent.change(searchInput, { target: { value: '' } }); // Clear search
         const filterSelect = screen.getByRole('combobox');
         fireEvent.change(filterSelect, { target: { value: 'live' } });
-        expect(screen.getByText('Apple')).toBeInTheDocument();
+        expect(screen.getAllByText('Apple')[0]).toBeInTheDocument();
         expect(screen.queryByText('Berry')).not.toBeInTheDocument();
     });
 
@@ -262,7 +262,9 @@ describe('PublishingDashboard', () => {
 
         // Find delete button in floating bar
         const deleteBtn = screen.getByRole('button', { name: /Delete/i });
-        fireEvent.click(deleteBtn);
+        await act(async () => {
+            fireEvent.click(deleteBtn);
+        });
 
         expect(global.confirm).toHaveBeenCalled();
         expect(mockToastPromise).toHaveBeenCalled();
@@ -274,7 +276,7 @@ describe('PublishingDashboard', () => {
         global.confirm = vi.fn(() => true);
 
         const mockReleases = [
-            { id: '1', metadata: { trackTitle: 'Archive Me' }, status: 'live', assets: {} }
+            { id: '1', metadata: { trackTitle: 'Test Track' }, status: 'live', assets: {} }
         ] as any[];
 
         vi.mocked(useReleases).mockReturnValue({
@@ -296,8 +298,9 @@ describe('PublishingDashboard', () => {
 
         // Find archive button
         const archiveBtn = screen.getByRole('button', { name: /Archive/i });
-
-        fireEvent.click(archiveBtn);
+        await act(async () => {
+            fireEvent.click(archiveBtn);
+        });
 
         expect(global.confirm).toHaveBeenCalled();
         expect(mockToastPromise).toHaveBeenCalled();

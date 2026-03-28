@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, TrendingUp, Users, MousePointerClick, AlertCircle, Loader2 } from 'lucide-react';
 import { SkeletonStat, SkeletonTable } from '@/components/ui/Skeleton';
 import { DashboardService } from '@/services/dashboard/DashboardService';
+import { AnalyticsService } from '@/services/dashboard/AnalyticsService';
 import { SalesAnalyticsData } from '@/services/dashboard/schema';
 import { logger } from '@/utils/logger';
 
@@ -59,48 +60,50 @@ const MetricCard = ({
                 {change > 0 ? '+' : ''}{change}%
             </span>
         )}
-         {change === undefined && (
-             <span className="text-xs text-gray-500 ml-2">--</span>
-         )}
+        {change === undefined && (
+            <span className="text-xs text-gray-500 ml-2">--</span>
+        )}
     </div>
 );
 
 export default function SalesAnalytics() {
+    const userId = DashboardService.getCurrentUserId();
     const [data, setData] = useState<SalesAnalyticsData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(!!userId);
+    const [error, setError] = useState<string | null>(
+        userId ? null : 'Please log in to view analytics.'
+    );
     const [period, setPeriod] = useState('30d');
     const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
+        if (!userId) return;
+
         let isMounted = true;
 
-        async function fetchData() {
-            setLoading(true);
-            try {
-                const analytics = await DashboardService.getSalesAnalytics(period);
+        const unsubscribe = AnalyticsService.subscribeToSalesAnalytics(
+            userId,
+            (newData) => {
                 if (isMounted) {
-                    setData(analytics);
+                    setData(newData);
                     setError(null);
+                    setLoading(false);
                 }
-            } catch (err) {
+            },
+            (err) => {
                 if (isMounted) {
-                    setError('Failed to load sales analytics.');
-                    logger.error("Operation failed:", err);
-                }
-            } finally {
-                if (isMounted) {
+                    setError('Failed to sync sales analytics.');
+                    logger.error("Real-time sync failed:", err);
                     setLoading(false);
                 }
             }
-        }
-
-        fetchData();
+        );
 
         return () => {
             isMounted = false;
+            unsubscribe();
         };
-    }, [period, retryCount]);
+    }, [userId, retryCount]);
 
     if (loading) {
         return (
@@ -119,7 +122,7 @@ export default function SalesAnalytics() {
                 <AlertCircle className="w-8 h-8 text-red-500" />
                 <span className="text-red-400 text-sm">{error}</span>
                 <button
-                    onClick={() => setRetryCount(c => c + 1)}
+                    onClick={() => { setError(null); setLoading(true); setRetryCount(c => c + 1); }}
                     className="px-4 py-2 bg-red-900/30 text-red-200 text-xs rounded hover:bg-red-900/50 transition-colors"
                 >
                     Retry

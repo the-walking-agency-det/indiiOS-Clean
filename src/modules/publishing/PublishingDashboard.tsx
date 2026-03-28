@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Module component with dynamic data */
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -47,7 +47,8 @@ import { OfflineBanner } from './components/OfflineBanner';
 import { LayoutGrid, BarChart2, CreditCard, Upload, ScrollText } from 'lucide-react';
 import { MechanicalRoyaltyPanel } from './components/MechanicalRoyaltyPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { ReleaseAssets, DistributorId, ReleaseStatus } from '@/services/distribution/types/distributor';
+import type { ReleaseAssets, DistributorId, ReleaseStatus, DashboardRelease } from '@/services/distribution/types/distributor';
+import type { ClientReleaseRecord } from './hooks/useReleases';
 import { logger } from '@/utils/logger';
 
 /* ================================================================== */
@@ -316,8 +317,15 @@ export default function PublishingDashboard() {
                                         .filter(r => r.metadata.isrc)
                                         .map(r => [r.metadata.isrc!, r.metadata])
                                 );
+
+                                const result = await dsrUploadService.processAndSaveReport(report, catalog);
+
+                                if (!result.success) {
+                                    throw new Error(result.error || 'Failed to process report');
+                                }
+
                                 setIsDSRModalOpen(false);
-                                toast.success('Sales report integrated successfully');
+                                toast.success(`Integrated ${result.matchedReleases} releases from report`);
                                 await fetchEarnings({ startDate: defaultDateRange.start, endDate: defaultDateRange.end });
                             } catch (error) {
                                 logger.error('[DSR Upload] Error:', error);
@@ -379,7 +387,8 @@ function ReleaseStatsPanel({ stats, earnings }: { stats: { total: number; live: 
     );
 }
 
-function ActiveReleasePanel({ releases, onSelect }: { releases: any[]; onSelect: (id: string) => void }) {
+type ReleaseRow = { id: string; status: string; metadata?: { trackTitle?: string; artistName?: string;[key: string]: unknown } };
+function ActiveReleasePanel({ releases, onSelect }: { releases: ClientReleaseRecord[]; onSelect: (id: string) => void }) {
     const liveReleases = releases.filter(r => r.status === 'live').slice(0, 4);
 
     return (
@@ -397,8 +406,8 @@ function ActiveReleasePanel({ releases, onSelect }: { releases: any[]; onSelect:
                         >
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
                             <div className="min-w-0">
-                                <p className="text-xs text-white truncate">{r.metadata?.title || 'Untitled'}</p>
-                                <p className="text-[10px] text-gray-600">{r.metadata?.artist || 'Unknown'}</p>
+                                <p className="text-xs text-white truncate">{r.metadata?.trackTitle || 'Untitled'}</p>
+                                <p className="text-[10px] text-gray-600">{r.metadata?.artistName || 'Unknown'}</p>
                             </div>
                         </button>
                     ))}
@@ -448,7 +457,7 @@ function PendingActionsPanel({ pendingCount, draftCount, onNewRelease, onImportD
 /*  Right Panel Widgets                                                 */
 /* ================================================================== */
 
-function PerformancePanel({ releases }: { releases: any[] }) {
+function PerformancePanel({ releases }: { releases: ClientReleaseRecord[] }) {
     const liveCount = releases.filter(r => r.status === 'live').length;
     const totalCount = releases.length;
     const pct = totalCount > 0 ? Math.round((liveCount / totalCount) * 100) : 0;

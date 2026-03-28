@@ -22,6 +22,8 @@ import { BarChart3, TrendingUp, MousePointerClick, Image, Sparkles, Radio } from
 import { motion } from 'motion/react';
 import { logger } from '@/utils/logger';
 import { SkeletonList, SkeletonStat } from '@/components/shared/SkeletonLoader';
+import { useStore } from '@/core/store';
+import { ModuleErrorBoundary } from '@/core/components/ModuleErrorBoundary';
 
 /* ================================================================== */
 /*  Campaign Dashboard — Three-Panel Layout                             */
@@ -118,94 +120,96 @@ const CampaignDashboard: React.FC = () => {
 
 
     return (
-        <div className="absolute inset-0 flex bg-background text-foreground font-sans selection:bg-dept-marketing/30">
-            {/* ── LEFT PANEL — Marketing Sidebar (existing) ────── */}
-            <MarketingSidebar
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-            />
-
-            {/* ── CENTER — Campaign Workspace ────────────────────── */}
-            <div className="flex-1 flex flex-col min-w-0 bg-background">
-                <MarketingToolbar
-                    onAction={handleCreateNew}
-                    actionLabel="New Campaign"
+        <ModuleErrorBoundary moduleName="Marketing Dashboard">
+            <div className="absolute inset-0 flex bg-background text-foreground font-sans selection:bg-dept-marketing/30">
+                {/* ── LEFT PANEL — Marketing Sidebar (existing) ────── */}
+                <MarketingSidebar
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
                 />
 
-                <div className="flex-1 overflow-hidden relative">
-                    <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-dept-marketing/10 to-transparent pointer-events-none" />
+                {/* ── CENTER — Campaign Workspace ────────────────────── */}
+                <div className="flex-1 flex flex-col min-w-0 bg-background">
+                    <MarketingToolbar
+                        onAction={handleCreateNew}
+                        actionLabel="New Campaign"
+                    />
 
-                    {activeTab === 'campaigns' || activeTab === 'overview' ? (
-                        isLoading ? (
-                            <div className="p-4 space-y-4" data-testid="marketing-dashboard-loader" aria-busy="true" aria-label="Loading campaigns">
-                                <div className="grid grid-cols-3 gap-3">
-                                    <SkeletonStat /><SkeletonStat /><SkeletonStat />
+                    <div className="flex-1 overflow-hidden relative">
+                        <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-dept-marketing/10 to-transparent pointer-events-none" />
+
+                        {activeTab === 'campaigns' || activeTab === 'overview' ? (
+                            isLoading ? (
+                                <div className="p-4 space-y-4" data-testid="marketing-dashboard-loader" aria-busy="true" aria-label="Loading campaigns">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <SkeletonStat /><SkeletonStat /><SkeletonStat />
+                                    </div>
+                                    <SkeletonList rows={5} />
                                 </div>
-                                <SkeletonList rows={5} />
-                            </div>
+                            ) : (
+                                <CampaignManager
+                                    campaigns={campaigns}
+                                    selectedCampaign={selectedCampaign}
+                                    onSelectCampaign={setSelectedCampaign}
+                                    onUpdateCampaign={handleUpdateCampaign}
+                                    onCreateNew={handleCreateNew}
+                                    onAIGenerate={handleAIGenerate}
+                                />
+                            )
+                        ) : activeTab === 'asset-generator' ? (
+                            <MarketingAssetGeneratorUI />
+                        ) : activeTab === 'ad-buying' ? (
+                            <AdBuyingPanel />
+                        ) : activeTab === 'email' ? (
+                            <EmailMarketingPanel />
+                        ) : activeTab === 'pre-save' ? (
+                            <PreSaveCampaignBuilder />
+                        ) : activeTab === 'sms' ? (
+                            <SMSMarketingPanel />
+                        ) : activeTab === 'fan-data' ? (
+                            <FanDataEnrichment />
+                        ) : activeTab === 'epk' ? (
+                            <EPKGenerator />
+                        ) : activeTab === 'community' ? (
+                            <CommunityWebhookPanel />
+                        ) : activeTab === 'influencers' ? (
+                            <InfluencerBountyBoard />
+                        ) : activeTab === 'auto-poster' ? (
+                            <MultiPlatformPoster />
+                        ) : activeTab === 'momentum' ? (
+                            <MomentumTracker />
                         ) : (
-                            <CampaignManager
-                                campaigns={campaigns}
-                                selectedCampaign={selectedCampaign}
-                                onSelectCampaign={setSelectedCampaign}
-                                onUpdateCampaign={handleUpdateCampaign}
-                                onCreateNew={handleCreateNew}
-                                onAIGenerate={handleAIGenerate}
-                            />
-                        )
-                    ) : activeTab === 'asset-generator' ? (
-                        <MarketingAssetGeneratorUI />
-                    ) : activeTab === 'ad-buying' ? (
-                        <AdBuyingPanel />
-                    ) : activeTab === 'email' ? (
-                        <EmailMarketingPanel />
-                    ) : activeTab === 'pre-save' ? (
-                        <PreSaveCampaignBuilder />
-                    ) : activeTab === 'sms' ? (
-                        <SMSMarketingPanel />
-                    ) : activeTab === 'fan-data' ? (
-                        <FanDataEnrichment />
-                    ) : activeTab === 'epk' ? (
-                        <EPKGenerator />
-                    ) : activeTab === 'community' ? (
-                        <CommunityWebhookPanel />
-                    ) : activeTab === 'influencers' ? (
-                        <InfluencerBountyBoard />
-                    ) : activeTab === 'auto-poster' ? (
-                        <MultiPlatformPoster />
-                    ) : activeTab === 'momentum' ? (
-                        <MomentumTracker />
-                    ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-3">
-                            <Sparkles size={24} className="text-gray-600" />
-                            <p className="text-sm font-medium text-gray-400">This feature is launching soon</p>
-                            <p className="text-xs text-gray-600 max-w-xs text-center">We're putting the finishing touches on this experience. In the meantime, explore your active campaigns.</p>
-                        </div>
-                    )}
+                            <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-3">
+                                <Sparkles size={24} className="text-gray-600" />
+                                <p className="text-sm font-medium text-gray-400">This feature is launching soon</p>
+                                <p className="text-xs text-gray-600 max-w-xs text-center">We're putting the finishing touches on this experience. In the meantime, explore your active campaigns.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                {/* ── RIGHT PANEL — Performance & Assets ─────────────── */}
+                <aside className="hidden lg:flex w-72 2xl:w-80 flex-col border-l border-white/5 overflow-y-auto p-3 gap-3 flex-shrink-0">
+                    <PerformanceSnapshotPanel campaigns={campaigns} />
+                    <AssetLibraryPanel />
+                    <AISuggestionsPanel />
+                </aside>
+
+                {isCreateModalOpen && (
+                    <CreateCampaignModal
+                        onClose={() => setIsCreateModalOpen(false)}
+                        onSave={handleCreateSave}
+                    />
+                )}
+
+                {isAIModalOpen && (
+                    <AIGenerateCampaignModal
+                        onClose={() => setIsAIModalOpen(false)}
+                        onSave={handleAISave}
+                    />
+                )}
             </div>
-
-            {/* ── RIGHT PANEL — Performance & Assets ─────────────── */}
-            <aside className="hidden lg:flex w-72 2xl:w-80 flex-col border-l border-white/5 overflow-y-auto p-3 gap-3 flex-shrink-0">
-                <PerformanceSnapshotPanel campaigns={campaigns} />
-                <AssetLibraryPanel />
-                <AISuggestionsPanel />
-            </aside>
-
-            {isCreateModalOpen && (
-                <CreateCampaignModal
-                    onClose={() => setIsCreateModalOpen(false)}
-                    onSave={handleCreateSave}
-                />
-            )}
-
-            {isAIModalOpen && (
-                <AIGenerateCampaignModal
-                    onClose={() => setIsAIModalOpen(false)}
-                    onSave={handleAISave}
-                />
-            )}
-        </div>
+        </ModuleErrorBoundary>
     );
 };
 
@@ -242,21 +246,43 @@ function PerformanceSnapshotPanel({ campaigns }: { campaigns: CampaignAsset[] })
 }
 
 function AssetLibraryPanel() {
-    // Brand assets should be loaded from the user's uploaded assets in Firebase Storage
+    const userProfile = useStore(state => state.userProfile);
+    const brandAssets = userProfile?.brandKit?.brandAssets || [];
+    const referenceImages = userProfile?.brandKit?.referenceImages || [];
+
+    const totalAssets = brandAssets.length + referenceImages.length;
+
     return (
         <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-1">Asset Library</h3>
-            <div className="flex flex-col items-center justify-center py-4 text-center">
-                <Image size={16} className="text-gray-600 mb-2" />
-                <p className="text-[11px] text-gray-600">No brand assets uploaded</p>
-                <p className="text-[10px] text-gray-700 mt-0.5">Upload logos, photos, and templates to build your library</p>
-            </div>
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-1 flex items-center justify-between">
+                <span>Asset Library</span>
+                <span className="text-gray-600">{totalAssets} stored</span>
+            </h3>
+            {totalAssets === 0 ? (
+                <div className="flex flex-col items-center justify-center py-4 text-center">
+                    <Image size={16} className="text-gray-600 mb-2" />
+                    <p className="text-[11px] text-gray-600">No brand assets uploaded</p>
+                    <p className="text-[10px] text-gray-700 mt-0.5">Upload logos, photos, and templates</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-2">
+                    {brandAssets.slice(0, 4).map((asset, i) => (
+                        <div key={asset.id || i} className="aspect-square rounded-lg bg-black/40 border border-white/5 overflow-hidden">
+                            <img src={asset.url} alt={asset.description} className="w-full h-full object-cover opacity-70 hover:opacity-100 transition-opacity" />
+                        </div>
+                    ))}
+                    {totalAssets > 4 && (
+                        <div className="col-span-2 text-center pt-2">
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest cursor-pointer hover:text-white">+ {totalAssets - 4} more assets</p>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
 function AISuggestionsPanel() {
-    // AI suggestions should be generated from actual campaign analytics data
     return (
         <div className="rounded-xl bg-dept-marketing/5 border border-dept-marketing/10 p-3">
             <h3 className="text-[10px] font-bold text-dept-marketing uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
@@ -264,8 +290,8 @@ function AISuggestionsPanel() {
             </h3>
             <div className="flex flex-col items-center justify-center py-4 text-center">
                 <Sparkles size={16} className="text-gray-600 mb-2" />
-                <p className="text-[11px] text-gray-600">No insights yet</p>
-                <p className="text-[10px] text-gray-700 mt-0.5">AI suggestions will appear once you have active campaign data</p>
+                <p className="text-[11px] text-gray-600">Collecting analytics...</p>
+                <p className="text-[10px] text-gray-700 mt-0.5 max-w-[180px]">Need a live campaign generating real-world impressions to formulate predictive growth advice.</p>
             </div>
         </div>
     );

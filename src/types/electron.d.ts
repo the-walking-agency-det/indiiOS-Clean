@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Utility/config types use any by design */
+
 
 import * as DistributionTypes from './distribution';
 
@@ -128,7 +128,7 @@ export interface ElectronAPI {
         downloadRemoteFile: (config: Omit<DistributionTypes.SFTPConfig, 'localPath'>) => Promise<string>;
         // Item 350: Typed submitRelease + onSubmitProgress (replaces `as any` casts)
         submitRelease: (releaseData: unknown) => Promise<{ success: boolean; error?: string; report?: { sftp_skipped?: boolean } }>;
-        onSubmitProgress: (callback: (progress: number) => void) => () => void;
+        onSubmitProgress: (callback: (event: { step?: string; status?: string; progress?: number; detail?: string; log?: string }) => void) => () => void;
     };
     on: (channel: string, callback: (...args: unknown[]) => void) => () => void;
     // Item 351: Explicit invoke signature to remove @ts-ignore in usePowerState and UpdaterMonitor
@@ -142,6 +142,7 @@ export interface ElectronAPI {
     security?: {
         rotateCredentials: (options: { serviceName: string }) => Promise<{ success: boolean; error?: string }>;
         scanVulnerabilities: (options: { scope: string }) => Promise<{ success: boolean; scan?: { scope: string; vulnerabilities: unknown[]; score: number }; error?: string }>;
+        applyWatermark?: (options: { fileId: string; text: string; invisible?: boolean }) => Promise<{ success: boolean; watermarkedFileId?: string; error?: string }>;
     };
 
     // Brand analysis IPC bridge (Electron-only)
@@ -167,8 +168,6 @@ declare global {
         MSStream?: unknown; // Legacy iOS detection
 
         // Vendor-prefixed Web APIs
-        webkitSpeechRecognition?: new () => any;
-        SpeechRecognition?: new () => any;
         webkitAudioContext?: typeof AudioContext;
 
         // Google Maps auth failure callback
@@ -190,7 +189,6 @@ declare global {
         wakeLock?: {
             request: (type: 'screen') => Promise<unknown>;
         };
-        getBattery?: () => Promise<unknown>;
     }
 }
 
