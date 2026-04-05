@@ -2,6 +2,21 @@
 
 All notable changes to indiiOS are documented in this file.
 
+## [1.49.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.48.0...v1.49.0) (2026-04-05)
+
+
+### Features
+
+* **registration:** build Registration Center — full Phase 1-6 ([ac39745](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/ac39745428c4dc7786e562034d5c87a4c4a592dd))
+* **registration:** Registration Center — artist never leaves indiiOS ([ab8115e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/ab8115e1dd72929d5fd82020d2f37fba4150814f))
+
+
+### Bug Fixes
+
+* **deps:** resolve all critical and high-severity dependency vulnerabilities ([9d45082](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/9d450829eab8e47565397a587cf36fb74edd2a97))
+* **deps:** upgrade firebase-admin to v13.7.0 and electron-forge to v7.11.1 ([40b3575](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/40b3575ca07b6ad064a98943c12f65d86174fa25))
+* **registration:** resolve all lint violations and TypeScript errors in Registration Center module ([328a273](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/328a27336fdd5b0df236ded949bf9208184fe313))
+
 ## [1.48.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.47.0...v1.48.0) (2026-04-05)
 
 
