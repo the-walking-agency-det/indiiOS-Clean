@@ -95,7 +95,7 @@ const createWindow = async () => {
         y: windowState.y,
         webPreferences: {
             devTools: !app.isPackaged,
-            preload: path.join(__dirname, 'preload.cjs'),
+            preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true,
