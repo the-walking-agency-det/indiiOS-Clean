@@ -1,6 +1,6 @@
 {
   "name": "indiios-monorepo",
-  "version": "1.48.0",
+  "version": "1.49.0",
   "description": "The Operating System for Independent Artists — npm Workspace Monorepo",
   "author": "IndiiOS LLC <info@indiios.com>",
   "private": true,
@@ -60,6 +60,9 @@
     "typescript": "^5.8.2",
     "typescript-eslint": "8.48.0",
     "vitest": "4.0.18"
+    "typescript": "5.8.2",
+    "typescript-eslint": "8.48.0",
+    "vitest": "^4.0.18"
   },
   "optionalDependencies": {
     "@esbuild/linux-x64": "0.25.12",
