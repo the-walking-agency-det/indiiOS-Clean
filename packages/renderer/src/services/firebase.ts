@@ -128,6 +128,10 @@ if (typeof window !== 'undefined' && (window as unknown as Record<string, unknow
             return () => { };
         },
         signInAnonymously: () => Promise.resolve({ user: mockUser }),
+        signInWithEmailAndPassword: () => Promise.resolve({ user: mockUser }),
+        createUserWithEmailAndPassword: () => Promise.resolve({ user: mockUser }),
+        sendPasswordResetEmail: () => Promise.resolve(),
+        signInWithPopup: () => Promise.resolve({ user: mockUser }),
         signOut: () => Promise.resolve(),
     } as unknown as Auth;
 } else {
@@ -145,6 +149,10 @@ if (typeof window !== 'undefined' && (window as unknown as Record<string, unknow
                 return () => { };
             },
             signInAnonymously: () => Promise.reject(new Error("Missing API Key")),
+            signInWithEmailAndPassword: () => Promise.reject(new Error("Missing API Key")),
+            createUserWithEmailAndPassword: () => Promise.reject(new Error("Missing API Key")),
+            sendPasswordResetEmail: () => Promise.reject(new Error("Missing API Key")),
+            signInWithPopup: () => Promise.reject(new Error("Missing API Key")),
             signOut: () => Promise.resolve(),
         } as unknown as Auth;
     }
