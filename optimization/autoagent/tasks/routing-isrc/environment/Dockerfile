@@ -1,9 +1,3 @@
-# Minimal task environment for routing tasks. Just needs python3 + bash so the
-# verifier can run. No internet (`allow_internet = false` in task.toml).
-FROM python:3.12-slim
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends bash coreutils \
-    && rm -rf /var/lib/apt/lists/*
-
+FROM registry.fedoraproject.org/fedora-minimal:39
+RUN microdnf install -y python3 bash coreutils && microdnf clean all
 WORKDIR /task
