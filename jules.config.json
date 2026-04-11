@@ -1,0 +1,5 @@
+{
+    "branch_naming_convention": "jules-patch-{type}-{timestamp}-{uuid}",
+    "auto_rebase": true,
+    "test_validation": true
+}

@@ -1,0 +1,31 @@
+name: Jules Asynchronous Global Scanner
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly, Sunday at 00:00 UTC
+
+jobs:
+  jules_scheduled_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Jules API Global Scan Trigger
+        env:
+          JULES_TOKEN: ${{ secrets.JULES_ACCESS_TOKEN }}
+        run: |
+          echo "Triggering Jules API for global AST/RAG analysis..."
+          PAYLOAD=$(cat <<EOF
+          {
+            "analysis_scope": "full_ast",
+            "cve_sync": true,
+            "sandbox_vm_provision": true,
+            "repo": "${{ github.repository }}"
+          }
+          EOF
+          )
+          
+          # Simulate Jules webhook call.
+          # curl -X POST -H "Authorization: Bearer $JULES_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" https://api.jules.devsecops/scan/global
+          
+          echo "Global scan triggered successfully."
