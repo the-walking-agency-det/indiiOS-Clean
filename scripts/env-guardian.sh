@@ -7,12 +7,14 @@
 # ==============================================================================
 
 SAFE_COPY="$HOME/.config/indiios/.env"
-PROJECT_ENV="$(git rev-parse --show-toplevel 2>/dev/null)/.env"
+set -euo pipefail
 
-if [ -z "$PROJECT_ENV" ]; then
+SAFE_COPY="$HOME/.config/indiios/.env"
+if ! GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
   echo "❌ Not inside a git repository."
   exit 1
 fi
+PROJECT_ENV="$GIT_ROOT/.env"
 
 case "$1" in
   backup)
