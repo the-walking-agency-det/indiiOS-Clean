@@ -23,24 +23,32 @@ vi.mock('os', () => ({
     }
 }));
 
-vi.mock('fs', () => ({
-    default: {
-        realpathSync: (p: string) => {
-            // Simulate existence for our test paths
-            // We strip any symlink logic for this mock, assuming inputs are canonical for the test cases
-            // or the mock returns the canonical path.
 
-            // Allow test paths
-            if (p.startsWith(mockUserData) ||
-                p.startsWith(mockTmpDir) ||
-                p.startsWith(mockDocuments) ||
-                p.startsWith('/authorized')) {
-                return p;
+vi.mock('fs', () => {
+    let throwOnUserData = false;
+    return {
+        default: {
+            realpathSync: (p: string) => {
+                // Feature to enable test-specific throwing
+                if (throwOnUserData && p === mockUserData) {
+                    throw new Error('mock error on userData');
+                }
+
+                // Allow test paths
+                if (p.startsWith(mockUserData) ||
+                    p.startsWith(mockTmpDir) ||
+                    p.startsWith(mockDocuments) ||
+                    p.startsWith('/authorized')) {
+                    return p;
+                }
+                throw new Error(`ENOENT: no such file or directory, realpath '${p}'`);
+            },
+            __setThrowOnUserData: (val: boolean) => {
+                throwOnUserData = val;
             }
-            throw new Error(`ENOENT: no such file or directory, realpath '${p}'`);
         }
-    }
-}));
+    };
+});
 
 import { accessControlService } from './AccessControlService';
 
@@ -88,5 +96,25 @@ describe('AccessControlService', () => {
     it('should deny files that do not exist (realpath failure)', () => {
         // /nonexistent/file.txt -> realpath throws -> returns false
         expect(accessControlService.verifyAccess('/nonexistent/file.txt')).toBe(false);
+    });
+
+    it('should catch error when path.resolve throws in grantAccess', () => {
+        const spy = vi.spyOn(path, 'resolve').mockImplementationOnce(() => {
+            throw new Error('mock resolve error');
+        });
+
+        expect(() => accessControlService.grantAccess('/some/path')).not.toThrow();
+        expect((accessControlService as any).authorizedPaths.size).toBe(0);
+
+        spy.mockRestore();
+    });
+
+    it('should fallback to path.resolve when realpathSync throws for system roots', async () => {
+        const fsMock = await import('fs');
+        (fsMock.default as any).__setThrowOnUserData(true);
+
+        expect(accessControlService.verifyAccess(path.join(mockUserData, 'config.json'))).toBe(true);
+
+        (fsMock.default as any).__setThrowOnUserData(false);
     });
 });
