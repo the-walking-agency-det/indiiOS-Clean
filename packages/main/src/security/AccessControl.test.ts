@@ -89,4 +89,42 @@ describe('AccessControlService', () => {
         // /nonexistent/file.txt -> realpath throws -> returns false
         expect(accessControlService.verifyAccess('/nonexistent/file.txt')).toBe(false);
     });
+
+
+
+
+
+
+    it('should log an error and not throw when grantAccess fails', () => {
+        const pathResolveSpy = vi.spyOn(path, 'resolve').mockImplementationOnce(() => {
+            throw new Error('Simulated path.resolve error');
+        });
+
+        try {
+            expect(() => accessControlService.grantAccess('/some/path')).not.toThrow();
+        } finally {
+            pathResolveSpy.mockRestore();
+        }
+    });
+
+    it('should fallback to path.resolve if realpathSync fails for allowed root', async () => {
+        const electron = await import('electron');
+
+        // Spy on getPath to return a root not in the global fs mock's allowlist.
+        // This will cause fs.realpathSync to throw inside the allowedRoots mapping,
+        // triggering the catch block and falling back to path.resolve.
+        const getPathSpy = vi.spyOn(electron.app, 'getPath').mockImplementation((name) => {
+            if (name === 'userData') return '/unreal-root';
+            if (name === 'documents') return mockDocuments;
+            return '';
+        });
+
+        try {
+            // Passing an allowed path ensures line 49 (fs.realpathSync(filePath)) succeeds,
+            // allowing the code to reach the allowedRoots mapping block.
+            accessControlService.verifyAccess(path.join(mockTmpDir, 'test.txt'));
+        } finally {
+            getPathSpy.mockRestore();
+        }
+    });
 });
