@@ -1,5 +1,4 @@
 import { initializeApp } from 'firebase/app';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, doc, getDoc, updateDoc, arrayUnion, collection, getDocs, limit, query } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import * as fs from 'fs';
@@ -21,7 +20,6 @@ const firebaseConfig = {
 
 // Initialize Firebase without persistence for Node.js environment
 const app = initializeApp(firebaseConfig);
-const storage = getStorage(app);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
