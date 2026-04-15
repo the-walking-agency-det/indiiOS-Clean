@@ -27,8 +27,12 @@ vi.mock('fs', () => ({
     default: {
         realpathSync: (p: string) => {
             // Simulate existence for our test paths
-            // We strip any symlink logic for this mock, assuming inputs are canonical for the test cases
-            // or the mock returns the canonical path.
+
+            // To test line 83, we force an error specifically for the exact root '/tmp'
+            // This will cause allowedRoots.map to fall back to path.resolve(p) for '/tmp'
+            if (p === mockTmpDir) {
+                throw new Error('ENOENT: no such file or directory, realpath /tmp');
+            }
 
             // Allow test paths
             if (p.startsWith(mockUserData) ||
@@ -71,6 +75,33 @@ describe('AccessControlService', () => {
         // Documents itself is mocked to exist, so realpath works.
         // But logic should deny it.
         expect(accessControlService.verifyAccess(path.join(mockDocuments, 'secret.txt'))).toBe(false);
+    });
+
+    it('should catch error if path.resolve fails during grantAccess', () => {
+        const originalResolve = path.resolve;
+        const resolveSpy = vi.spyOn(path, 'resolve').mockImplementation((...args) => {
+            if (args[0] === '/error/path') throw new Error('resolve error');
+            return originalResolve(...args);
+        });
+
+        const logErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        try {
+            expect(() => accessControlService.grantAccess('/error/path')).not.toThrow();
+            expect((accessControlService as any).authorizedPaths.has('/error/path')).toBe(false);
+        } finally {
+            resolveSpy.mockRestore();
+            logErrorSpy.mockRestore();
+        }
+    });
+
+    it('should fall back to path.resolve when realpathSync fails for allowed roots', () => {
+        // mockTmpDir ('/tmp') is mocked to throw an error in realpathSync.
+        // The verifyAccess method maps allowedRoots and calls realpathSync on each.
+        // For '/tmp', it throws, triggering the catch block and falling back to path.resolve(p) (line 83).
+        // The path '/tmp/staged/file.txt' itself successfully passes realpathSync because it starts with mockTmpDir,
+        // and then matches the resolved allowed root fallback.
+        expect(accessControlService.verifyAccess(path.join(mockTmpDir, 'staged/file.txt'))).toBe(true);
     });
 
     it('should allow explicitly granted files', () => {
