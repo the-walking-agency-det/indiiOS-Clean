@@ -19,7 +19,7 @@ export class IndiiRemoteError extends Error {
     }
 }
 
-class IndiiRemoteService {
+export class IndiiRemoteService {
     private server: ReturnType<typeof createServer> | null = null;
     private wss: WebSocketServer | null = null;
     private expressApp: ReturnType<typeof express> | null = null;
