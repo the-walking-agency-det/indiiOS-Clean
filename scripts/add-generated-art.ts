@@ -90,11 +90,7 @@ async function uploadImages(userId: string) {
                 continue;
             }
 
-            // Fallback to local file URL since Storage upload is flaky in script context (CORS/Referer/Auth)
-            // Electron can render local files if we handle the protocol correctly.
-            // We encode the path segments individually to ensure special characters (like spaces, #, ?) are handled
-            // while preserving the directory structure.
-            // We encode the path segments to ensure spaces and special characters are handled.
+            // Encode path segments to handle special characters while preserving directory structure
             const safePath = img.path.split('/').map(segment => encodeURIComponent(segment)).join('/');
             const fileUrl = `file://${safePath}`;
 
