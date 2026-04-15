@@ -244,10 +244,17 @@ class BigBrainEngine {
         const factLines: string[] = [];
         let currentChars = 0;
 
-        for (const category of targetCategories) {
+        // Fetch all categories in parallel
+        const results = await Promise.all(
+            targetCategories.map(async (category) => {
+                const { facts } = await coreVaultService.readVault(userId, category);
+                return { category, facts };
+            })
+        );
+
+        for (const { category, facts } of results) {
             if (currentChars >= maxChars) break;
 
-            const { facts } = await coreVaultService.readVault(userId, category);
             for (const fact of facts) {
                 const line = `- [${category}] ${fact.fact}`;
                 if (currentChars + line.length > maxChars) break;
