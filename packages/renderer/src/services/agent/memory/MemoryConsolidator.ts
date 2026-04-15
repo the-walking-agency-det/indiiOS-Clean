@@ -112,9 +112,10 @@ export class MemoryConsolidator {
 
             // Mark the old memories as consolidated
             const batch = writeBatch(db);
+            const now = Timestamp.now();
             for (const m of memories) {
                 const ref = firestoreDoc(db, 'users', userId, 'alwaysOnMemories', m.id);
-                batch.update(ref, { consolidated: true, updatedAt: Timestamp.now() });
+                batch.update(ref, { consolidated: true, updatedAt: now });
             }
             await batch.commit();
 
