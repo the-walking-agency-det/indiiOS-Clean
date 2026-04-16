@@ -90,12 +90,16 @@ describe('Content Security Policy', () => {
         it('should add CSP headers to responses', () => {
             applyCSP();
 
-            // Get the registered callback
-            const callback = vi.mocked(session.defaultSession.webRequest.onHeadersReceived).mock.calls[0][0];
+            // Get the registered callback — onHeadersReceived is always called by applyCSP
+            const mockedFn = vi.mocked(session.defaultSession.webRequest.onHeadersReceived);
+            expect(mockedFn).toHaveBeenCalled();
+            // Use a typed cast matching Electron's listener signature to satisfy strict TS
+            type HeadersListener = (details: { responseHeaders: Record<string, string[]> }, cb: (r: Record<string, unknown>) => void) => void;
+            const callback = mockedFn.mock.calls[0][0] as unknown as HeadersListener;
 
             // Simulate a request
             const cbFn = vi.fn();
-            callback({ responseHeaders: { 'X-Test': ['test'] } } as any, cbFn);
+            callback({ responseHeaders: { 'X-Test': ['test'] } }, cbFn);
 
             expect(cbFn).toHaveBeenCalled();
             const response = cbFn.mock.calls[0][0];
