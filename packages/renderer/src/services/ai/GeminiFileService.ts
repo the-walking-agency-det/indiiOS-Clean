@@ -127,6 +127,7 @@ export class GeminiFileService {
             return data.file as GeminiFile;
 
         } catch (error: unknown) {
+            if (error instanceof AppException) throw error;
             const msg = error instanceof Error ? error.message : String(error);
             logger.error(`[GeminiFileService] uploadFile failed: ${msg}`);
             throw new AppException(AppErrorCode.NETWORK_ERROR, `Failed to upload file to Gemini AI: ${msg}`);
