@@ -110,18 +110,18 @@ export class GeminiFileService {
                 body: file,
             });
 
-            if (onProgress) onProgress(100);
-
             if (!uploadResponse.ok) {
                 const errorText = await uploadResponse.text();
                 throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
             }
 
             const data = await uploadResponse.json();
-            
+
             if (!data.file || !data.file.uri) {
                 throw new Error('API returned successfully but missing file/uri payload.');
             }
+
+            if (onProgress) onProgress(100);
 
             logger.info(`[GeminiFileService] Upload complete! URI: ${data.file.uri}`);
             return data.file as GeminiFile;
