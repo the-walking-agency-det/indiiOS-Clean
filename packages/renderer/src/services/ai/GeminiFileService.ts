@@ -95,6 +95,10 @@ export class GeminiFileService {
             // XMLHttpRequest / fetch with stream progress is better.
             // For now, doing a direct PUT/POST with the Blob:
             
+            // To provide robust progress tracking, we could chunk it, but standard
+            // XMLHttpRequest / fetch with stream progress is better.
+            // For now, doing a direct PUT/POST with the Blob:
+
             // Send the final payload chunked automatically by fetch
             logger.info(`[GeminiFileService] Sending file data to session URL`);
             if (onProgress) onProgress(0);
@@ -158,12 +162,14 @@ export class GeminiFileService {
 
     /**
      * Polls the file until its state is ACTIVE. 
+     * Polls the file until its state is ACTIVE.
      * Useful for large media like video that require backend processing.
      */
     public async waitForActive(name: string, pollIntervalMs = 5000, timeoutMs = 600000): Promise<GeminiFile> {
         logger.info(`[GeminiFileService] Polling ${name} for ACTIVE state...`);
         const startTime = Date.now();
         
+
         while (Date.now() - startTime < timeoutMs) {
             const fileMeta = await this.getFile(name);
             if (fileMeta.state === 'ACTIVE') {

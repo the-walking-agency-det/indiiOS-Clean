@@ -205,6 +205,47 @@ export class AudioAnalysisService {
                  logger.warn("[AudioAnalysis] Failed to cleanup Gemini file", ce);
             }
 
+
+        // 2. AI DNA Extraction via Gemini File API
+        try {
+            logger.info("[AudioAnalysis] Extracting deep DNA via Gemini Files API...");
+            const { firebaseAI } = await import('@/services/ai/FirebaseAIService');
+
+            // Upload the file via resumable upload
+            const fileMeta = await firebaseAI.fileService.uploadFile(file as File);
+            logger.info(`[AudioAnalysis] Gemini file uploaded: ${fileMeta.uri}`);
+
+            // Wait for processing if necessary
+            await firebaseAI.fileService.waitForActive(fileMeta.name);
+
+            // Analyze the URI
+            const result = await firebaseAI.analyzeFileURI(fileMeta.uri, fileMeta.mimeType, `
+                Analyze this audio track and extract its musical DNA.
+                Return a JSON object containing:
+                1. "genre": an object with up to 3 genre names as keys and confidence values (0 to 1) as values. (e.g. {"Synthpop": 0.9, "Cyberpunk": 0.7})
+                2. "moods": an object with standard moods as keys and values 0 to 1. E.g. happy, aggressive, relaxed, sad.
+                3. "danceability_ml": A float between 0 and 1 representing how danceable it is.
+                Return ONLY valid JSON.
+            `);
+
+            if (result) {
+                try {
+                    const parsed = JSON.parse(result);
+                    features.genre = parsed.genre || features.genre;
+                    if (parsed.moods) features.moods = { ...features.moods, ...parsed.moods };
+                    features.danceability_ml = parsed.danceability_ml !== undefined ? parsed.danceability_ml : features.danceability_ml;
+                } catch (pe) {
+                    logger.warn("[AudioAnalysis] Failed to parse JSON from Gemini DNA extraction", pe);
+                }
+            }
+
+            // Cleanup the file explicitly because we no longer need the raw file on their servers after analysis
+            try {
+                 await firebaseAI.fileService.deleteFile(fileMeta.name);
+            } catch (ce) {
+                 logger.warn("[AudioAnalysis] Failed to cleanup Gemini file", ce);
+            }
+
         } catch (error) {
             logger.error("[AudioAnalysis] Gemini DNA extraction failed, falling back to basic features", error);
         }
