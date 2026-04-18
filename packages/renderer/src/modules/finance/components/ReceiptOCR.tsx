@@ -89,10 +89,6 @@ export function ReceiptOCR() {
 
             // 1. Upload the file using resumable upload
             const fileMeta = await firebaseAI.fileService.uploadFile(uploadedFile);
-            
-
-            // 1. Upload the file using resumable upload
-            const fileMeta = await firebaseAI.fileService.uploadFile(uploadedFile);
 
             // 2. Wait for it to be active
             await firebaseAI.fileService.waitForActive(fileMeta.name);
@@ -109,8 +105,6 @@ Analyze this receipt image and extract the following fields as JSON:
 Return ONLY valid JSON, no markdown fences or extra text.`;
 
             const responseText = await firebaseAI.analyzeFileURI(
-                fileMeta.uri, 
-                fileMeta.mimeType, 
                 fileMeta.uri,
                 fileMeta.mimeType,
                 jsonPrompt
