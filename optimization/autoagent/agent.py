@@ -182,8 +182,8 @@ class AutoAgent:
         if trace_file.exists():
             try:
                 traces = json.loads(trace_file.read_text())
-            except:
-                pass
+            except Exception as e:
+                print(f"Warning: Failed to load existing traces from {trace_file}: {e}")
         
         traces.append(trace_data)
         trace_file.write_text(json.dumps(traces, indent=2))

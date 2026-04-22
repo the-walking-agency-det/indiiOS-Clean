@@ -221,7 +221,7 @@ export class WorkflowEngine {
                 if (jobId === 'video-extend') {
                     // Extend the incoming video clip
                     const results = await VideoGeneration.generateVideo({
-                        prompt: `Continue seamlessly: ${prompt}`,
+                        prompt: `Continue: ${prompt}`,
                         durationSeconds: 5,
                         aspectRatio: '16:9',
                     });
@@ -364,7 +364,8 @@ export class WorkflowEngine {
 
                             result = matched ? evaluated : Boolean(inputs.data);
                         }
-                    } catch {
+                    } catch (err) {
+                        logger.warn(`[WorkflowEngine] Router condition evaluation failed:`, err);
                         result = Boolean(inputs.data);
                     }
                 } else {
