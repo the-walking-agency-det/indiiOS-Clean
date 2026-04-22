@@ -4,6 +4,7 @@ import { Editing } from '@/services/image/EditingService';
 import { audioIntelligence } from '@/services/audio/AudioIntelligenceService';
 import { wrapTool, toolSuccess, toolError } from '../utils/ToolUtils';
 import type { ToolFunctionArgs, AnyToolFunction } from '../types';
+import type { ToolExecutionContext } from '../ToolExecutionContext';
 import { MusicTools } from './MusicTools';
 import { CanvasTools } from './CanvasTools';
 
@@ -335,7 +336,7 @@ export const DirectorTools: Record<string, AnyToolFunction> = {
     /**
      * Renders a 2x2 grid of storyboards for visual planning.
      */
-    render_cinematic_grid: wrapTool('render_cinematic_grid', async (args: { prompt: string }, context) => {
+    render_cinematic_grid: wrapTool('render_cinematic_grid', async (args: { prompt: string }, context, toolContext) => {
         const { useStore } = await import('@/core/store');
         const { userProfile, characterReferences, currentProjectId, addToHistory } = useStore.getState();
 
@@ -371,7 +372,7 @@ export const DirectorTools: Record<string, AnyToolFunction> = {
                     meta: 'cinematic_grid'
                 });
 
-                context?.setMetadata?.('last_grid', {
+                toolContext?.setMetadata('last_grid', {
                     url: res.url,
                     count: 4
                 });
@@ -387,7 +388,7 @@ export const DirectorTools: Record<string, AnyToolFunction> = {
         }
     }),
 
-    extract_grid_frame: wrapTool('extract_grid_frame', async (args: ExtractGridFrameArgs, context) => {
+    extract_grid_frame: wrapTool('extract_grid_frame', async (args: ExtractGridFrameArgs, context, toolContext) => {
         const { useStore } = await import('@/core/store');
         const { generatedHistory, addToHistory, currentProjectId } = useStore.getState();
 
@@ -404,7 +405,7 @@ export const DirectorTools: Record<string, AnyToolFunction> = {
             return toolError("No grid image found. Please generate a cinematic grid first using render_cinematic_grid.", "NOT_FOUND");
         }
 
-        const gridInfo = context?.getMetadata?.('last_grid');
+        const gridInfo = toolContext?.getMetadata('last_grid');
         if (!gridInfo) {
             return toolError('No cinematic grid found in recent context. Please generate a grid first.', 'MISSING_CONTEXT');
         }
