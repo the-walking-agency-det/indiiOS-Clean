@@ -508,9 +508,9 @@ export const DirectorTools: Record<string, AnyToolFunction> = {
 function handleGenerationError(err: unknown, toolName: string) {
     const error = err as any;
     const message = error.message || String(err);
+    const lowerMessage = message.toLowerCase();
     
-    // Check for Quota/Rate Limits
-    if (message.includes('429') || message.includes('quota') || message.includes('Rate limit')) {
+    if (error.name === 'QuotaExceededError' || error.code === 'QUOTA_EXCEEDED' || message.includes('429') || lowerMessage.includes('quota') || lowerMessage.includes('rate limit')) {
         return toolError(
             `Quota exceeded for ${toolName}. Please wait a moment or try a lower-resolution setting.`,
             'QUOTA_EXCEEDED',
