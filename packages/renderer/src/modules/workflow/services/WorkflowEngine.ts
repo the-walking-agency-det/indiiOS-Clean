@@ -174,7 +174,19 @@ export class WorkflowEngine {
     ): Promise<unknown> {
         const data = node.data as DepartmentNodeData;
         const jobId = data.selectedJobId ?? '';
-        const prompt = (data.prompt || (typeof inputs.data === 'string' ? inputs.data : '')) as string;
+        const configuredPrompt = (typeof data.prompt === 'string' ? data.prompt : '').trim();
+        const incomingData = typeof inputs.data === 'string' ? inputs.data.trim() : '';
+
+        let prompt = '';
+        if (configuredPrompt && incomingData) {
+            if (configuredPrompt.endsWith('...')) {
+                prompt = configuredPrompt.slice(0, -3) + ' ' + incomingData;
+            } else {
+                prompt = `${configuredPrompt}\n\n${incomingData}`;
+            }
+        } else {
+            prompt = configuredPrompt || incomingData;
+        }
 
         switch (data.departmentName) {
 
