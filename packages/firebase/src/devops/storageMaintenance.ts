@@ -90,39 +90,60 @@ export const cleanupOrphanedVideos = functions
 
             // Batch lookup: extract job IDs from file paths
             // Path format: videos/{userId}/{jobId}.mp4
-            for (const file of files) {
-                const pathParts = file.name.split("/");
-                if (pathParts.length < 3) continue;
+            const CHUNK_SIZE = 100;
+            for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+                const chunk = files.slice(i, i + CHUNK_SIZE);
 
-                const jobId = pathParts[2].replace(/\.mp4$/, "");
+                const jobsToCheck = new Set<string>();
+                for (const file of chunk) {
+                    const pathParts = file.name.split("/");
+                    if (pathParts.length >= 3) {
+                        const jobId = pathParts[2].replace(/\.mp4$/, "");
+                        jobsToCheck.add(jobId);
+                    }
+                }
 
-                // Check if this job exists in the history collection
-                const historyDoc = await admin.firestore()
-                    .collection("history")
-                    .doc(jobId)
-                    .get();
+                const jobIds = Array.from(jobsToCheck);
+                const existingJobs = new Set<string>();
 
-                // Also check videoJobs collection as a secondary reference
-                const jobDoc = await admin.firestore()
-                    .collection("videoJobs")
-                    .doc(jobId)
-                    .get();
+                if (jobIds.length > 0) {
+                    const historyRefs = jobIds.map(id => admin.firestore().collection("history").doc(id));
+                    const videoJobRefs = jobIds.map(id => admin.firestore().collection("videoJobs").doc(id));
 
-                if (!historyDoc.exists && !jobDoc.exists) {
-                    orphanCount++;
-                    orphanPaths.push(file.name);
+                    const [historyDocs, videoJobDocs] = await Promise.all([
+                        admin.firestore().getAll(...historyRefs),
+                        admin.firestore().getAll(...videoJobRefs)
+                    ]);
 
-                    if (enableDeletion) {
-                        try {
-                            await file.delete();
-                            deletedCount++;
-                            console.log(`[StorageMaintenance] Deleted orphan: ${file.name}`);
-                        } catch (delErr) {
-                            errorCount++;
-                            console.error(`[StorageMaintenance] Failed to delete ${file.name}:`, delErr);
+                    for (let j = 0; j < jobIds.length; j++) {
+                        if (historyDocs[j]?.exists || videoJobDocs[j]?.exists) {
+                            existingJobs.add(jobIds[j]);
                         }
-                    } else {
-                        console.log(`[StorageMaintenance] [DRY RUN] Would delete: ${file.name}`);
+                    }
+                }
+
+                for (const file of chunk) {
+                    const pathParts = file.name.split("/");
+                    if (pathParts.length < 3) continue;
+
+                    const jobId = pathParts[2].replace(/\.mp4$/, "");
+
+                    if (!existingJobs.has(jobId)) {
+                        orphanCount++;
+                        orphanPaths.push(file.name);
+
+                        if (enableDeletion) {
+                            try {
+                                await file.delete();
+                                deletedCount++;
+                                console.log(`[StorageMaintenance] Deleted orphan: ${file.name}`);
+                            } catch (delErr) {
+                                errorCount++;
+                                console.error(`[StorageMaintenance] Failed to delete ${file.name}:`, delErr);
+                            }
+                        } else {
+                            console.log(`[StorageMaintenance] [DRY RUN] Would delete: ${file.name}`);
+                        }
                     }
                 }
             }
