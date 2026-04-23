@@ -5,6 +5,8 @@ import { collection, getDocs, addDoc, query, where, serverTimestamp, doc, update
 import { delay } from '@/utils/async';
 import { VenueSchema, SearchOptionsSchema } from '../schemas';
 import { logger } from '@/utils/logger';
+import { GenAI } from '@/services/ai/GenAI';
+import { AI_MODELS } from '@/core/config/ai-models';
 
 // Initial Seed Data (Used only if DB is empty or offline)
 const SEED_VENUES: Omit<Venue, 'id'>[] = [
@@ -210,47 +212,93 @@ export class VenueScoutService {
         try {
             const result = await browserAgentDriver.drive('https://www.google.com', goal);
             if (result.success && result.finalData) {
-                emit('COMPLETE', `Live agent scan complete.`, 100);
+                emit('COMPLETE', `Live agent scan complete. Parsing results...`, 80);
 
                 const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
                 const { db } = await import('@/services/firebase');
+
+                const prompt = `Extract up to 3 music venues from the following text that match the city ${city} and genre ${genre}.
+Return a JSON array of objects with the exact following format:
+[{
+    "name": "Venue Name",
+    "city": "City Name",
+    "state": "State Code",
+    "capacity": 1000,
+    "genres": ["Genre1", "Genre2"],
+    "website": "https://example.com",
+    "status": "active",
+    "contactEmail": "booking@example.com",
+    "notes": "Any notes",
+    "fitScore": 85,
+    "imageUrl": "https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9?auto=format&fit=crop&q=80&w=1000"
+}]
+Return ONLY the JSON array.
+
+Text data: ${result.finalData}
+`;
+
+                let parsedVenues: Omit<Venue, 'id'>[] = [];
+                try {
+                    const aiResponse = await GenAI.generateContent(
+                        [{ role: 'user', parts: [{ text: prompt }] }],
+                        AI_MODELS.TEXT.FAST,
+                        { responseMimeType: 'application/json', temperature: 0.1 }
+                    );
+                    const parsed = GenAI.parseJSON(aiResponse.response.text());
+                    if (Array.isArray(parsed)) {
+                        parsedVenues = parsed;
+                    }
+                } catch (e) {
+                    logger.error('[VenueScoutService] Failed to parse AI results, falling back to dummy data', e);
+                }
 
                 const formattedCity = city.split(' ')
                     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                     .join(' ');
 
-                const newVenue: Omit<Venue, 'id'> = {
-                    name: 'The Fillmore (Live Scan)',
-                    city: formattedCity,
-                    state: 'MI', // Placeholder
-                    capacity: 2000,
-                    genres: [genre, 'Rock', 'Pop'],
-                    website: 'https://www.thefillmore.com',
-                    status: 'active',
-                    contactEmail: 'booking@thefillmore.com',
-                    notes: 'Freshly discovered by Autonomous Agent.',
-                    fitScore: 85,
-                    imageUrl: 'https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9?auto=format&fit=crop&q=80&w=1000'
-                };
-
-                // Save to Firestore so it's there next time
-                try {
-                    // Check authentication before attempting Firestore write
-                    if (!auth.currentUser) {
-                        logger.warn('[VenueScout] Skipping Firestore write: Not authenticated');
-                        return [{ id: 'temp-autonomous', ...newVenue } as Venue];
-                    }
-                    const docRef = await addDoc(collection(db, this.COLLECTION_NAME), {
-                        ...newVenue,
-                        createdAt: serverTimestamp()
+                if (parsedVenues.length === 0) {
+                    parsedVenues.push({
+                        name: 'The Fillmore (Live Scan)',
+                        city: formattedCity,
+                        state: 'MI', // Placeholder
+                        capacity: 2000,
+                        genres: [genre, 'Rock', 'Pop'],
+                        website: 'https://www.thefillmore.com',
+                        status: 'active',
+                        contactEmail: 'booking@thefillmore.com',
+                        notes: 'Freshly discovered by Autonomous Agent (Dummy data fallback).',
+                        fitScore: 85,
+                        imageUrl: 'https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9?auto=format&fit=crop&q=80&w=1000'
                     });
-                    return [{ id: docRef.id, ...newVenue } as Venue];
-                } catch (_e: unknown) {
-                    return [{ id: 'temp-autonomous', ...newVenue } as Venue];
                 }
+
+                const finalizedVenues: Venue[] = [];
+                emit('COMPLETE', `Saving discovered venues...`, 90);
+
+                for (const venue of parsedVenues) {
+                    try {
+                        if (!auth.currentUser) {
+                            finalizedVenues.push({ id: `temp-autonomous-${Date.now()}-${Math.random()}`, ...venue } as Venue);
+                            continue;
+                        }
+                        const docRef = await addDoc(collection(db, this.COLLECTION_NAME), {
+                            ...venue,
+                            createdAt: serverTimestamp()
+                        });
+                        finalizedVenues.push({ id: docRef.id, ...venue } as Venue);
+                    } catch (e) {
+                        logger.warn(`[VenueScoutService] Failed to save venue ${venue.name}`, e);
+                        finalizedVenues.push({ id: `temp-autonomous-${Date.now()}-${Math.random()}`, ...venue } as Venue);
+                    }
+                }
+
+                emit('COMPLETE', `Scan complete. Found ${finalizedVenues.length} venues.`, 100);
+                return finalizedVenues;
+            } else {
+                logger.warn('[VenueScoutService] BrowserAgentDriver returned unsuccessful result or no data:', result.logs);
             }
-        } catch (_e: unknown) {
-            // logger.error("Autonomous search failed", e);
+        } catch (e: unknown) {
+             logger.error("[VenueScoutService] Autonomous search failed with exception:", e);
         }
         return [];
     }

@@ -154,7 +154,7 @@ describe('ERNMapper', () => {
         expect(deal!.dealTerms.releaseDisplayStartDate).toBe('2025-05-01');
     });
 
-    it('should ignore "physical" channel and fallback if it is the only channel', () => {
+    it('should generate Physical deals correctly', () => {
         const metadata: ExtendedGoldenMetadata = {
             ...MOCK_METADATA_BASE,
             distributionChannels: ['physical']
@@ -162,23 +162,15 @@ describe('ERNMapper', () => {
 
         const deals = getDeals(metadata);
 
-        // Expect fallback behavior:
-        // Since 'physical' is not handled, deals array remains empty initially.
-        // The first fallback block in ERNMapper adds 3 deals (Subscription, AdSupported, NonInteractive).
-        // The second fallback block is skipped because deals.length > 0.
-        // Expect fallback behavior (default is 2 deals: streaming + download fallback in buildDeals)
-        // Wait, looking at ERNMapper implementation:
-        // If deals.length === 0 (which happens if only physical is passed),
-        // it adds SubscriptionModel (Stream) + PayAsYouGoModel (Download).
-        // That is 2 deals.
-        // Ah, looking at the previous failing test output, it got 3.
-        // Let's check ERNMapper.ts again.
-        // It has TWO fallback blocks.
-        // Block 1: "Fallback: If no deal types were added... default to Streaming + Download" -> Adds 3 deals (Sub, PAYG, Ad)
-        // Block 2: "Fallback: If no deal types were added... default to Streaming + Download" -> Adds 2 deals (Sub, PAYG)
-        // If the first block runs, deals.length becomes 3. Then the second block (deals.length === 0) won't run.
-        // So it should be 3.
-        expect(deals.length).toBe(3);
+        // Expect 1 deal: PayAsYouGoModel + PhysicalDelivery + Physical
+        expect(deals).toHaveLength(1);
+        
+        const physicalDeal = deals.find(d =>
+            d.dealTerms.commercialModelType === 'PayAsYouGoModel' &&
+            d.dealTerms.usage[0]!.useType === 'PhysicalDelivery' &&
+            d.dealTerms.usage[0]!.distributionChannelType === 'Physical'
+        );
+        expect(physicalDeal).toBeDefined();
     });
 
     it('should map AI generation info correctly', () => {
