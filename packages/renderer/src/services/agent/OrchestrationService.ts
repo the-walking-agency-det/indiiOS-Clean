@@ -190,9 +190,9 @@ export class OrchestrationService {
                 let batchFailed = false;
                 for (let i = 0; i < stepsToRun.length; i++) {
                     const step = stepsToRun[i];
-                    if (!step) continue;
+                    const res = results[i];
 
-                    const res: any = results[i];
+                    if (!step || !res) continue;
 
                     const resultText = res?.text || res?.message || 'No output';
                     const success = res?.success !== false;
