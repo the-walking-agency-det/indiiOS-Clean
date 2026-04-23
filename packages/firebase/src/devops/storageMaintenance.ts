@@ -129,6 +129,47 @@ export const cleanupOrphanedVideos = functions
                     const jobId = pathParts[2].replace(/\.mp4$/, "");
 
                     if (!existingJobs.has(jobId)) {
+            // Process files in batches to avoid N+1 queries
+            const CHUNK_SIZE = 100;
+            for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+                const chunkFiles = files.slice(i, i + CHUNK_SIZE);
+
+                // Extract valid job IDs and their corresponding files
+                // Path format: videos/{userId}/{jobId}.mp4
+                const fileInfos: { file: typeof files[0]; jobId: string }[] = [];
+                for (const file of chunkFiles) {
+                    const pathParts = file.name.split("/");
+                    if (pathParts.length < 3) continue;
+
+                    const jobId = pathParts[2].replace(/\.mp4$/, "");
+                    fileInfos.push({ file, jobId });
+                }
+
+                if (fileInfos.length === 0) continue;
+
+                // Create document references for batch fetch
+                // Deduplicate job IDs to avoid fetching the same document multiple times
+                const uniqueJobIds = Array.from(new Set(fileInfos.map((info) => info.jobId)));
+
+                const historyRefs = uniqueJobIds.map((jobId) =>
+                    admin.firestore().collection("history").doc(jobId)
+                );
+                const jobRefs = uniqueJobIds.map((jobId) =>
+                    admin.firestore().collection("videoJobs").doc(jobId)
+                );
+
+                // Fetch documents in batch
+                const [historyDocs, jobDocs] = await Promise.all([
+                    admin.firestore().getAll(...historyRefs),
+                    admin.firestore().getAll(...jobRefs),
+                ]);
+
+                // Create lookup maps for fast access
+                const historyExists = new Set(historyDocs.filter((doc) => doc.exists).map((doc) => doc.id));
+                const jobExists = new Set(jobDocs.filter((doc) => doc.exists).map((doc) => doc.id));
+
+                for (const { file, jobId } of fileInfos) {
+                    if (!historyExists.has(jobId) && !jobExists.has(jobId)) {
                         orphanCount++;
                         orphanPaths.push(file.name);
 

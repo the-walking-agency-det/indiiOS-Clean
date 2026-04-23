@@ -3,6 +3,8 @@ from python.helpers import files
 import os
 import shutil
 import json
+import asyncio
+
 
 class ProvisionProject(ApiHandler):
     """
@@ -42,13 +44,13 @@ class ProvisionProject(ApiHandler):
         # Paths
         # /a0/usr/projects is the standard root in Docker
         project_root = f"/a0/usr/projects/{project_id}"
-        
-        try:
+
+        def sync_io_operations():
             # 1. Create Directory Structure
             os.makedirs(os.path.join(project_root, "assets"), exist_ok=True)
             os.makedirs(os.path.join(project_root, "knowledge"), exist_ok=True)
             os.makedirs(os.path.join(project_root, "memory"), exist_ok=True)
-            os.makedirs(os.path.join(project_root, ".a0proj"), exist_ok=True) # For secrets
+            os.makedirs(os.path.join(project_root, ".a0proj"), exist_ok=True)  # For secrets
 
             # 2. Inject Role Instructions
             # We assume templates are mapped to /a0/prompts/templates
@@ -81,8 +83,12 @@ class ProvisionProject(ApiHandler):
             with open(settings_path, "w") as f:
                 json.dump(settings_data, f, indent=2)
 
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, sync_io_operations)
+
             return {
-                "status": "success", 
+                "status": "success",
                 "message": f"Project {project_id} provisioned as {role_type} with Global Knowledge enabled",
                 "path": project_root
             }
