@@ -48,7 +48,7 @@ process.on('uncaughtException', (error: any) => {
 });
 
 process.on('unhandledRejection', (reason: any) => {
-    if (reason instanceof Error && (reason.code === 'EIO' || reason.message.includes('EIO'))) return;
+    if (reason instanceof Error && ((reason as any).code === 'EIO' || reason.message.includes('EIO'))) return;
     try {
         log.error('Unhandled Rejection in Main Process:', reason);
     } catch {

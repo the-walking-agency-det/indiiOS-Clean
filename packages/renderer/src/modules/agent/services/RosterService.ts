@@ -1,4 +1,4 @@
-import { db, auth } from '@/services/firebase';
+import { db } from '@/services/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { z } from 'zod';
 import { Venue } from '../types';
@@ -21,7 +21,7 @@ export class RosterService {
         // In a real app, we'd get the current user ID from Auth Context
         // For Alpha/Mock, we'll use a hardcoded dev user ID or get it from a store if available.
         // Let's assume a dev-user for now since we are in "Guest Login" mode.
-        const userId = auth.currentUser?.uid || 'dev-user';
+        const userId = 'dev-user';
 
         const rosterRef = doc(db, `users/${userId}/roster/${venue.id}`);
 

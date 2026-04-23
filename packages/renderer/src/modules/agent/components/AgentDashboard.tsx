@@ -304,10 +304,7 @@ const AgentDashboard: React.FC = () => {
                                                             <MapPin size={32} className="opacity-40" />
                                                         </div>
                                                         <p className="text-lg font-medium text-slate-400">No venues scouted yet</p>
-                                                        <p className="text-sm mb-4">Configure your parameters above and deploy the scout.</p>
-                                                        <a href="?module=touring" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors">
-                                                            Manage your road schedule in Touring <ExternalLink size={10} />
-                                                        </a>
+                                                        <p className="text-sm">Configure your parameters above and deploy the scout.</p>
                                                     </div>
                                                 )}
                                             </div>
