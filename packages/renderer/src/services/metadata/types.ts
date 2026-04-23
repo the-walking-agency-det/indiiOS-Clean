@@ -10,6 +10,9 @@ export interface RoyaltySplit {
     role: 'songwriter' | 'producer' | 'performer' | 'other';
     percentage: number; // 0-100
     email: string; // For rapid payment
+    isni?: string; // International Standard Name Identifier
+    spotifyId?: string; // DSP URI
+    appleMusicId?: string; // DSP URI
 }
 
 export interface GoldenMetadata {
@@ -58,6 +61,11 @@ export interface ExtendedGoldenMetadata extends GoldenMetadata {
     // Internal Identifier
     id?: string;
 
+    // Artist Disambiguation
+    artistIsni?: string;
+    artistSpotifyId?: string;
+    artistAppleMusicId?: string;
+
     // Release Information
     tracks?: GoldenMetadata[];
     releaseType: 'Single' | 'EP' | 'Album' | 'Compilation';
@@ -97,6 +105,10 @@ export interface ExtendedGoldenMetadata extends GoldenMetadata {
     keywords?: string[];
     language?: string; // ISO 639-2 (e.g., 'eng', 'spa')
     isInstrumental?: boolean;
+    bpm?: number;
+    key?: string;
+    energy?: number;
+    immersiveAudioProfile?: 'DolbyAtmos' | 'Sony360' | 'None';
 
     // Marketing
     marketingComment?: string;
@@ -105,6 +117,15 @@ export interface ExtendedGoldenMetadata extends GoldenMetadata {
     // Duration (computed from audio)
     durationSeconds?: number;
     durationFormatted?: string; // "3:45"
+    durationDDEXFormatted?: string; // e.g. "PT3M4S.123"
+
+    // Confidence Scores
+    confidenceScores?: {
+        genre?: number;
+        mood?: number;
+        danceability?: number;
+        [key: string]: number | undefined;
+    };
 
     // Rights & Publishing (PRO Registration)
     composerName?: string; // Composer legal name (may differ from artistName)
@@ -195,5 +216,7 @@ export const INITIAL_METADATA: ExtendedGoldenMetadata = {
     aiGeneratedContent: {
         isFullyAIGenerated: false,
         isPartiallyAIGenerated: false
-    }
+    },
+    youtubeContentIdOptIn: false,
+    youtubeContentIdPolicy: 'monetize'
 };

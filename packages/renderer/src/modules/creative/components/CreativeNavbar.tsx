@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
+
 import { ScreenControl } from '@/services/screen/ScreenControlService';
 import {
     Sparkles, Image as ImageIcon, Video, MonitorPlay, MessageSquare,
@@ -26,7 +27,9 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
         setViewMode,
         studioControls,
         enableAndromedaMode,
-        disableAndromedaMode
+        disableAndromedaMode,
+        showPromptBuilder,
+        togglePromptBuilder
     } = useStore(useShallow(state => ({
         setVideoInput: state.setVideoInput,
         prompt: state.prompt,
@@ -36,10 +39,11 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
         setViewMode: state.setViewMode,
         studioControls: state.studioControls,
         enableAndromedaMode: state.enableAndromedaMode,
-        disableAndromedaMode: state.disableAndromedaMode
+        disableAndromedaMode: state.disableAndromedaMode,
+        showPromptBuilder: state.isPromptBuilderOpen,
+        togglePromptBuilder: state.togglePromptBuilder
     })));
     const toast = useToast();
-    const [showPromptBuilder, setShowPromptBuilder] = useState(false);
     const [showBrandAssets, setShowBrandAssets] = useState(false);
     const [showPromptHistory, setShowPromptHistory] = useState(false);
     const [showFrameModal, setShowFrameModal] = useState(false);
@@ -50,7 +54,7 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
         { id: 'direct', label: 'Generate', icon: Wand2, testId: 'direct-view-btn', always: true },
         { id: 'canvas', label: 'Canvas', icon: ImageIcon, testId: 'canvas-view-btn', always: true },
         { id: 'video_production', label: 'Director', icon: Video, testId: 'director-view-btn', always: false, showWhen: generationMode === 'video' },
-        { id: 'lab', label: 'Lab', icon: FlaskConical, testId: 'lab-view-btn', always: true },
+        { id: 'lab', label: 'Keyframes', icon: FlaskConical, testId: 'lab-view-btn', always: true },
     ] as const;
 
     return (
@@ -95,7 +99,7 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                     {generationMode === 'image' ? (
                         <div className="flex items-center gap-1.5">
                             <button
-                                onClick={() => setShowPromptBuilder(!showPromptBuilder)}
+                                onClick={togglePromptBuilder}
                                 data-testid="builder-btn"
                                 className={`flex items-center gap-1 px-2 py-1 rounded-md border transition-all text-[9px] font-semibold uppercase tracking-wide
                                     ${showPromptBuilder
@@ -196,7 +200,11 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
 
             {/* Prompt Builder Drawer */}
             {showPromptBuilder && (
-                <PromptBuilder onAddTag={(tag) => setPrompt(prompt ? `${prompt}, ${tag}` : tag)} />
+                <PromptBuilder
+                    onAddTag={(tag) => setPrompt(prompt ? `${prompt}, ${tag}` : tag)}
+                    currentPrompt={prompt}
+                    onPromptImproved={setPrompt}
+                />
             )}
 
             {/* Brand Assets Drawer */}

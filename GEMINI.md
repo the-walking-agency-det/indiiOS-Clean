@@ -155,7 +155,7 @@ indiiOS-Alpha-Electron/
 │
 ├── agents/                     # AI agent definitions (hub-and-spoke architecture)
 │   ├── agent0/                 # Hub orchestrator (indii Conductor)
-│   ├── creative-director/      # Creative direction agent
+│   ├── creative/               # Creative direction agent
 │   ├── indii_executor/         # Task executor
 │   └── [specialist agents]/    # brand, finance, legal, licensing, marketing,
 │                               # music, publicist, publishing, road, social, video
@@ -289,7 +289,7 @@ npm run deploy                 # Build studio + deploy to Firebase hosting (app 
 
 ```typescript
 import { Something } from '@/services/ai/AIService';    // src/*
-import { AgentDef } from '@agents/creative-director';     // agents/*
+import { AgentDef } from '@agents/creative';             // agents/*
 ```
 
 ### State Management (Zustand)
@@ -412,7 +412,7 @@ The `build` script runs three steps sequentially:
   Legal   Brand  Marketing Music  Video
   Agent   Agent   Agent   Agent  Agent
     │
-  [Finance, Publishing, Road Manager, Licensing, Social, Publicist, etc.]
+  [Finance, Publishing, Road, Licensing, Social, Publicist, etc.]
 ```
 
 - **indii Conductor** (`agents/agent0/`) - Central hub, routes tasks to specialists
@@ -500,6 +500,19 @@ mcp_mem0_add-memory(
 
 **Failure to check the ledger first is a protocol violation.**
 
+### 6. PLATINUM QUALITY STANDARDS (MANDATORY FOR EVERY DIFF)
+
+Every code change, review, and agent-authored diff must meet the standards in the platinum documents:
+
+- `docs/PLATINUM_QUALITY_STANDARDS.md` — Code-review / diff discipline. The Seven Anti-Patterns, pre-commit checklist, pitfall library. **Read this before you edit anything.**
+- `docs/PLATINUM_POLISH_REPORT.md` — Codebase audit snapshot (type safety, log hygiene, error handling).
+- `docs/DATABASE_PLATINUM_PROTOCOL.md` — Database-layer platinum protocol.
+- `docs/TOP_50_PLATINUM_RELEASE.md` — Release-readiness checklist.
+
+**Before every `git push`**, run `/plat` (see `.claude/commands/plat.md`). It executes the Pre-commit checklist from `docs/PLATINUM_QUALITY_STANDARDS.md`, cross-references the Error Ledger, and produces an explicit GO / NO-GO verdict. Skipping `/plat` on a substantive branch is treated the same as skipping the Error Ledger check — a protocol violation.
+
+Violations of the Seven Anti-Patterns must be fixed at the root. If you hit a novel variant, add new entries to BOTH `.agent/skills/error_memory/ERROR_LEDGER.md` AND `docs/PLATINUM_QUALITY_STANDARDS.md` before ending the session.
+
 ---
 
 ## Key Files Quick Reference
@@ -521,6 +534,12 @@ mcp_mem0_add-memory(
 | `docker-compose.yml` | AI Sidecar + Ollama containers |
 | `.env.example` | Environment variable template |
 | `src/test/setup.ts` | Vitest global test setup and Firebase mocks |
+| `docs/PLATINUM_QUALITY_STANDARDS.md` | Platinum code-review standards — Seven Anti-Patterns, pre-commit checklist |
+| `docs/PLATINUM_POLISH_REPORT.md` | Codebase audit snapshot (type safety, log hygiene) |
+| `docs/DATABASE_PLATINUM_PROTOCOL.md` | Database-layer platinum protocol |
+| `docs/TOP_50_PLATINUM_RELEASE.md` | Release-readiness checklist |
+| `.agent/skills/error_memory/ERROR_LEDGER.md` | Living log of past regressions — MANDATORY check before debug |
+| `.claude/commands/plat.md` | `/plat` slash command — platinum finishing touches before every push |
 
 ---
 
@@ -555,7 +574,7 @@ When a user request matches a skill pattern below, **READ the referenced skill f
 | Drive a task to verified completion (recursive loop) | `.agent/skills/go/SKILL.md` |
 | Full engineering health audit, ship readiness | `.agent/skills/health_audit/SKILL.md` |
 | Bug sweep, security scan, find and fix all issues | `.agent/skills/hunter/SKILL.md` |
-| Stress test image generation pipeline | `.agent/skills/live_test_creative_director/SKILL.md` |
+| Stress test image generation pipeline | `.agent/skills/live_test_creative/SKILL.md` |
 | Session start, operator bootstrap, context scan | `.agent/skills/opp/SKILL.md` |
 | Run tests, determine which tests apply | `.agent/skills/test/SKILL.md` |
 | **MANDATORY before any debug**: error pattern lookup | `.agent/skills/error_memory/ERROR_LEDGER.md` |

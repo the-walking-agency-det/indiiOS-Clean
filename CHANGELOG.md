@@ -2,6 +2,115 @@
 
 All notable changes to indiiOS are documented in this file.
 
+## [1.55.2](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.55.1...v1.55.2) (2026-04-23)
+
+
+### Performance Improvements
+
+* **devops:** fix N+1 query in storage maintenance ([#1535](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1535)) ([8284abc](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/8284abcd7534cba0018fdf50bacca5f1775f40ef))
+* Optimize DSRProcessor N+1 query loop ([#1542](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1542)) ([ff92272](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/ff92272e6f00b8b0d07abba905b68b24ca75966e))
+
+## [1.55.1](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.55.0...v1.55.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* **agent:** resolve cinematic grid metadata and workflow selection types ([#1551](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1551)) ([09fcf9e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/09fcf9e5fbb12ada158a1c7e26b5fdb8aee2c83c))
+
+## [1.55.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.54.1...v1.55.0) (2026-04-22)
+
+
+### Features
+
+* **agents:** platinum hardening — canonicalize agent IDs, sync tool … ([29927e5](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/29927e570e40dd1c526f9262358a93024375dd68))
+* **agents:** platinum hardening — canonicalize agent IDs, sync tool definitions, fix CI test coverage ([38634c7](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/38634c708a72db7430e05f9cab0b2b4d3e0a3ae0))
+* **creative-agent:** platinum hardening — fix schema mismatch + expo… ([83a4f94](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/83a4f9403a7e87804c705cef49bfc66372c66577))
+* **creative-agent:** platinum hardening — fix schema mismatch + expose cinematic tools ([830689f](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/830689f38a35f7cbe40f67e90b34d46e6003acf3))
+* **creative:** platinum hardening — add deep interaction workflow & update generate_image schema ([cad790a](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/cad790a00e3c469426f464efe8c2f462ed4743e5))
+* **creative:** sync history slice, gallery components, and canvas services ([#1537](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1537)) ([3f8d78b](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/3f8d78b7ef1541ffc9c88afb6ec0de33a63c3d7e))
+
+
+### Bug Fixes
+
+* **agent-definitions:** align test names with Brand and Marketing Director personas ([cc9456e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/cc9456e20b1a4051545702b0dd1037e2ac284e85))
+* **agent-tools:** align DistributionAgent test with config and update road-manager IDs ([14030c9](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/14030c9f11d7e8fdc7aab5bbe3f2b6f769694bad))
+* **agent-tools:** resolve whiskState uninitialized crashes and NarrativeTools test regressions ([a213e14](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/a213e14e6fc45a15fc3ccf1e389cdd0ac8ad8eff))
+* **agents:** register CreativeAgent & align persona IDs for CI ([7d82670](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/7d8267027e7fff50601b8086a751cd32e80fbe04))
+* **creative:** wire Prompt Builder pills to the visible input ([0a88795](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/0a88795a257657bcb742195622afca97ac94bfff))
+* **video:** resolve SubscriptionService mock gap and align resolution params in video-gen tests ([69c62b8](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/69c62b8c2da157c4e372095e9e6483bdc9c4c30e))
+
+## [1.54.1](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.54.0...v1.54.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* **autoagent:** unify routing table creative agent name ([bd95ff1](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/bd95ff1c7119bc15da58a6c3f980bbf990723d29))
+* clarify creative director routing for indii conductor ([9765664](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/9765664ace9ae237457a69094fb5584b3daa7967))
+* **creative:** direct generation hook and RAG RLS issues ([acf5dcb](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/acf5dcb43482081761b5c94647ba32668e23f8d7))
+* resolve merge conflicts and sync Creative agent identity ([47861cd](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/47861cd65ec786f2d5b3e3a077dd0408fe3b8a9a))
+
+## [1.52.2](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.52.1...v1.52.2) (2026-04-19)
+
+
+### Bug Fixes
+
+* **ci:** align EditingService tests with Direct SDK pipeline & update Sidebar snapshots ([fe5d4eb](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/fe5d4eb8c3e0eca91bf7c9c579955f74aa618d26))
+* **creative:** improve canvas UX and add Send to Video Producer action ([f57733c](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/f57733caeecde442ec1603bd27d93efe7af26823))
+* **creative:** replace Cloud Function image editing with Direct SDK pipeline ([ec870f4](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/ec870f4701c293c18e3f2503c039d1d545ac128d))
+
+## [1.52.1](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.52.0...v1.52.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* address final CodeRabbit audit findings (3/3) ([95090b1](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/95090b18d1bcb0298f2ac3dd7b8ef8473bf18282))
+* **audio:** enhance ddex distribution pipeline and resolve startup permission errors ([dce1476](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/dce14766e4ab9b303203caca2864af33605d1d94))
+* **audio:** resolve CORS blocker, enforce lossless uploads, scrub vendor branding ([92d9abf](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/92d9abf5fc3750c4cb4f86b1d42bb62eca2aab39))
+* **ci:** use public getState() instead of private .state on CircuitBreaker ([7ad10dd](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/7ad10dd60576124a8529c57da1fb80d5e3ccffd1))
+* **firestore:** add missing closing brace for memoryInbox rule ([cf3cada](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/cf3cada384afee0e81cb94b00e4ce1e845da6d88))
+* harden DDEX contributor dedup, ProactiveService isolation, Firestore usage rules ([9efd5d8](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/9efd5d8a7f162dd40286e1e8ec1561cef99d89ca))
+* **pr-1510:** resolve all 12 CodeRabbit audit findings ([f2915d9](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/f2915d9bc2a70552454641c72df930d65b9719c9))
+* **security:** harden Firestore rules, fix GeminiFileService typeof guard, add artist ID fallback ([0762233](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/0762233c6a7f17f0765fe97772bb61f0c4d1dcb1))
+* **security:** resolve final CodeRabbit PR-1510 findings ([c5db35e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/c5db35eaf2c7d451d34d3bd5bddd5e63d4fb7935))
+* **sentry:** resolve founder tier quota bug and empty displayArtist guard ([850273e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/850273ed8565c5c34bd325abd8f4dff0a01cdbe0))
+* **updater:** register IPC handlers unconditionally ([4048479](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/4048479984132faaacd0da09e5eb94f12e0f8b4e))
+
+## [1.52.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.51.0...v1.52.0) (2026-04-18)
+
+
+### Features
+
+* Add BPM, key, and energy fields to DDEX ERN generation ([acf47e3](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/acf47e3bf8b4847aecffd71d51f6c717e37f1b7c))
+* **publishing:** add BPM, Key, and Energy metadata to releases ([aa2db9f](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/aa2db9fba19e5f582484c5e8ed2652707fdc0881))
+* refine audio technical feature mapping for DDEX ERN ([33bc869](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/33bc8697319a56896854abca542259bc48928259))
+
+
+### Bug Fixes
+
+* **creative:** resolve TrackIngestionService types and harden CanvasOperationsService mask generation ([7dd05e1](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/7dd05e195c9d204a9ebd0b5dec95ad27b48be91b))
+* **ddex:** resolve ERN types and tests for YouTube Content ID integration ([9495b36](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/9495b36010cd8106f003196a60f79f2831a58d50))
+
+## [1.51.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.50.1...v1.51.0) (2026-04-18)
+
+
+### Features
+
+* **slash:** add /plat finishing-touches workflow ([fd9ad8a](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/fd9ad8aa15a3721ee56c123df05a3b58725a552c))
+
+## [1.50.1](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.50.0...v1.50.1) (2026-04-18)
+
+
+### Bug Fixes
+
+* **AudioAnalysisService:** align with analyzeFileURI return type ([#1498](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1498)) ([2bdb595](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/2bdb59527c5397796c66b1a4bf13a3e4aa38e8a0))
+* **audio:** pass correct arguments to analyzeFileURI and pull missing fileService methods ([84bc659](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/84bc6591af310f81cf3fb17e065791a04ad9a951))
+* **audio:** pass correct arguments to analyzeFileURI and pull missing fileService methods ([e1c0d08](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/e1c0d081510a71d3d6041f8abf64aba57d363af1))
+* **finance:** resolve duplicate fileMeta and analyzeFileURI args in ReceiptOCR ([3962457](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/396245711719bd6dfed7abafda6a2bccd6b76d9f))
+* **finance:** resolve duplicate fileMeta and analyzeFileURI args in ReceiptOCR ([97de6ad](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/97de6ad7ef0423b089fcb5ef4829bcae0b5c9ab9))
+* **renderer:** auto-reload on chunk load error in error boundary ([b8ffc94](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/b8ffc94a4347fb1c5b64804ffe9fa9ba99476bdf))
+* **renderer:** auto-reload on chunk load error in error boundary ([d5a8603](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/d5a86039d44db8804220a8761032a055d82bfd97))
+* resolve merge conflicts in audio and Gemini file services ([b7b3616](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/b7b36162cb7222d45b340fcc29f184cd301cac8d))
+
 ## [1.50.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.49.0...v1.50.0) (2026-04-13)
 
 

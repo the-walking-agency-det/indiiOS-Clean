@@ -4,9 +4,21 @@ import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
+import { PromptImproverService } from '@/services/creative/PromptImproverService';
+import { useToast } from '@/core/context/ToastContext';
+import { SequenceTimeline, SequenceBlock } from './SequenceTimeline';
 
 interface PromptBuilderProps {
     onAddTag: (tag: string) => void;
+    mode?: 'image' | 'video';
+    sequence?: SequenceBlock[];
+    setSequence?: (seq: SequenceBlock[]) => void;
+    bpm?: number;
+    setBpm?: (bpm: number) => void;
+    /** Current prompt text from the input field */
+    currentPrompt?: string;
+    /** Callback to replace the prompt text with the improved version */
+    onPromptImproved?: (improvedPrompt: string) => void;
 }
 
 // Memoized tag button to prevent re-renders
@@ -20,6 +32,7 @@ const TagButton = memo(({ tag, onClick, variant = 'creative' }: { tag: string; o
         {tag}
     </button>
 ));
+TagButton.displayName = 'TagButton';
 
 const CategoryDropdown = memo(({ category, values, isOpen, onToggle, onTagClick, variant = 'creative' }: {
     category: string;
@@ -87,10 +100,13 @@ const CategoryDropdown = memo(({ category, values, isOpen, onToggle, onTagClick,
         </div>
     );
 });
+CategoryDropdown.displayName = 'CategoryDropdown';
 
-function PromptBuilder({ onAddTag }: PromptBuilderProps) {
+function PromptBuilder({ onAddTag, mode = 'image', sequence = [], setSequence, bpm, setBpm, currentPrompt = '', onPromptImproved }: PromptBuilderProps) {
     const [openCategory, setOpenCategory] = useState<string | null>(null);
+    const [isImproving, setIsImproving] = useState(false);
     const brandKit = useStore(useShallow(state => state.userProfile?.brandKit));
+    const toast = useToast();
 
     // Memoize brandTags computation
     const brandTags = useMemo(() => [
@@ -106,6 +122,24 @@ function PromptBuilder({ onAddTag }: PromptBuilderProps) {
         onAddTag(tag);
         setOpenCategory(null);
     }, [onAddTag]);
+
+    const handleImprove = useCallback(async () => {
+        if (!currentPrompt.trim() || !onPromptImproved) return;
+
+        setIsImproving(true);
+        try {
+            const result = await PromptImproverService.improve({
+                rawPrompt: currentPrompt,
+                mode: mode as 'image' | 'video'
+            });
+            onPromptImproved(result.improved);
+            toast.success(`Prompt improved: ${result.reasoning}`);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to improve prompt');
+        } finally {
+            setIsImproving(false);
+        }
+    }, [currentPrompt, mode, onPromptImproved, toast]);
 
     return (
         <div className="flex flex-col gap-2 p-2 bg-background/20 border-b border-white/5">
@@ -132,7 +166,39 @@ function PromptBuilder({ onAddTag }: PromptBuilderProps) {
                         onTagClick={handleTagClick}
                     />
                 ))}
+
+                {/* AI Prompt Improver Button */}
+                {onPromptImproved && (
+                    <button
+                        onClick={handleImprove}
+                        disabled={isImproving || !currentPrompt.trim()}
+                        className="ml-auto px-4 py-1.5 text-xs rounded-full bg-linear-to-r from-dept-creative to-dept-marketing text-white font-bold flex items-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-dept-creative/20"
+                    >
+                        {isImproving ? (
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                            >
+                                <Sparkles size={14} />
+                            </motion.div>
+                        ) : (
+                            <Sparkles size={14} />
+                        )}
+                        <span>Improve with AI</span>
+                    </button>
+                )}
             </div>
+
+            {mode === 'video' && setSequence && setBpm && (
+                <div className="mt-4 pt-4 border-t border-white/5">
+                    <SequenceTimeline 
+                        sequence={sequence} 
+                        onChange={setSequence} 
+                        bpm={bpm} 
+                        onBpmChange={setBpm} 
+                    />
+                </div>
+            )}
         </div>
     );
 }

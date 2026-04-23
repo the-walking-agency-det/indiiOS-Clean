@@ -130,6 +130,7 @@ export class CanvasOperationsService {
         const canvasH = Math.round(imgH * fitScale);
         this.canvas.setDimensions({ width: canvasW, height: canvasH });
 
+        img.set('data', { isBaseImage: true });
         scaleImageToCanvas(img, this.canvas);
         this.canvas.add(img);
         this.canvas.renderAll();
@@ -221,6 +222,26 @@ export class CanvasOperationsService {
         return this.canvas;
     }
 
+    isAnnotation(obj: fabric.Object): boolean {
+        if (!obj) return false;
+        const type = obj.type?.toLowerCase();
+        const data = (obj as any).data;
+        
+        // Explicitly marked as base image? Not an annotation.
+        if (data?.isBaseImage) return false;
+        
+        // Fabric.js paths are always annotations in this context
+        if (type === 'path') return true;
+        
+        // Groups containing annotations (or being used for mask drawing)
+        if (type === 'group') return true;
+        
+        // Explicitly marked as annotation metadata
+        if (data?.isBoundingBox || data?.isSegmentationMask || data?.colorId) return true;
+        
+        return false;
+    }
+
     /**
      * Retrieves the base image as a data URI (excluding annotations like paths).
      */
@@ -228,24 +249,25 @@ export class CanvasOperationsService {
         if (!this.canvas) return null;
         
         const originalObjects = this.canvas.getObjects();
-        const maskObjects = originalObjects.filter(obj => obj.type === 'path' || (obj as fabric.Object & { data?: { isBoundingBox?: boolean } }).data?.isBoundingBox);
-        
-        // Hide masks
-        maskObjects.forEach(obj => (obj.visible = false));
+        const maskObjects = originalObjects.filter(obj => this.isAnnotation(obj));
         
         const originalBg = this.canvas.backgroundColor;
-        this.canvas.backgroundColor = '#000000';
         
-        this.canvas.renderAll();
-        
-        const baseDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
-        
-        // Restore
-        maskObjects.forEach(obj => (obj.visible = true));
-        this.canvas.backgroundColor = originalBg;
-        this.canvas.renderAll();
-        
-        return baseDataUrl;
+        try {
+            // Hide masks
+            maskObjects.forEach(obj => (obj.visible = false));
+            this.canvas.backgroundColor = '#000000';
+            
+            this.canvas.renderAll();
+            
+            const baseDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
+            return baseDataUrl;
+        } finally {
+            // Restore
+            maskObjects.forEach(obj => (obj.visible = true));
+            this.canvas.backgroundColor = originalBg;
+            this.canvas.renderAll();
+        }
     }
 
     /**
@@ -518,38 +540,108 @@ export class CanvasOperationsService {
     }
 
     /**
-     * Save canvas as PNG file download
+     * Returns a high-res data URL of the canvas with all annotation overlays
+     * (drawing paths, bounding boxes, segmentation masks) temporarily hidden.
+     * This ensures saved/exported images contain only the actual artwork.
      */
-    saveCanvas(filename: string): string {
+    private getFlattenedDataURL(options?: { format?: string; quality?: number; multiplier?: number; excludeAnnotations?: boolean }): string {
         if (!this.canvas) return '';
-        const dataUrl = this.canvas.toDataURL({
-            format: 'png',
-            quality: 1,
-            multiplier: 2
-        });
 
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const allObjects = this.canvas.getObjects();
+        const excludeAnnotations = options?.excludeAnnotations !== false;
 
-        return dataUrl;
+        // Identify every annotation object on the canvas
+        const annotationObjects = excludeAnnotations ? allObjects.filter(obj => this.isAnnotation(obj)) : [];
+
+        // Snapshot current visibility so we can restore after export
+        const visibilitySnapshot = annotationObjects.map(obj => obj.visible);
+
+        try {
+            // Hide all annotations
+            annotationObjects.forEach(obj => (obj.visible = false));
+            
+            // Also hide selection handles/borders for a clean export
+            const activeObject = this.canvas.getActiveObject();
+            if (activeObject) {
+                this.canvas.discardActiveObject();
+            }
+            
+            this.canvas.renderAll();
+
+            const dataUrl = this.canvas.toDataURL({
+                format: (options?.format as 'png' | 'jpeg') ?? 'png',
+                quality: options?.quality ?? 1,
+                multiplier: options?.multiplier ?? 2,
+            });
+
+            return dataUrl;
+        } finally {
+            // Restore original visibility
+            annotationObjects.forEach((obj, i) => (obj.visible = visibilitySnapshot[i] ?? true));
+            this.canvas.renderAll();
+        }
     }
 
     /**
-     * Get canvas as Blob for uploading
+     * Flatten the canvas: Consolidates all visible layers (excluding annotations) 
+     * into a single new base image and clears the current layer stack.
+     * This effectively "bakes" all current edits into the base.
+     */
+    async flattenCanvas(): Promise<boolean> {
+        if (!this.canvas) return false;
+
+        logger.info('[CanvasOps] Flattening canvas layers...');
+        
+        // 1. Get high-fidelity flattened image (hides annotations automatically)
+        const flattenedDataUrl = this.getFlattenedDataURL({ 
+            format: 'png', 
+            quality: 1, 
+            multiplier: 2 // Export at 2x for better quality
+        });
+        
+        if (!flattenedDataUrl) return false;
+
+        try {
+            // 2. Load the new flattened image
+            const newBaseImg = await this.loadImageSafe(flattenedDataUrl);
+            
+            // 3. Clear canvas and add new flattened image
+            const width = this.canvas.getWidth();
+            const height = this.canvas.getHeight();
+            
+            this.canvas.clear();
+            this.canvas.backgroundColor = '#1a1a1a';
+            this.canvas.setDimensions({ width, height });
+            
+            newBaseImg.set('data', { isBaseImage: true });
+            scaleImageToCanvas(newBaseImg, this.canvas);
+            this.canvas.add(newBaseImg);
+            
+            this.canvas.renderAll();
+            
+            logger.info('[CanvasOps] Canvas flattened successfully');
+            return true;
+        } catch (err) {
+            logger.error('[CanvasOps] Failed to flatten canvas:', err);
+            return false;
+        }
+    }
+
+    /**
+     * Get canvas as PNG data URL (annotations excluded from output)
+     */
+    saveCanvas(): string {
+        if (!this.canvas) return '';
+        return this.getFlattenedDataURL({ format: 'png', quality: 1, multiplier: 2 });
+    }
+
+    /**
+     * Get canvas as Blob for uploading (annotations excluded from output)
      */
     async getBlob(): Promise<Blob | null> {
         if (!this.canvas) return null;
 
-        // simple dataURL to blob conversion
-        const dataUrl = this.canvas.toDataURL({
-            format: 'png',
-            quality: 1,
-            multiplier: 2
-        });
+        const dataUrl = this.getFlattenedDataURL({ format: 'png', quality: 1, multiplier: 2 });
 
         try {
             const res = await fetch(dataUrl);
@@ -655,109 +747,111 @@ export class CanvasOperationsService {
         if (activeDefinitions.length === 0) return null;
 
         const originalObjects = this.canvas.getObjects();
-        const isMask = (obj: fabric.Object) => obj.type === 'path' || !!(obj as fabric.Object & { data?: { isSegmentationMask?: boolean } }).data?.isSegmentationMask;
-        const maskObjects = originalObjects.filter(isMask);
-        const contentObjects = originalObjects.filter(obj => !isMask(obj));
-
-        // Step 1: Generate Base Image (Content only, hide all annotations)
-        maskObjects.forEach(obj => (obj.visible = false));
-        contentObjects.forEach(obj => (obj.visible = true));
+        const maskObjects = originalObjects.filter(obj => this.isAnnotation(obj));
+        const contentObjects = originalObjects.filter(obj => !this.isAnnotation(obj));
 
         // Store original canvas background
         const originalBg = this.canvas.backgroundColor;
-        this.canvas.backgroundColor = '#000000'; // Black background for clean content extraction if transparent
 
-        this.canvas.renderAll();
+        try {
+            // Step 1: Generate Base Image (Content only, hide all annotations)
+            maskObjects.forEach(obj => (obj.visible = false));
+            contentObjects.forEach(obj => (obj.visible = true));
 
-        const baseDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
-        const baseImage = {
-            mimeType: 'image/png',
-            data: baseDataUrl.split(',')[1] ?? ''
-        };
+            this.canvas.backgroundColor = '#000000'; // Black background for clean content extraction if transparent
 
-        const masks: MaskData[] = [];
+            this.canvas.renderAll();
 
-        // Step 2: Extract Binary Masks for each defined color
-        for (const [colorId, prompt] of activeDefinitions) {
-            const colorDef = STUDIO_COLORS.find(c => c.id === colorId);
-            if (!colorDef) continue;
+            const baseDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
+            const baseImage = {
+                mimeType: 'image/png',
+                data: baseDataUrl.split(',')[1] ?? ''
+            };
 
-            // Primary: match by stamped colorId (reliable across save/restore cycles)
-            // Fallback: legacy string-matching for paths drawn before this fix
-            const colorPaths = maskObjects.filter(obj => {
-                const data = (obj as fabric.Object & { data?: { colorId?: string } }).data;
-                if (data?.colorId) {
-                    return data.colorId === colorId;
+            const masks: MaskData[] = [];
+
+            // Step 2: Extract Binary Masks for each defined color
+            for (const [colorId, prompt] of activeDefinitions) {
+                const colorDef = STUDIO_COLORS.find(c => c.id === colorId);
+                if (!colorDef) continue;
+
+                // Primary: match by stamped colorId (reliable across save/restore cycles)
+                // Fallback: legacy string-matching for paths drawn before this fix
+                const colorPaths = maskObjects.filter(obj => {
+                    const data = (obj as fabric.Object & { data?: { colorId?: string } }).data;
+                    if (data?.colorId) {
+                        return data.colorId === colorId;
+                    }
+                    // Fallback: legacy paths without colorId — try approximate stroke matching
+                    const targetRgbaStart = hexToRgba(colorDef.hex, 0.5).slice(0, -4);
+                    const stroke = obj.stroke;
+                    return stroke && typeof stroke === 'string' && stroke.startsWith(targetRgbaStart);
+                });
+
+                if (colorPaths.length > 0) {
+                    // Hide ALL objects initially
+                    originalObjects.forEach(obj => (obj.visible = false));
+
+                    // Show only matching paths and transform them to pure WHITE
+                    colorPaths.forEach(obj => {
+                        obj.visible = true;
+                        if (obj.type === 'path') {
+                            // Store original properties to restore later
+                            (obj as fabric.Object & { _originalStroke?: typeof obj.stroke })._originalStroke = obj.stroke;
+                            obj.set({ stroke: '#ffffff', fill: '' });
+                        } else if (obj.type === 'image' && (obj as fabric.Object & { data?: { isSegmentationMask?: boolean } }).data?.isSegmentationMask) {
+                            // For AI masks, bypass tint explicitly so it becomes pure binary
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const imgObj = obj as fabric.Image & { _originalOpacity?: number, _originalFilters?: any[] };
+                            imgObj._originalOpacity = obj.opacity;
+                            obj.set({ opacity: 1.0 });
+                            if (imgObj.filters) {
+                                imgObj._originalFilters = [...imgObj.filters];
+                                imgObj.filters = [];
+                                imgObj.applyFilters();
+                            }
+                        }
+                    });
+
+                    // Clear background to pure BLACK for strict binary mask
+                    this.canvas.backgroundColor = '#000000';
+                    this.canvas.renderAll();
+                    const maskDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
+
+                    masks.push({
+                        mimeType: 'image/png',
+                        data: maskDataUrl.split(',')[1] ?? '',
+                        prompt,
+                        colorId,
+                        referenceImage: referenceImages[colorId] || undefined
+                    });
+
+                    // Restore original properties for these objects
+                    colorPaths.forEach(obj => {
+                        if (obj.type === 'path') {
+                            obj.set({ stroke: (obj as fabric.Object & { _originalStroke?: typeof obj.stroke })._originalStroke });
+                        } else if (obj.type === 'image' && (obj as fabric.Object & { data?: { isSegmentationMask?: boolean } }).data?.isSegmentationMask) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const imgObj = obj as fabric.Image & { _originalOpacity?: number, _originalFilters?: any[] };
+                            obj.set({ opacity: imgObj._originalOpacity });
+                            if (imgObj._originalFilters) {
+                                imgObj.filters = imgObj._originalFilters;
+                                imgObj.applyFilters();
+                            }
+                        }
+                    });
                 }
-                // Fallback: legacy paths without colorId — try approximate stroke matching
-                const targetRgbaStart = hexToRgba(colorDef.hex, 0.5).slice(0, -4);
-                const stroke = obj.stroke;
-                return stroke && typeof stroke === 'string' && stroke.startsWith(targetRgbaStart);
-            });
-
-            if (colorPaths.length > 0) {
-                // Hide ALL objects initially
-                originalObjects.forEach(obj => (obj.visible = false));
-
-                // Show only matching paths and transform them to pure WHITE
-                colorPaths.forEach(obj => {
-                    obj.visible = true;
-                    if (obj.type === 'path') {
-                        // Store original properties to restore later
-                        (obj as fabric.Object & { _originalStroke?: typeof obj.stroke })._originalStroke = obj.stroke;
-                        obj.set({ stroke: '#ffffff', fill: '' });
-                    } else if (obj.type === 'image' && (obj as fabric.Object & { data?: { isSegmentationMask?: boolean } }).data?.isSegmentationMask) {
-                        // For AI masks, bypass tint explicitly so it becomes pure binary
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const imgObj = obj as fabric.Image & { _originalOpacity?: number, _originalFilters?: any[] };
-                        imgObj._originalOpacity = obj.opacity;
-                        obj.set({ opacity: 1.0 });
-                        if (imgObj.filters) {
-                            imgObj._originalFilters = [...imgObj.filters];
-                            imgObj.filters = [];
-                            imgObj.applyFilters();
-                        }
-                    }
-                });
-
-                // Clear background to pure BLACK for strict binary mask
-                this.canvas.backgroundColor = '#000000';
-                this.canvas.renderAll();
-                const maskDataUrl = this.canvas.toDataURL({ format: 'png', multiplier: 1 });
-
-                masks.push({
-                    mimeType: 'image/png',
-                    data: maskDataUrl.split(',')[1] ?? '',
-                    prompt,
-                    colorId,
-                    referenceImage: referenceImages[colorId] || undefined
-                });
-
-                // Restore original properties for these objects
-                colorPaths.forEach(obj => {
-                    if (obj.type === 'path') {
-                        obj.set({ stroke: (obj as fabric.Object & { _originalStroke?: typeof obj.stroke })._originalStroke });
-                    } else if (obj.type === 'image' && (obj as fabric.Object & { data?: { isSegmentationMask?: boolean } }).data?.isSegmentationMask) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const imgObj = obj as fabric.Image & { _originalOpacity?: number, _originalFilters?: any[] };
-                        obj.set({ opacity: imgObj._originalOpacity });
-                        if (imgObj._originalFilters) {
-                            imgObj.filters = imgObj._originalFilters;
-                            imgObj.applyFilters();
-                        }
-                    }
-                });
             }
+
+            if (masks.length === 0) return null;
+
+            return { baseImage, masks };
+        } finally {
+            // Restore visual state for the user
+            originalObjects.forEach(obj => (obj.visible = true));
+            this.canvas.backgroundColor = originalBg;
+            this.canvas.renderAll();
         }
-
-        // Restore visual state for the user
-        originalObjects.forEach(obj => (obj.visible = true));
-        this.canvas.backgroundColor = originalBg;
-        this.canvas.renderAll();
-
-        if (masks.length === 0) return null;
-
-        return { baseImage, masks };
     }
 
     /**
@@ -784,6 +878,7 @@ export class CanvasOperationsService {
         // Clear and update
         this.canvas.clear();
         this.canvas.backgroundColor = '#1a1a1a';
+        img.set('data', { isBaseImage: true });
         this.canvas.add(img);
 
         if (magicFillEnabled) {
@@ -811,7 +906,8 @@ export class CanvasOperationsService {
             visible: obj.visible,
             stroke: obj.stroke,
             fill: obj.fill,
-            opacity: obj.opacity
+            opacity: obj.opacity,
+            filters: obj.type === 'image' ? [...((obj as fabric.Image).filters || [])] : undefined
         }));
 
         // 2. Transform to Binary Mask Mode
@@ -819,16 +915,38 @@ export class CanvasOperationsService {
         // this.canvas.backgroundImage = null; // CanvasOperationsService uses an image object, not backgroundImage property usually
 
         originalObjects.forEach(obj => {
-            // Only mask "path" objects (user drawings) -> White
-            if (obj.type === 'path') {
-                obj.set({
-                    stroke: "#FFFFFF",
-                    fill: (obj.fill && obj.fill !== 'transparent') ? "#FFFFFF" : undefined, // Keep fill logic if present
-                    opacity: 1,
-                    visible: true
-                });
+            const data = (obj as fabric.Object & { data?: { isBoundingBox?: boolean, isSegmentationMask?: boolean } }).data;
+            
+            if (this.isAnnotation(obj)) {
+                if (obj.type === 'path') {
+                    obj.set({
+                        stroke: "#FFFFFF",
+                        fill: (obj.fill && obj.fill !== 'transparent') ? "#FFFFFF" : undefined,
+                        opacity: 1,
+                        visible: true
+                    });
+                } else if (data?.isBoundingBox) {
+                    obj.set({
+                        stroke: "#FFFFFF",
+                        fill: "#FFFFFF",
+                        opacity: 1,
+                        visible: true
+                    });
+                } else if (data?.isSegmentationMask) {
+                    const imgObj = obj as fabric.Image;
+                    const whiteFilter = new fabric.filters.BlendColor({
+                        color: '#FFFFFF',
+                        mode: 'add',
+                        alpha: 1.0
+                    });
+                    imgObj.filters = [whiteFilter];
+                    imgObj.applyFilters();
+                    imgObj.set({
+                        opacity: 1.0,
+                        visible: true
+                    });
+                }
             } else {
-                // Hide other content (base image, etc)
                 obj.visible = false;
             }
         });
@@ -853,6 +971,11 @@ export class CanvasOperationsService {
                 fill: state.fill,
                 opacity: state.opacity
             });
+            if (obj.type === 'image' && state.filters) {
+                const imgObj = obj as fabric.Image;
+                imgObj.filters = state.filters;
+                imgObj.applyFilters();
+            }
         });
 
         this.canvas.renderAll();
@@ -881,16 +1004,23 @@ export class CanvasOperationsService {
         this.canvas.backgroundColor = "#000000";
 
         originalObjects.forEach(obj => {
-            const isMask = obj.type === 'path' || !!(obj as fabric.Object & { data?: { isSegmentationMask?: boolean } }).data?.isSegmentationMask;
+            const data = (obj as fabric.Object & { data?: { isSegmentationMask?: boolean, isBoundingBox?: boolean } }).data;
+            const isMask = this.isAnnotation(obj);
+            
             if (isMask) {
-                // Determine the "True Color" (Opaque) from the stroke
-                // Usually stroke is rgba(r,g,b,0.5). We want rgb(r,g,b) or hex.
-                // For now, we trust the stroke color but pump opacity to 1.0
-                // For segmentation masks, they already have a color filter, just pump opacity to 1.0
-                obj.set({
-                    opacity: 1.0,
-                    visible: true
-                });
+                if (data?.isBoundingBox) {
+                    // For bounding boxes, we want a solid color, not just a border
+                    obj.set({
+                        fill: obj.stroke, // Use the bounding box color
+                        opacity: 1.0,
+                        visible: true
+                    });
+                } else {
+                    obj.set({
+                        opacity: 1.0,
+                        visible: true
+                    });
+                }
             } else {
                 obj.visible = false;
             }
@@ -910,6 +1040,15 @@ export class CanvasOperationsService {
         originalObjects.forEach((obj, index) => {
             const state = originalState[index];
             if (!state) return;
+            
+            const data = (obj as fabric.Object & { data?: { isBoundingBox?: boolean } }).data;
+            if (data?.isBoundingBox) {
+                // Restore bounding box transparent fill
+                obj.set({
+                    fill: 'rgba(0, 255, 0, 0.1)',
+                });
+            }
+            
             obj.set({
                 visible: state.visible,
                 stroke: state.stroke,
@@ -923,13 +1062,51 @@ export class CanvasOperationsService {
     }
 
     /**
+     * Get all layers (objects) on the canvas
+     */
+    getLayers(): any[] {
+        if (!this.canvas) return [];
+        return this.canvas.getObjects().map(obj => {
+            const data = (obj as any).data || {};
+            return {
+                id: (obj as any).id || `layer_${Math.random().toString(36).substring(2, 9)}`,
+                type: obj.type,
+                visible: obj.visible,
+                isBaseImage: !!data.isBaseImage,
+                isAnnotation: this.isAnnotation(obj),
+                colorId: data.colorId,
+                label: data.label,
+                object: obj
+            };
+        });
+    }
+
+    /**
+     * Toggle visibility of a specific layer/object
+     */
+    toggleLayerVisibility(obj: fabric.Object, visible: boolean): void {
+        if (!this.canvas) return;
+        obj.set('visible', visible);
+        this.canvas.renderAll();
+    }
+
+    /**
      * Convert canvas to JSON
      */
     async toJSON(): Promise<string | null> {
         if (!this.canvas) return null;
         // Include 'data' property so colorId survives serialization/deserialization
         // Fabric 6: toJSON() takes no args; use toObject() for custom property inclusion
-        const json = this.canvas.toObject(['data']);
+        const json = this.canvas.toObject(['data', 'id']);
+        
+        // Strip out transient UI data (bounding boxes, masks)
+        if (json.objects && Array.isArray(json.objects)) {
+            json.objects = json.objects.filter((obj: any) => {
+                if (!obj.data) return true;
+                return !obj.data.isBoundingBox && !obj.data.isSegmentationMask;
+            });
+        }
+        
         return JSON.stringify(json);
     }
 }

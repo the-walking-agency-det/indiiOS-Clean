@@ -159,7 +159,7 @@ export function useCreativeCanvas({ item, onClose, onRefine }: UseCreativeCanvas
         try {
             setIsProcessing(true);
             setProcessingStatus('Analyzing Image...');
-            toast.info('Detecting objects using Gemini Vision...');
+            toast.info('Detecting objects...');
 
             const base64 = canvasOps.getBaseImageBase64();
             if (!base64) throw new Error('Could not extract base image.');
@@ -365,6 +365,30 @@ export function useCreativeCanvas({ item, onClose, onRefine }: UseCreativeCanvas
         toast.success(`Applied Option ${index + 1}`);
     };
 
+    const handleFlattenCanvas = async () => {
+        if (!canvasOps.isInitialized()) return;
+        
+        setIsProcessing(true);
+        setProcessingStatus('Flattening Layers...');
+        
+        try {
+            const success = await canvasOps.flattenCanvas();
+            if (success) {
+                toast.success('Canvas flattened! Edits are now permanent.');
+                // Auto-save the new state
+                await saveCanvas();
+            } else {
+                toast.error('Failed to flatten canvas.');
+            }
+        } catch (error: any) {
+            logger.error('[CreativeStudio] Flatten failed', error);
+            toast.error('An error occurred while flattening.');
+        } finally {
+            setIsProcessing(false);
+            setProcessingStatus('');
+        }
+    };
+
     const saveCanvas = async () => {
         if (!item) return;
 
@@ -374,8 +398,8 @@ export function useCreativeCanvas({ item, onClose, onRefine }: UseCreativeCanvas
             return;
         }
 
-        // 1. Trigger browser download (preserve existing UX)
-        const dataUrl = canvasOps.saveCanvas(`edited-${item.id}.png`);
+        // 1. Get the data URL
+        const dataUrl = canvasOps.saveCanvas();
 
         try {
             // 2. Upload blob to Firebase Storage as a persistent asset
@@ -383,18 +407,27 @@ export function useCreativeCanvas({ item, onClose, onRefine }: UseCreativeCanvas
             if (blob) {
                 const assetId = await saveAssetToStorage(blob);
 
-                // 3. Create a HistoryItem so the export appears in the gallery
-                const { addToHistory } = useStore.getState();
-                const canvasAsset: HistoryItem = {
-                    id: assetId,
-                    url: dataUrl || item.url,
-                    prompt: `Canvas edit of: ${item.prompt || 'untitled'}`,
-                    type: 'image',
-                    timestamp: Date.now(),
-                    projectId: currentProjectId,
-                    origin: 'canvas-export',
-                };
-                addToHistory(canvasAsset);
+                // 3. Create or update HistoryItem so the export appears in the gallery
+                const { addToHistory, updateHistoryItem } = useStore.getState();
+                
+                if (item.origin === 'canvas-export') {
+                    updateHistoryItem(item.id, {
+                        url: dataUrl || item.url,
+                        timestamp: Date.now()
+                    });
+                } else {
+                    const canvasAsset: HistoryItem = {
+                        id: assetId,
+                        url: dataUrl || item.url,
+                        prompt: `Canvas edit of: ${item.prompt || 'untitled'}`,
+                        type: 'image',
+                        timestamp: Date.now(),
+                        projectId: currentProjectId,
+                        origin: 'canvas-export',
+                        parentId: item.id,
+                    };
+                    addToHistory(canvasAsset);
+                }
             }
 
             // 4. Persist canvas state (annotations / layers) for reload
@@ -535,6 +568,7 @@ export function useCreativeCanvas({ item, onClose, onRefine }: UseCreativeCanvas
         handleAnimate,
         handleCandidateSelect,
         saveCanvas,
+        handleFlattenCanvas,
         handleRefine: onRefine || handleRefineInternal,
         handleCreateLastFrame,
         batchExportDimensions,

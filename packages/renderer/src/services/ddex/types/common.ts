@@ -49,14 +49,18 @@ export type UseType =
   | 'TimeDelimitedStream'
   | 'NonInteractiveStream'
   | 'Broadcast'
-  | 'Simulcast';
+  | 'Simulcast'
+  | 'UserMadeContentDelivery'
+  | 'PhysicalProduct';
 
 // Commercial Model Types
 export type CommercialModelType =
   | 'AdvertisementSupportedModel'
   | 'PayAsYouGoModel'
   | 'SubscriptionModel'
-  | 'FreeOfChargeModel';
+  | 'FreeOfChargeModel'
+  | 'UserMakeAvailableLabelProvided'
+  | 'UserMakeAvailableUserProvided';
 
 // Price Types
 export interface Price {
@@ -90,6 +94,9 @@ export interface Contributor {
   role: ContributorRole;
   sequenceNumber?: number;
   partyId?: string;  // ISNI or proprietary ID
+  isni?: string;
+  spotifyId?: string;
+  appleMusicId?: string;
 }
 
 // Technical Details for audio resources

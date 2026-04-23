@@ -1,275 +1,209 @@
-"""Single-file Harbor agent harness for optimizing the indii Conductor.
-
-Run with: --agent-import-path agent:AutoAgent
-
-This file is based on the upstream kevinrgu/autoagent reference harness. The
-meta-agent edits the EDITABLE HARNESS section (SYSTEM_PROMPT, MODEL, MAX_TURNS,
-create_tools, create_agent) to hill-climb on the routing tasks under tasks/.
-
-The FIXED ADAPTER BOUNDARY at the bottom must not be modified — it implements
-the Harbor BaseAgent contract and ATIF trajectory serialization.
-"""
-
-from __future__ import annotations
-
+import os
 import json
-import time
-from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, Any, Optional
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
 
-from agents import Agent, Runner, function_tool
-from agents.items import (
-    ItemHelpers,
-    MessageOutputItem,
-    ReasoningItem,
-    ToolCallItem,
-    ToolCallOutputItem,
-)
-from agents.tool import FunctionTool
-from agents.usage import Usage
-from harbor.agents.base import BaseAgent
-from harbor.environments.base import BaseEnvironment
-from harbor.models.agent.context import AgentContext
+# The following variable is targeted by the AutoAgent optimization loop.
+# Do not rename. The Meta-Agent will overwrite this string literal.
+SYSTEM_PROMPT: Optional[str] = None
 
+class AutoAgent:
+    """
+    Wrapper for indiiOS agents during optimization.
+    Proxies calls to the Gemini API using actual system prompts from the codebase.
+    """
+    
+    def __init__(self, agent_id: str, model_id: str = "gemini-3-pro-preview"):
+        self.agent_id = agent_id
+        self.model_id = model_id
+        
+        # Load environment variables
+        load_dotenv()
+        self.api_key = os.getenv("VITE_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("VITE_API_KEY or GOOGLE_API_KEY not found in environment.")
+            
+        self.client = genai.Client(api_key=self.api_key)
+        self.project_root = self._find_project_root()
+        
+        # Priority: 1. Top-level SYSTEM_PROMPT (from optimizer), 2. Load from disk
+        if SYSTEM_PROMPT:
+            print(f"Using optimized SYSTEM_PROMPT for {self.agent_id}")
+            self.system_prompt = SYSTEM_PROMPT
+        else:
+            self.system_prompt = self._load_system_prompt()
 
-# ============================================================================
-# EDITABLE HARNESS — prompt, tools, agent construction
-# ============================================================================
+    def _find_project_root(self) -> Path:
+        """Finds the root directory of the indiiOS-Clean project."""
+        current = Path(__file__).resolve()
+        for parent in current.parents:
+            if (parent / "package.json").exists() or (parent / "GEMINI.md").exists():
+                return parent
+        return current.parents[2] # Fallback
 
-SYSTEM_PROMPT = """You are the indii Conductor, the orchestrator for indiiOS.
-
-Your job is to read the artist's question and decide which specialist agent
-should handle it. The available specialists are:
-
-  brand        - visual identity, logos, color palettes, brand guidelines
-  finance      - revenue, royalties, payouts, splits, taxes, accounting
-  legal        - contracts, rights, copyright, trademarks, disputes
-  licensing    - sync placement, sample clearance, license deals
-  marketing    - campaigns, ad copy, audience growth, content strategy
-  music        - production, mixing, mastering, audio analysis
-  publicist    - press releases, media outreach, interviews
-  publishing   - PRO registration, ISRC/ISWC codes, song registration
-  road         - touring, venue booking, tour logistics
-  social       - social media posts, follower engagement, scheduling
-  video        - music videos, video production, Veo generation
-
-Read the question in /task/instruction.md, decide on exactly ONE specialist,
-and write the lowercase specialist name (and nothing else) to /task/answer.txt.
-
-You have a single shell tool. Use `cat /task/instruction.md` to read the
-question, then `echo -n <specialist> > /task/answer.txt` to record your
-decision. Do not write extra text, do not write a newline at the end."""
-
-MODEL = "gpt-5"
-MAX_TURNS = 30
-
-
-def create_tools(environment: BaseEnvironment) -> list[FunctionTool]:
-    """Create tools for the agent. Add new tools here."""
-
-    @function_tool
-    async def run_shell(command: str) -> str:
-        """Run a shell command in the task environment. Returns stdout and stderr."""
-        try:
-            result = await environment.exec(command=command, timeout_sec=120)
-            out = ""
-            if result.stdout:
-                out += result.stdout
-            if result.stderr:
-                out += f"\nSTDERR:\n{result.stderr}" if out else f"STDERR:\n{result.stderr}"
-            return out or "(no output)"
-        except Exception as exc:
-            return f"ERROR: {exc}"
-
-    return [run_shell]
-
-
-def create_agent(environment: BaseEnvironment) -> Agent:
-    """Build the agent. Modify to add handoffs, sub-agents, or agent-as-tool."""
-    tools = create_tools(environment)
-    return Agent(
-        name="indii-conductor",
-        instructions=SYSTEM_PROMPT,
-        tools=tools,
-        model=MODEL,
-    )
-
-
-async def run_task(
-    environment: BaseEnvironment,
-    instruction: str,
-) -> tuple[object, int]:
-    """Run the agent on a task and return (result, duration_ms)."""
-    agent = create_agent(environment)
-    t0 = time.time()
-    result = await Runner.run(agent, input=instruction, max_turns=MAX_TURNS)
-    duration_ms = int((time.time() - t0) * 1000)
-    return result, duration_ms
-
-
-# ============================================================================
-# FIXED ADAPTER BOUNDARY: do not modify unless the human explicitly asks.
-# Harbor integration and trajectory serialization live here.
-# ============================================================================
-
-def to_atif(result: object, model: str, duration_ms: int = 0) -> dict:
-    """Convert OpenAI Agents SDK RunResult to an ATIF trajectory dict."""
-    steps: list[dict] = []
-    step_id = 0
-    now = datetime.now(timezone.utc).isoformat()
-
-    def _step(source: str, message: str, **extra: object) -> dict:
-        nonlocal step_id
-        step_id += 1
-        step = {
-            "step_id": step_id,
-            "timestamp": now,
-            "source": source,
-            "message": message,
+    def _load_system_prompt(self) -> str:
+        """Loads the system prompt for the specified agent."""
+        folder_map = {
+            "generalist": "agent0",
+            "conductor": "agent0",
+            "brand": "brand",
+            "road": "road",
+            "publicist": "publicist",
+            "marketing": "marketing",
+            "social": "social",
+            "legal": "legal",
+            "publishing": "publishing",
+            "finance": "finance",
+            "licensing": "licensing",
+            "distribution": "distribution",
+            "music": "music",
+            "video": "video",
+            "security": "security",
+            "producer": "producer",
+            "director": "creative-director",
+            "creative-director": "creative-director",
+            "merchandise": "merchandise",
         }
-        step.update({key: value for key, value in extra.items() if value is not None})
-        return step
+        
+        folder = folder_map.get(self.agent_id, self.agent_id)
+        agents_dir = self.project_root / "agents" / folder
+        
+        candidates = [
+            agents_dir / "prompt.md",
+            agents_dir / "prompts" / "agent.system.main.role.md",
+            agents_dir / "AGENTS.md",
+            agents_dir / "agent.system.md",
+        ]
+        
+        for path in candidates:
+            if path.exists():
+                print(f"Loading system prompt from: {path}")
+                return path.read_text(encoding="utf-8")
+                
+        print(f"Warning: No system prompt found for {self.agent_id}, using fallback.")
+        return f"You are the {self.agent_id} specialist agent within the indiiOS creative platform."
 
-    pending_tool_call = None
-    for item in result.new_items:
-        if isinstance(item, MessageOutputItem):
-            text = ItemHelpers.text_message_output(item)
-            if text:
-                steps.append(_step("agent", text, model_name=model))
-        elif isinstance(item, ReasoningItem):
-            summaries = getattr(item.raw_item, "summary", None)
-            reasoning = "\n".join(s.text for s in summaries if hasattr(s, "text")) if summaries else None
-            if reasoning:
-                steps.append(
-                    _step(
-                        "agent",
-                        "(thinking)",
-                        reasoning_content=reasoning,
-                        model_name=model,
-                    )
-                )
-        elif isinstance(item, ToolCallItem):
-            raw = item.raw_item
-            if hasattr(raw, "name"):
-                pending_tool_call = raw
-        elif isinstance(item, ToolCallOutputItem) and pending_tool_call:
-            arguments = (
-                json.loads(pending_tool_call.arguments)
-                if isinstance(pending_tool_call.arguments, str)
-                else pending_tool_call.arguments
-            )
-            output_str = str(item.output) if item.output else ""
-            steps.append(
-                _step(
-                    "agent",
-                    f"Tool: {pending_tool_call.name}",
-                    tool_calls=[
-                        {
-                            "tool_call_id": pending_tool_call.call_id,
-                            "function_name": pending_tool_call.name,
-                            "arguments": arguments,
-                        }
-                    ],
-                    observation={
-                        "results": [
-                            {
-                                "source_call_id": pending_tool_call.call_id,
-                                "content": output_str,
-                            }
-                        ]
-                    },
-                )
-            )
-            pending_tool_call = None
-
-    if pending_tool_call:
-        arguments = (
-            json.loads(pending_tool_call.arguments)
-            if isinstance(pending_tool_call.arguments, str)
-            else pending_tool_call.arguments
-        )
-        steps.append(
-            _step(
-                "agent",
-                f"Tool: {pending_tool_call.name}",
-                tool_calls=[
-                    {
-                        "tool_call_id": pending_tool_call.call_id,
-                        "function_name": pending_tool_call.name,
-                        "arguments": arguments,
-                    }
-                ],
-            )
-        )
-
-    if not steps:
-        steps.append(_step("user", "(empty)"))
-
-    usage = Usage()
-    for response in result.raw_responses:
-        usage.add(response.usage)
-
-    return {
-        "schema_version": "ATIF-v1.6",
-        "session_id": getattr(result, "last_response_id", None) or "unknown",
-        "agent": {"name": "indii-conductor", "version": "0.1.0", "model_name": model},
-        "steps": steps,
-        "final_metrics": {
-            "total_prompt_tokens": usage.input_tokens,
-            "total_completion_tokens": usage.output_tokens,
-            "total_cached_tokens": getattr(usage.input_tokens_details, "cached_tokens", 0) or 0,
-            "total_cost_usd": None,
-            "total_steps": len(steps),
-            "extra": {"duration_ms": duration_ms, "num_turns": len(result.raw_responses)},
-        },
-    }
-
-
-class AutoAgent(BaseAgent):
-    """Harbor agent adapter. Runs the OpenAI agent host-side and proxies shell into the container."""
-
-    SUPPORTS_ATIF = True
-
-    def __init__(self, *args, extra_env: dict[str, str] | None = None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._extra_env = dict(extra_env) if extra_env else {}
-
-    @staticmethod
-    def name() -> str:
-        return "indii-conductor"
-
-    def version(self) -> str | None:
-        return "0.1.0"
-
-    async def setup(self, environment: BaseEnvironment) -> None:
-        pass
-
-    async def run(self, instruction: str, environment: BaseEnvironment, context: AgentContext) -> None:
-        await environment.exec(command="mkdir -p /task")
-        instr_file = self.logs_dir / "instruction.md"
-        instr_file.write_text(instruction)
-        await environment.upload_file(source_path=instr_file, target_path="/task/instruction.md")
-
-        result, duration_ms = await run_task(environment, instruction)
-
-        atif = to_atif(result, model=MODEL, duration_ms=duration_ms)
-        traj_path = self.logs_dir / "trajectory.json"
-        traj_path.write_text(json.dumps(atif, indent=2))
-
+    def execute(self, user_goal: str, history: Optional[list] = None) -> Dict[str, Any]:
+        """
+        Executes a task using the agent's system prompt and the user's goal.
+        """
+        print(f"Executing {self.agent_id} ({self.model_id}) with goal: {user_goal}")
+        
         try:
-            final_metrics = atif.get("final_metrics", {})
-            context.n_input_tokens = final_metrics.get("total_prompt_tokens", 0)
-            context.n_output_tokens = final_metrics.get("total_completion_tokens", 0)
-            context.n_cache_tokens = final_metrics.get("total_cached_tokens", 0)
-        except Exception:
-            pass
+            # Define tools for the agent
+            def delegate_task(targetAgentId: str, task: str, sharedContext: str = None):
+                """Routes a task to a specialized Spoke agent."""
+                return f"Delegated {task} to {targetAgentId}"
 
-        usage = Usage()
-        for response in result.raw_responses:
-            usage.add(response.usage)
-        print(
-            f"turns={len(result.raw_responses)} duration_ms={duration_ms} "
-            f"input={usage.input_tokens} output={usage.output_tokens}"
-        )
+            def synthesize_plan(goal: str):
+                """Creates a multi-agent roadmap for a complex goal."""
+                return f"Synthesized plan for {goal}"
 
+            tools = [delegate_task, synthesize_plan]
 
-__all__ = ["AutoAgent"]
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=user_goal,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.system_prompt,
+                    tools=tools,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                    temperature=1.0,
+                    max_output_tokens=4096,
+                )
+            )
+            
+            print(f"DEBUG: Response Object: {response}")
+            
+            # Extract text and tool calls from all parts
+            response_text = ""
+            if response.candidates and len(response.candidates) > 0:
+                parts = response.candidates[0].content.parts
+                if parts:
+                    for i, part in enumerate(parts):
+                        print(f"DEBUG: Part {i}: {part}")
+                        if part.text:
+                            response_text += part.text + "\n"
+                        if part.function_call:
+                            print(f"DEBUG: Detected function call: {part.function_call.name}")
+                            # If it's a function call, serialize it so the evaluator can check for it
+                            call_dict = {
+                                "name": part.function_call.name,
+                                "args": part.function_call.args
+                            }
+                            # Formatting for the evaluator (making it look like a tool call)
+                            response_text += f"[Tool: {part.function_call.name}] Arguments: {json.dumps(call_dict['args'])}\n"
+            
+            # Fallback to response.text if parts failed for some reason
+            if not response_text and response.text:
+                print("DEBUG: Falling back to response.text")
+                response_text = response.text
+
+            result = {
+                "status": "success",
+                "response": response_text.strip() if response_text else None,
+                "usage": {
+                    "prompt_tokens": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
+                    "candidates_tokens": response.usage_metadata.candidates_token_count if response.usage_metadata else 0,
+                    "total_tokens": response.usage_metadata.total_token_count if response.usage_metadata else 0,
+                }
+            }
+            
+            # Log the result for the evaluator
+            self._log_trace(user_goal, result)
+            
+            return result
+        except Exception as e:
+            print(f"Error during execution: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"status": "error", "error": str(e)}
+
+    def _log_trace(self, goal: str, result: Dict[str, Any]):
+        """Logs the execution trace to a file for later analysis."""
+        trace_dir = Path("jobs")
+        trace_dir.mkdir(exist_ok=True)
+        
+        trace_file = trace_dir / f"{self.agent_id}_trace.json"
+        
+        trace_data = {
+            "agent_id": self.agent_id,
+            "model_id": self.model_id,
+            "goal": goal,
+            "result": result,
+            "timestamp": "2026-04-22T18:51:00Z" # Mock timestamp for now
+        }
+        
+        # Append or create
+        traces = []
+        if trace_file.exists():
+            try:
+                traces = json.loads(trace_file.read_text())
+            except Exception as e:
+                print(f"Warning: Failed to load existing traces from {trace_file}: {e}")
+        
+        traces.append(trace_data)
+        trace_file.write_text(json.dumps(traces, indent=2))
+
+if __name__ == "__main__":
+    # Check for TASK_ID environment variable
+    task_id = os.getenv("TASK_ID")
+    agent_id = os.getenv("AGENT_ID", "conductor")
+    
+    if task_id:
+        task_dir = Path("tasks") / task_id
+        instruction_file = task_dir / "instruction.md"
+        if instruction_file.exists():
+            goal = instruction_file.read_text(encoding="utf-8")
+        else:
+            goal = f"Execute task: {task_id}"
+    else:
+        # Fallback for manual testing
+        goal = "I need to register an ISRC for my new track 'Summer Vibes'."
+        
+    agent = AutoAgent(agent_id)
+    res = agent.execute(goal)
+    print(json.dumps(res, indent=2))

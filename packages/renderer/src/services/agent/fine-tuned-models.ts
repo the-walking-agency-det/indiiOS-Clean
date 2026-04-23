@@ -69,7 +69,8 @@ export const FINE_TUNED_MODEL_REGISTRY: Partial<Record<ValidAgentId, string>> = 
     'curriculum':    'projects/223837784072/locations/us-central1/endpoints/8815251462566182912',
 
     // Not yet fine-tuned
-    'keeper':           undefined,
+    'creative':      undefined,
+    'keeper':        undefined,
 };
 
 /**

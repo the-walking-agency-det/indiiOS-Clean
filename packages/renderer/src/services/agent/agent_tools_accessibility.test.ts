@@ -182,7 +182,7 @@ describe('Agent Tool Accessibility Audit', () => {
             const unregisteredAgents: string[] = [];
 
             for (const agentId of VALID_AGENT_IDS) {
-                if (agentId === 'road-manager') continue; // Alias, skip
+                // All IDs in VALID_AGENT_IDS are canonical; no aliases to skip.
 
                 const agent = await agentRegistry.getAsync(agentId);
                 if (!agent) {

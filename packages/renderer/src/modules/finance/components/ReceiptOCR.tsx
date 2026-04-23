@@ -90,6 +90,7 @@ export function ReceiptOCR() {
             // 1. Upload the file using resumable upload
             const fileMeta = await firebaseAI.fileService.uploadFile(uploadedFile);
 
+
             // 2. Wait for it to be active
             await firebaseAI.fileService.waitForActive(fileMeta.name);
 
@@ -116,7 +117,7 @@ Return ONLY valid JSON, no markdown fences or extra text.`;
             });
 
             // Strip potential markdown code fences
-            const cleanJson = responseText.replace(/^```json?\n?/i, '').replace(/\n?```$/i, '').trim();
+            const cleanJson = responseText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```$/i, '').trim();
             const parsed = JSON.parse(cleanJson) as ExtractedReceipt;
 
             setExtracted({

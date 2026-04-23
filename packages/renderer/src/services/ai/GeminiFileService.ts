@@ -81,7 +81,12 @@ export class GeminiFileService {
             );
 
             if (!startResponse.ok) {
-                const errorText = await startResponse.text();
+                let errorText: string;
+                try {
+                    errorText = await startResponse.text();
+                } catch {
+                    errorText = `(unable to read response body: status ${startResponse.status})`;
+                }
                 throw new Error(`Failed to initialize upload: ${startResponse.status} ${errorText}`);
             }
 
@@ -92,10 +97,6 @@ export class GeminiFileService {
 
             // Step 2: Upload the actual data
             // To provide robust progress tracking, we could chunk it, but standard 
-            // XMLHttpRequest / fetch with stream progress is better.
-            // For now, doing a direct PUT/POST with the Blob:
-            
-            // To provide robust progress tracking, we could chunk it, but standard
             // XMLHttpRequest / fetch with stream progress is better.
             // For now, doing a direct PUT/POST with the Blob:
 
@@ -114,8 +115,15 @@ export class GeminiFileService {
                 body: file,
             });
 
+            if (onProgress) onProgress(100);
+
             if (!uploadResponse.ok) {
-                const errorText = await uploadResponse.text();
+                let errorText: string;
+                try {
+                    errorText = await uploadResponse.text();
+                } catch {
+                    errorText = `(unable to read response body: status ${uploadResponse.status})`;
+                }
                 throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
             }
 
@@ -160,15 +168,13 @@ export class GeminiFileService {
         }
     }
 
-    /**
+     /**
      * Polls the file until its state is ACTIVE. 
-     * Polls the file until its state is ACTIVE.
      * Useful for large media like video that require backend processing.
      */
     public async waitForActive(name: string, pollIntervalMs = 5000, timeoutMs = 600000): Promise<GeminiFile> {
         logger.info(`[GeminiFileService] Polling ${name} for ACTIVE state...`);
         const startTime = Date.now();
-        
 
         while (Date.now() - startTime < timeoutMs) {
             const fileMeta = await this.getFile(name);

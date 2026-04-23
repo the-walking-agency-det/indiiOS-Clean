@@ -84,6 +84,7 @@ export interface CreativeControlsSlice {
         isDaisyChain: boolean;
         timeOffset: number;
         ingredients: HistoryItem[];
+        sequenceDurations?: number[];
     };
     setVideoInput: <K extends keyof CreativeControlsSlice['videoInputs']>(key: K, value: CreativeControlsSlice['videoInputs'][K]) => void;
     setVideoInputs: (inputs: Partial<CreativeControlsSlice['videoInputs']>) => void;
@@ -104,6 +105,10 @@ export interface CreativeControlsSlice {
 
     prompt: string;
     setPrompt: (prompt: string) => void;
+
+    isPromptBuilderOpen: boolean;
+    setPromptBuilderOpen: (open: boolean) => void;
+    togglePromptBuilder: () => void;
 
     selectedItem: HistoryItem | null;
     setSelectedItem: (item: HistoryItem | null) => void;
@@ -226,6 +231,10 @@ export function buildCreativeControlsState(
 
         prompt: '',
         setPrompt: (prompt) => set({ prompt }),
+
+        isPromptBuilderOpen: false,
+        setPromptBuilderOpen: (open) => set({ isPromptBuilderOpen: open }),
+        togglePromptBuilder: () => set((state) => ({ isPromptBuilderOpen: !state.isPromptBuilderOpen })),
 
         selectedItem: null,
         setSelectedItem: (item) => set({ selectedItem: item }),

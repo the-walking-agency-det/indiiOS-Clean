@@ -79,7 +79,7 @@ export const VALID_AGENT_IDS = [
     'social',
     'publicist',
     'road',
-    'road-manager', // Alias for road
+    'creative',
     'publishing',
     'licensing',
     'brand',
@@ -198,6 +198,8 @@ export interface AgentContext {
     systemPrompt?: string;
     whiskState?: WhiskState;
     livingContext?: string;
+    getMetadata?: (key: string) => any;
+    setMetadata?: (key: string, value: any) => void;
     /** Shared memory context explicitly passed between agents during delegation */
     sharedContext?: string;
     /** When set by ProactiveService, carries the triggering proactive task metadata */

@@ -23,6 +23,7 @@ export type { Contributor };
 
 // ERN Message - top level
 export interface ERNMessage {
+  action?: 'NewRelease' | 'Update' | 'Takedown';
   messageSchemaVersionId: '4.3';
   messageHeader: DDEXMessageHeader;
   releaseList: Release[];
@@ -114,7 +115,7 @@ export interface ReleaseDetailsByTerritory {
 // Resource - the actual content (audio, video, image)
 export interface Resource {
   resourceReference: string;  // Internal reference (e.g., 'A0001')
-  resourceType: 'SoundRecording' | 'Video' | 'Image';
+  resourceType: 'SoundRecording' | 'Video' | 'Image' | 'Text';
   resourceId: ResourceId;
   resourceTitle: TitleText;
   displayArtistName: string;
@@ -128,6 +129,9 @@ export interface Resource {
 
   // For sound recordings
   soundRecordingDetails?: SoundRecordingDetails;
+
+  // For text resources (like lyrics)
+  textDetails?: TextDetails;
 }
 
 export interface ResourceId {
@@ -140,16 +144,27 @@ export interface SoundRecordingDetails {
   isInstrumental: boolean;
   languageOfPerformance?: string;  // ISO 639-2
   iswc?: string;  // International Standard Musical Work Code
+  immersiveAudioProfile?: 'DolbyAtmos' | 'Sony360' | 'None';
   lyrics?: {
     lyricsText: string;
     isExplicit: boolean;
   };
+  bpm?: number;
+  key?: string;
+  energy?: number;
+}
+
+export interface TextDetails {
+  textType: 'Lyrics' | 'LinerNotes';
+  languageOfText?: string;
+  textContent?: string;
 }
 
 // Deal - commercial terms for distribution
 export interface Deal {
   dealReference: string;
   dealTerms: DealTerms;
+  youtubeContentIdPolicy?: string;
 }
 
 export interface DealTerms {
@@ -165,7 +180,7 @@ export interface DealTerms {
 
 export interface Usage {
   useType: UseType;
-  distributionChannelType?: 'Download' | 'Stream' | 'MobileDevice';
+  distributionChannelType?: 'Download' | 'Stream' | 'MobileDevice' | 'Physical';
 }
 
 export interface PriceInformation {

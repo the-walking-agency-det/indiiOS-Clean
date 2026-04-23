@@ -11,6 +11,14 @@ export interface CanvasImage {
     height: number;
     aspect: number;
     projectId: string;
+    prompt?: string;
+    parentId?: string;
+    originalX?: number;
+    originalY?: number;
+    originalWidth?: number;
+    originalHeight?: number;
+    parentOffsetX?: number;
+    parentOffsetY?: number;
 }
 
 export interface CreativeHistorySlice {
@@ -20,6 +28,7 @@ export interface CreativeHistorySlice {
     initializeHistory: () => Promise<void>;
     updateHistoryItem: (id: string, updates: Partial<HistoryItem>) => void;
     removeFromHistory: (id: string) => void;
+    removeItemFromProject: (id: string) => void;
 
     // Canvas
     canvasImages: CanvasImage[];
@@ -38,11 +47,12 @@ export interface CreativeHistorySlice {
     uploadedAudio: HistoryItem[];
     addUploadedAudio: (audio: HistoryItem) => void;
     removeUploadedAudio: (id: string) => void;
+
+    // Soft delete from project view
+    removeUploadedImageFromProject: (id: string) => void;
+    removeUploadedAudioFromProject: (id: string) => void;
 }
 
-/**
- * Factory that returns the history/uploads/canvas portion of the creative slice.
- */
 export function buildCreativeHistoryState(
     set: Parameters<StateCreator<CreativeHistorySlice>>[0],
     _get: Parameters<StateCreator<CreativeHistorySlice>>[1]
@@ -53,11 +63,24 @@ export function buildCreativeHistoryState(
             // Use dynamic import to avoid circular dependency with store
             import('@/core/store').then(({ useStore }) => {
                 logger.debug("CreativeSlice: addToHistory called", item.id);
-                const { currentOrganizationId } = useStore.getState();
+                const { currentOrganizationId, currentProjectId, createFileNode, user } = useStore.getState();
                 const enrichedItem = { ...item, orgId: item.orgId || currentOrganizationId };
 
                 set((state) => ({ generatedHistory: [enrichedItem, ...state.generatedHistory] }));
                 logger.debug("CreativeSlice: generatedHistory updated", enrichedItem.id);
+
+                // Auto-persistence to project asset folder
+                if (enrichedItem.type === 'image' || enrichedItem.type === 'video') {
+                    const filename = `${enrichedItem.origin || 'generation'}-${enrichedItem.id.slice(0, 8)}.png`;
+                    createFileNode(
+                        filename,
+                        null, // root
+                        currentProjectId,
+                        user?.uid || 'anonymous',
+                        enrichedItem.type as any,
+                        { url: enrichedItem.url, origin: enrichedItem.origin }
+                    ).catch(err => logger.error("CreativeSlice: File system sync error", err));
+                }
 
                 import('@/services/StorageService').then(({ StorageService }) => {
                     StorageService.saveItem(enrichedItem)
@@ -172,8 +195,13 @@ export function buildCreativeHistoryState(
         removeFromHistory: (id: string) => {
             set((state) => ({ generatedHistory: state.generatedHistory.filter(i => i.id !== id) }));
             import('@/services/StorageService').then(({ StorageService }) => {
-                StorageService.removeItem(id).catch(() => { /* Error handled silently */ });
+                StorageService.removeItem(id).catch((e) => { logger.error('[Store] Failed to remove item:', e); });
             });
+        },
+        removeItemFromProject: (id: string) => {
+            set((state) => ({ generatedHistory: state.generatedHistory.filter(i => i.id !== id) }));
+            // Soft delete - removes from local state/project view, but leaves in master storage
+            logger.debug(`[CreativeSlice] Soft removed item ${id} from project view.`);
         },
 
         canvasImages: [],
@@ -189,7 +217,7 @@ export function buildCreativeHistoryState(
         addUploadedImage: (img: HistoryItem) => {
             set((state) => ({ uploadedImages: [img, ...state.uploadedImages] }));
             import('@/services/StorageService').then(({ StorageService }) => {
-                StorageService.saveItem(img).catch(() => { /* Error handled silently */ });
+                StorageService.saveItem(img).catch((e) => { logger.error('[Store] Failed to save item:', e); });
             });
         },
         updateUploadedImage: (id: string, updates: Partial<HistoryItem>) => set((state) => ({
@@ -198,7 +226,7 @@ export function buildCreativeHistoryState(
         removeUploadedImage: (id: string) => {
             set((state) => ({ uploadedImages: state.uploadedImages.filter(i => i.id !== id) }));
             import('@/services/StorageService').then(({ StorageService }) => {
-                StorageService.removeItem(id).catch(() => { /* Error handled silently */ });
+                StorageService.removeItem(id).catch((e) => { logger.error('[Store] Failed to remove item:', e); });
             });
         },
 
@@ -206,7 +234,7 @@ export function buildCreativeHistoryState(
         addUploadedAudio: (audio: HistoryItem) => {
             set((state) => ({ uploadedAudio: [audio, ...state.uploadedAudio] }));
             import('@/services/StorageService').then(({ StorageService }) => {
-                StorageService.saveItem(audio).catch(() => { /* Error handled silently */ });
+                StorageService.saveItem(audio).catch((e) => { logger.error('[Store] Failed to save item:', e); });
             });
         },
         removeUploadedAudio: (id: string) => {
@@ -214,6 +242,14 @@ export function buildCreativeHistoryState(
             import('@/services/StorageService').then(({ StorageService }) => {
                 StorageService.removeItem(id).catch(() => { /* Error handled silently */ });
             });
+        },
+        removeUploadedImageFromProject: (id: string) => {
+            set((state) => ({ uploadedImages: state.uploadedImages.filter(i => i.id !== id) }));
+            logger.debug(`[CreativeSlice] Soft removed uploaded image ${id} from project view.`);
+        },
+        removeUploadedAudioFromProject: (id: string) => {
+            set((state) => ({ uploadedAudio: state.uploadedAudio.filter(i => i.id !== id) }));
+            logger.debug(`[CreativeSlice] Soft removed uploaded audio ${id} from project view.`);
         },
     };
 }

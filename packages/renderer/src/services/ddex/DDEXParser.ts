@@ -63,7 +63,8 @@ class DDEXParserImpl {
       // Navigate to the ERN root element
       const ernRoot = parsed['ern:NewReleaseMessage'] ||
         parsed['NewReleaseMessage'] ||
-        parsed['ern:PurgeReleaseMessage'];
+        parsed['ern:PurgeReleaseMessage'] ||
+        parsed['PurgeReleaseMessage'];
 
       if (!ernRoot) {
         return {
@@ -73,7 +74,12 @@ class DDEXParserImpl {
       }
 
       // Map to our ERN type structure
+      let action: 'NewRelease' | 'Update' | 'Takedown' = 'NewRelease';
+      if (parsed['ern:PurgeReleaseMessage'] || parsed['PurgeReleaseMessage']) action = 'Takedown';
+      else if (ernRoot.UpdateIndicator === 'UpdateMessage' || ernRoot['@_UpdateIndicator'] === 'UpdateMessage') action = 'Update';
+
       const ern: ERNMessage = {
+        action,
         messageSchemaVersionId: ernRoot['@_MessageSchemaVersionId'] || '4.3',
         messageHeader: this.parseMessageHeader(ernRoot.MessageHeader),
         releaseList: this.parseReleaseList(ernRoot.ReleaseList),
@@ -94,12 +100,15 @@ class DDEXParserImpl {
    * Build ERN XML from JSON
    */
   buildERN(ern: ERNMessage): string {
+    const rootTagName = ern.action === 'Takedown' ? 'ern:PurgeReleaseMessage' : 'ern:NewReleaseMessage';
+
     const xmlObj = {
-      'ern:NewReleaseMessage': {
+      [rootTagName]: {
         '@_xmlns:ern': 'http://ddex.net/xml/ern/43',
         '@_xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
         '@_MessageSchemaVersionId': ern.messageSchemaVersionId,
         '@_LanguageAndScriptCode': 'en',
+        ...(ern.action === 'Update' ? { UpdateIndicator: 'UpdateMessage' } : {}),
         MessageHeader: this.buildMessageHeader(ern.messageHeader),
         ReleaseList: this.buildReleaseList(ern.releaseList),
         ResourceList: this.buildResourceList(ern.resourceList),
@@ -329,11 +338,52 @@ class DDEXParserImpl {
             soundRecordingType: 'MusicalWorkSoundRecording',
             isInstrumental: false,
             languageOfPerformance: details?.LanguageOfPerformance ? String(details.LanguageOfPerformance) : undefined,
+            immersiveAudioProfile: details?.ImmersiveAudioProfile as 'DolbyAtmos' | 'Sony360' | 'None' | undefined,
             lyrics: lyrics ? {
               lyricsText: typeof lyricsText === 'object' && lyricsText !== null ? String((lyricsText as Record<string, unknown>)['#text'] || '') : String(lyricsText || ''),
               isExplicit: lyrics.IsExplicit === true
             } : undefined
           }
+        });
+      });
+    }
+
+    // Parse Text Resources
+    if (resourceList.Text) {
+      const texts = Array.isArray(resourceList.Text)
+        ? resourceList.Text
+        : [resourceList.Text];
+
+      texts.forEach((r: unknown) => {
+        const txt = r as Record<string, unknown>;
+        const resId = (txt.ResourceId as Record<string, unknown> | undefined);
+        const propId = (resId?.ProprietaryId as Record<string, unknown> | undefined);
+        const detailsByTerritory = (txt.TextDetailsByTerritory as Record<string, unknown>[] | Record<string, unknown> | undefined);
+        const details = Array.isArray(detailsByTerritory) ? detailsByTerritory[0] : detailsByTerritory;
+
+        resources.push({
+          resourceReference: String(txt['@_ResourceReference'] || ''),
+          resourceType: 'Text',
+          resourceId: {
+            proprietaryId: {
+              proprietaryIdType: String(propId?.['@_Namespace'] || 'LabelInternal'),
+              id: String(propId?.Id || '')
+            }
+          },
+          resourceTitle: {
+            titleText: String((txt.ReferenceTitle as Record<string, unknown>)?.TitleText || '')
+          },
+          displayArtistName: '',
+          contributors: [],
+          textDetails: {
+            textType: (details?.TextType as 'Lyrics' | 'LinerNotes') || 'Lyrics',
+            languageOfText: details?.LanguageOfText ? String(details.LanguageOfText) : undefined,
+            textContent: details?.Text ? String(details.Text) : undefined
+          },
+          ...(() => {
+            const filePath = String(((details?.TechnicalTextDetails as Record<string, unknown>)?.FileAvailabilityDescription as Record<string, unknown>)?.FilePath || '');
+            return filePath ? { technicalDetails: { fileName: filePath } } : {};
+          })()
         });
       });
     }
@@ -389,16 +439,59 @@ class DDEXParserImpl {
           },
           DisplayArtistName: r.displayArtistName,
           LanguageOfPerformance: r.soundRecordingDetails?.languageOfPerformance,
+          ImmersiveAudioProfile: r.soundRecordingDetails?.immersiveAudioProfile,
           Lyrics: r.soundRecordingDetails?.lyrics ? {
             LyricsText: { '#text': r.soundRecordingDetails.lyrics.lyricsText },
             IsExplicit: r.soundRecordingDetails.lyrics.isExplicit
-          } : undefined
+          } : undefined,
+          BPM: r.soundRecordingDetails?.bpm,
+          Key: r.soundRecordingDetails?.key,
+          Energy: r.soundRecordingDetails?.energy
         },
       })),
       Image: resources.filter((r) => r.resourceType === 'Image').map((r) => ({
         '@_ResourceReference': r.resourceReference,
+        ResourceId: {
+          ProprietaryId: {
+            '@_Namespace': r.resourceId.proprietaryId?.proprietaryIdType || 'LabelInternal',
+            Id: r.resourceId.proprietaryId?.id,
+          },
+        },
+        ReferenceTitle: {
+          TitleText: r.resourceTitle.titleText,
+        },
         ImageDetailsByTerritory: {
           TerritoryCode: 'Worldwide',
+          TechnicalImageDetails: r.technicalDetails ? {
+            FileAvailabilityDescription: {
+              FilePath: r.technicalDetails.fileName,
+            },
+          } : undefined,
+        },
+      })),
+      Text: resources.filter((r) => r.resourceType === 'Text').map((r) => ({
+        '@_ResourceReference': r.resourceReference,
+        ResourceId: {
+          ProprietaryId: {
+            '@_Namespace': r.resourceId.proprietaryId?.proprietaryIdType || 'LabelInternal',
+            Id: r.resourceId.proprietaryId?.id,
+          },
+        },
+        ReferenceTitle: {
+          TitleText: r.resourceTitle.titleText,
+        },
+        TextDetailsByTerritory: {
+          TerritoryCode: 'Worldwide',
+          TextType: r.textDetails?.textType,
+          LanguageOfText: r.textDetails?.languageOfText,
+          ...(r.textDetails?.textContent ? { Text: r.textDetails.textContent } : {}),
+          ...(r.technicalDetails?.fileName ? {
+            TechnicalTextDetails: {
+              FileAvailabilityDescription: {
+                FilePath: r.technicalDetails.fileName,
+              },
+            }
+          } : {})
         },
       })),
     };
@@ -412,10 +505,18 @@ class DDEXParserImpl {
       : [dealList.ReleaseDeal as Record<string, unknown>];
 
     return releaseDeals.map((rd) => {
-      const deal = (rd.Deal || {}) as Record<string, unknown>;
-      const dealTerms = (deal.DealTerms || {}) as Record<string, unknown>;
+      const dealsArray = Array.isArray(rd.Deal) ? rd.Deal : [rd.Deal || {}];
+      const deal = dealsArray[0] as Record<string, unknown>;
+      const dealTermsArray = Array.isArray(deal.DealTerms) ? deal.DealTerms : [deal.DealTerms || {}];
+      const dealTerms = dealTermsArray[0] as Record<string, unknown>;
       const usage = (dealTerms.Usage || []) as Record<string, unknown>[];
-      const territories = dealTerms.TerritoryCode || dealTerms.Territory || ['Worldwide'];
+      let youtubeContentIdPolicy: string | undefined = undefined;
+      if (dealTerms.ProprietaryExtension) {
+        const propExt = dealTerms.ProprietaryExtension as Record<string, unknown>;
+        if (propExt.ExtensionCode === 'YouTubeContentIdPolicy') {
+          youtubeContentIdPolicy = String(propExt.ExtensionPayload || '');
+        }
+      }
 
       return {
         dealReference: String(rd['@_DealReference'] || ''),
@@ -424,12 +525,14 @@ class DDEXParserImpl {
           usage: (Array.isArray(usage) ? usage : [usage]).map((u) => ({
             useType: (u.UseType as ERNMessage['dealList'][0]['dealTerms']['usage'][0]['useType']) || 'OnDemandStream',
           })),
-          territoryCode: (Array.isArray(territories) ? territories : [territories]) as string[],
+          territoryCode: (Array.isArray(dealTerms.TerritoryCode) ? dealTerms.TerritoryCode : [dealTerms.TerritoryCode]) as string[],
           validityPeriod: {
             startDate: String(dealTerms.ValidityPeriod ? (dealTerms.ValidityPeriod as Record<string, unknown>).StartDate : ''),
             endDate: dealTerms.ValidityPeriod ? String((dealTerms.ValidityPeriod as Record<string, unknown>).EndDate || '') || undefined : undefined,
           },
+          takeDown: dealTerms.TakeDown === true || dealTerms.TakeDown === 'true' || undefined,
         },
+        youtubeContentIdPolicy
       };
     });
   }
@@ -449,6 +552,13 @@ class DDEXParserImpl {
               StartDate: d.dealTerms.validityPeriod.startDate,
               EndDate: d.dealTerms.validityPeriod.endDate,
             },
+            ...(d.dealTerms.takeDown ? { TakeDown: true } : {}),
+            ...(d.youtubeContentIdPolicy ? {
+              ProprietaryExtension: {
+                ExtensionCode: 'YouTubeContentIdPolicy',
+                ExtensionPayload: d.youtubeContentIdPolicy,
+              },
+            } : {}),
           },
         },
       })),
