@@ -19,7 +19,6 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './core/App';
 import { ErrorBoundary } from './core/components/ErrorBoundary';
 import { initViewportFixes, initKeyboardDetection } from '@/lib/mobile';
-import { getConsentPreferences } from '@/components/shared/CookieConsentBanner';
 import '@/core/i18n'; // Initialize i18n before any component renders
 import './index.css';
 
@@ -70,6 +69,46 @@ try {
 // Initialize mobile utilities (after React root is created)
 initViewportFixes();
 initKeyboardDetection();
+
+// Phase 1: Initialize PWA and offline services
+Promise.all([
+    import('@/services/sync/OfflineFirstService').then(({ offlineFirstService }) => offlineFirstService),
+    import('@/services/network/NetworkQualityMonitor').then(({ initializeNetworkQualityMonitor }) => initializeNetworkQualityMonitor()),
+    import('@/services/cache/MediaCacheManager').then(({ initializeMediaCacheManager }) => initializeMediaCacheManager()),
+]).then(async ([offlineService, _networkMonitor, _mediaCache]) => {
+    const { initializeBackgroundSyncManager } = await import('@/services/sync/BackgroundSyncManager');
+    initializeBackgroundSyncManager(offlineService);
+    logger.info('[Phase 1] PWA and offline services initialized');
+}).catch(err => {
+    logger.error('[Phase 1] Failed to initialize offline services:', err);
+});
+
+// Phase 2: Initialize memory and orchestration services
+Promise.all([
+    import('@/services/memory/PersistentMemoryService').then(({ initializePersistentMemoryService: _initializePersistentMemoryService }) => {
+        // Initialized with user ID after auth
+        return Promise.resolve();
+    }),
+    import('@/services/memory/MemoryIndexService').then(({ initializeMemoryIndexService }) => initializeMemoryIndexService()),
+    import('@/services/agent/ContextStackService').then(({ initializeContextStackService }) => initializeContextStackService()),
+    import('@/services/agent/ReflectionLoop').then(({ initializeReflectionLoop }) => initializeReflectionLoop()),
+]).then(() => {
+    logger.info('[Phase 2] Memory and orchestration services initialized');
+}).catch(err => {
+    logger.warn('[Phase 2] Failed to initialize orchestration services (non-blocking):', err);
+});
+
+// Phase 3: Initialize observability and performance monitoring
+Promise.all([
+    import('@/services/observability/RealUserMonitoringService').then(({ initializeRealUserMonitoring }) => initializeRealUserMonitoring()),
+    import('@/services/observability/CoreWebVitalsReporter').then(({ getCoreWebVitalsReporter }) => getCoreWebVitalsReporter()),
+    import('@/services/observability/RequestTracingService').then(({ getRequestTracingService }) => getRequestTracingService()),
+    import('@/services/observability/BundleAnalysisService').then(({ getBundleAnalysisService }) => getBundleAnalysisService()),
+]).then(() => {
+    logger.info('[Phase 3] Observability and performance monitoring initialized');
+}).catch(err => {
+    logger.warn('[Phase 3] Failed to initialize observability services (non-blocking):', err);
+});
 
 // Item 260: Core Web Vitals reporting
 import('@/lib/webVitals').then(({ initWebVitals }) => initWebVitals()).catch(() => { });
