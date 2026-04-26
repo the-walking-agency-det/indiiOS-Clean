@@ -6,6 +6,7 @@ now invoked by **two paths**:
 | Invoker | Frequency | Scope | Outputs to |
 |---|---|---|---|
 | `.github/workflows/weekly-demo-audit.yml` | Weekly (Mondays 06:00 UTC) | Hours 1, 2, 4 (skips Hour 3 — human-only) | New GitHub issue tagged `demo-audit`, plus `DEMO_GO_NOGO.md` |
+| `.github/workflows/weekly-demo-audit.yml` | Weekly (Mondays 06:00 UTC) | Hours 1, 2, 4 (skips Hour 3 — human-only) | New GitHub issue tagged `demo-audit` |
 | Human / smaller model on demand | Ad hoc, before a real demo | All four hours | `.agent/AUDIT_HOUR{1..4}.md` + `.agent/DEMO_GO_NOGO.md` |
 
 **Goal:** Produce a binary GO / NO-GO verdict on whether the app is demo-ready
@@ -45,6 +46,7 @@ runner, on William's laptop, and on Jules's sandbox.
   finance, publishing, marketing, social, settings, files. (12 of 39 total.)
 
 ## Output artifacts (you must produce all five for an ad-hoc run; the workflow produces 1, 2, 4, and 5)
+## Output artifacts (you must produce all five for an ad-hoc run; the workflow produces 1, 2, 4 only)
 1. `.agent/AUDIT_HOUR1.md`
 2. `.agent/AUDIT_HOUR2.md`
 3. `.agent/DEMO_SCRIPT.md` *(human-only — workflow skips)*
@@ -57,6 +59,9 @@ runner, on William's laptop, and on Jules's sandbox.
 - `.agent/screenshots/` (Visual proof of all modules pre/post action and on error)
 - `.agent/console_logs/` (Browser console captures and DOM errors)
 - `.agent/network/` (Network failure captures)
+
+---
+
 
 ---
 
@@ -88,6 +93,12 @@ mkdir -p "$REPO/.agent" "$REPO/.agent/screenshots" "$REPO/.agent/console_logs" "
 ```
 
 If any preflight fails: write `.agent/BLOCKED.md` (or post to the issue) with the failure and STOP.
+
+---
+
+
+---
+
 
 ---
 
@@ -150,6 +161,28 @@ Hour 1 gate: any FAIL → write `DEMO_GO_NOGO.md` NO-GO, STOP. Any PASS+YELLOW �
 
 ---
 
+
+```markdown
+# Hour 1 Audit — Build & Boot
+| Step | Status | Notes |
+|------|--------|-------|
+| 1.1 Install | PASS/YELLOW/FAIL | ... |
+| 1.2 Typecheck | ... | ... |
+| 1.3 Lint | ... | ... |
+| 1.4 Tests | ... | ... |
+| 1.5 Build | ... | ... |
+| 1.6 Dev boot | ... | ... |
+
+**Verdict:** GO / YELLOW / NO-GO
+```
+
+Hour 1 gate: any FAIL → write `DEMO_GO_NOGO.md` NO-GO, STOP. Any PASS+YELLOW → continue.
+
+---
+
+
+---
+
 ## Hour 2 — Cold-start journey (90 min) *(workflow runs this with Playwright)*
 
 Pre 2.0: re-curl 4243, restart dev server if needed.
@@ -184,6 +217,13 @@ Hour 2 fix protocol (only if William picks "fix now", ad-hoc only):
 - If no match: STOP. Escalate to William.
 
 ---
+
+## Hour 3 — Lock the demo (60 min) *(HUMAN ONLY — workflow SKIPS this)*
+
+This hour requires William's voice for rehearsal and a recorded fallback video.
+Cloud automation cannot do this. The workflow notes "Hour 3 skipped — human-only"
+in the issue body.
+
 
 ## Hour 3 — Lock the demo (60 min) *(HUMAN ONLY — workflow SKIPS this)*
 
@@ -249,6 +289,17 @@ Step 4.4 — Browser hygiene (ad-hoc only):
 Step 4.5 — Write `AUDIT_HOUR4.md` from template.
 
 ---
+
+## Final — `DEMO_GO_NOGO.md`
+
+Roll up the four (or three, in workflow mode) hour-files. Single verdict block,
+hour summary table, GO checklist or NO-GO blocker list, recommended next demo
+window if NO-GO.
+
+---
+
+## Stop conditions
+
 
 ## Final — `DEMO_GO_NOGO.md`
 
