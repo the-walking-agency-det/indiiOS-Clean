@@ -70,6 +70,16 @@ async function visitModule(browser, mod) {
       fullPage: false,
     });
 
+    // Persist console + network captures
+    await fs.writeFile(
+      path.join(CONSOLE_DIR, `2.2-${mod}.txt`),
+      consoleErrors.join('\n') || '(no console errors)',
+    );
+    await fs.writeFile(
+      path.join(NETWORK_DIR, `2.2-${mod}.txt`),
+      networkFailures.join('\n') || '(no network failures)',
+    );
+
     return {
       module: mod,
       verdict: classify(consoleErrors, networkFailures),
