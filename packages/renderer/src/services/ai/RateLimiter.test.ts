@@ -52,6 +52,7 @@ describe('RateLimiter', () => {
 
         let error: any;
         const acquirePromise = limiter.acquire(200).catch(e => {
+        const acquirePromise = limiter.acquire(500).catch(e => {
             error = e;
             return undefined;
         });
