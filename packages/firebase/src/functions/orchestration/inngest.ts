@@ -19,10 +19,6 @@ const db = admin.firestore();
 export const inngest = new Inngest({
   id: 'indiios-api',
   name: 'IndiiOS Analytics & Distribution API',
-  retryConfig: {
-    initialDelayMs: 1000,
-    maxAttempts: 3,
-  },
 });
 
 interface DistributionJobPayload {
@@ -55,7 +51,7 @@ interface OnboardingPayload {
  * Job: Process distribution across multiple platforms
  */
 export const processDistribution = inngest.createFunction(
-  { id: 'process-distribution', retryConfig: { maxAttempts: 3 } },
+  { id: 'process-distribution', retries: 3 },
   { event: 'distribution/created' },
   async ({ event, step }) => {
     const { distributionId, userId, distributors, tracks } = event.data as DistributionJobPayload;
@@ -97,7 +93,7 @@ export const processDistribution = inngest.createFunction(
  * Job: Export analytics data
  */
 export const exportAnalytics = inngest.createFunction(
-  { id: 'export-analytics', retryConfig: { maxAttempts: 2 } },
+  { id: 'export-analytics', retries: 2 },
   { event: 'analytics/export-requested' },
   async ({ event, step }) => {
     const { userId, format, startDate, endDate } = event.data as AnalyticsExportPayload;
@@ -139,10 +135,10 @@ export const exportAnalytics = inngest.createFunction(
  * Job: Retry failed webhook deliveries
  */
 export const retryWebhookDelivery = inngest.createFunction(
-  { id: 'retry-webhook-delivery', retryConfig: { maxAttempts: 2 } },
+  { id: 'retry-webhook-delivery', retries: 2 },
   { event: 'webhook/retry-scheduled' },
   async ({ event, step }) => {
-    const { webhookEventId, userId, attempt } = event.data as WebhookRetryPayload;
+    const { webhookEventId, attempt } = event.data as WebhookRetryPayload;
 
     const result = await step.run(`attempt-${attempt}`, async () => {
       const webhookEvent = await db.collection('webhook_queue').doc(webhookEventId).get();
@@ -178,7 +174,7 @@ export const batchAnalyticsAggregation = inngest.createFunction(
         .limit(1000)
         .get();
 
-      const eventsByUser: Record<string, any[]> = {};
+      const eventsByUser: Record<string, Record<string, unknown>[]> = {};
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         if (!eventsByUser[data.userId]) {
@@ -192,8 +188,9 @@ export const batchAnalyticsAggregation = inngest.createFunction(
         const aggregation = {
           date: yesterday.toISOString().split('T')[0],
           totalEvents: events.length,
-          eventsByType: events.reduce((acc: Record<string, number>, e: any) => {
-            acc[e.eventType] = (acc[e.eventType] || 0) + 1;
+          eventsByType: events.reduce((acc: Record<string, number>, e: Record<string, unknown>) => {
+            const eventType = e.eventType as string;
+            acc[eventType] = (acc[eventType] || 0) + 1;
             return acc;
           }, {}),
           createdAt: new Date().toISOString(),
@@ -219,7 +216,7 @@ export const sendOnboardingWorkflow = inngest.createFunction(
   { id: 'send-onboarding-workflow' },
   { event: 'user/onboarded' },
   async ({ event, step }) => {
-    const { userId, email, name } = event.data as OnboardingPayload;
+    const { userId, email } = event.data as OnboardingPayload;
 
     // Step 1: Send welcome email
     await step.run('send-welcome', async () => {
@@ -258,7 +255,7 @@ async function submitToDistributor(
   userId: string,
   distributor: string,
   tracks: Array<{ trackId: string; title: string }>
-): Promise<any> {
+): Promise<Record<string, unknown>> {
   // This would integrate with actual distributor APIs
   // For now, return mock success
   return {
@@ -272,7 +269,7 @@ async function submitToDistributor(
 /**
  * Helper: Convert events to CSV format
  */
-function convertToCSV(events: any[]): string {
+function convertToCSV(events: Record<string, unknown>[]): string {
   if (events.length === 0) return '';
 
   const headers = ['eventId', 'eventType', 'userId', 'timestamp', 'data'];
