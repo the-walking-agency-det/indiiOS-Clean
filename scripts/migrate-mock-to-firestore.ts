@@ -136,11 +136,16 @@ const API_INVENTORY = [
 async function migrateMerchandiseCatalog() {
     console.log('\n📦 Migrating Merchandise Catalog...');
     const batch = db.batch();
-    let skipped = 0;
 
-    for (const product of MERCHANDISE_CATALOG) {
-        const ref = db.collection('merchandise_catalog').doc(product.id);
-        const existing = await ref.get();
+    const refs = MERCHANDISE_CATALOG.map(product => db.collection('merchandise_catalog').doc(product.id));
+    const snapshots = await db.getAll(...refs);
+
+    let skipped = 0;
+    for (let i = 0; i < MERCHANDISE_CATALOG.length; i++) {
+        const product = MERCHANDISE_CATALOG[i];
+        const existing = snapshots[i];
+        const ref = refs[i];
+
         if (existing.exists) {
             console.log(`   ⏭️  Skipping ${product.id} (already exists)`);
             skipped++;
@@ -162,11 +167,16 @@ async function migrateMerchandiseCatalog() {
 async function migrateSamplePlatforms() {
     console.log('\n🎵 Migrating Sample Platforms...');
     const batch = db.batch();
-    let skipped = 0;
 
-    for (const platform of SAMPLE_PLATFORMS) {
-        const ref = db.collection('sample_platforms').doc(platform.id);
-        const existing = await ref.get();
+    const refs = SAMPLE_PLATFORMS.map(platform => db.collection('sample_platforms').doc(platform.id));
+    const snapshots = await db.getAll(...refs);
+
+    let skipped = 0;
+    for (let i = 0; i < SAMPLE_PLATFORMS.length; i++) {
+        const platform = SAMPLE_PLATFORMS[i];
+        const existing = snapshots[i];
+        const ref = refs[i];
+
         if (existing.exists) {
             console.log(`   ⏭️  Skipping ${platform.id} (already exists)`);
             skipped++;
@@ -188,11 +198,16 @@ async function migrateSamplePlatforms() {
 async function migrateApiInventory() {
     console.log('\n🔧 Migrating API Inventory...');
     const batch = db.batch();
-    let skipped = 0;
 
-    for (const api of API_INVENTORY) {
-        const ref = db.collection('api_inventory').doc(api.id);
-        const existing = await ref.get();
+    const refs = API_INVENTORY.map(api => db.collection('api_inventory').doc(api.id));
+    const snapshots = await db.getAll(...refs);
+
+    let skipped = 0;
+    for (let i = 0; i < API_INVENTORY.length; i++) {
+        const api = API_INVENTORY[i];
+        const existing = snapshots[i];
+        const ref = refs[i];
+
         if (existing.exists) {
             console.log(`   ⏭️  Skipping ${api.id} (already exists)`);
             skipped++;
