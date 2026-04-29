@@ -224,6 +224,24 @@ Before pushing any branch, run `/plat` (see `.claude/commands/plat.md`). It exec
 
 
 ### Gemini 400 "Multiple candidates is not enabled for this model"
-**Symptom:** When generating multiple variations of an image (e.g. `count: 4`) using a fast model.
-**Root Cause:** Fast models (and some versions of Gemini) do not support `candidate_count > 1` through standard configuration.
-**Fix:** Instead of passing `count: 4` in a single request, fire off an array of parallel API calls (e.g., `Promise.all(Array(4).fill(null).map(() => generateImages({ count: 1 })))`) and flatten the results.
+- SEVERITY: Medium
+- BUG: Fast models (and some versions of Gemini) do not support `candidate_count > 1` through standard configuration.
+- FIX: Instead of passing `count: 4` in a single request, fire off an array of parallel API calls (e.g., `Promise.all(Array(4).fill(null).map(() => generateImages({ count: 1 })))`) and flatten the results.
+
+---
+
+## 2026-04-22 VideoTools Test Dependency Gap
+
+- SEVERITY: High (blocks feature test coverage)
+- FILE: `packages/renderer/src/tests/features/video-gen.test.ts`
+- BUG: Tests failed with `SubscriptionService.canPerformAction is not a function` because the `VideoTools.generate_video` implementation now enforces quota checks.
+- FIX: Added `vi.mock('@/services/subscription/SubscriptionService', () => ({ SubscriptionService: { canPerformAction: vi.fn().mockResolvedValue({ allowed: true }) } }))` to the test file.
+- RULE: **If a tool or service adds a quota check, update all related unit tests with a mock for `SubscriptionService`.** Quota checks are business logic that must be decoupled from tool-level functional tests.
+
+### AI Tool Unhandled Quota Error Crash
+- SEVERITY: High
+- FILE: `packages/renderer/src/services/agent/tools/DirectorTools.ts`
+- BUG: Unhandled 429 Quota Exceeded and 403 Auth errors from the AI APIs bubble up through the tool definitions, causing the agent loop to crash or fall into infinite loops instead of returning actionable tool errors.
+- FIX: Catch rate limits, quota limits, and authentication errors within the specific tool wrapper and return them formatted as `toolError` with actionable hints for the agent (e.g., "Suggest the user try again in 1 minute").
+- RULE: **All agent tools calling external APIs (Gemini, Google GenAI, etc.) MUST have internal catch blocks that return known failure modes (429, 401, etc.) as `toolError` responses, NOT as thrown exceptions.**
+

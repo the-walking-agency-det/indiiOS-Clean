@@ -1,8 +1,8 @@
 {
   "name": "indiios-monorepo",
-  "version": "1.54.1",
+  "version": "1.57.2",
   "description": "The Operating System for Independent Artists — npm Workspace Monorepo",
-  "author": "IndiiOS LLC <info@indiios.com>",
+  "author": "New Detroit Music LLC <info@indiios.com>",
   "type": "module",
   "private": true,
   "main": "dist/main/index.js",
@@ -11,7 +11,8 @@
     "packages/renderer",
     "packages/firebase",
     "packages/shared",
-    "packages/landing"
+    "packages/landing",
+    "packages/sdk"
   ],
   "scripts": {
     "dev": "electron-vite dev",
@@ -33,6 +34,7 @@
     "typecheck:renderer": "tsc -b packages/renderer",
     "typecheck:main": "tsc -b packages/main",
     "test": "vitest",
+    "test:ci": "vitest --run",
     "test:renderer": "vitest --project packages/renderer",
     "test:main": "vitest --project packages/main",
     "test:e2e": "npx playwright test --project=chromium",
@@ -50,8 +52,11 @@
     "scripts:help": "cat scripts/SCRIPTS_CATALOG.md",
     "changelog": "bash scripts/generate-changelog.sh",
     "changelog:update": "bash scripts/generate-changelog.sh --prepend",
+    "storybook": "npm run storybook -w packages/renderer",
+    "storybook:build": "npm run build-storybook -w packages/renderer",
     "prepare": "husky",
-    "bootstrap": "npm install && cp -n .env.example .env 2>/dev/null || true && npm run typecheck"
+    "bootstrap": "npm install && cp -n .env.example .env 2>/dev/null || true && npm run typecheck",
+    "ci": "bash scripts/ci.sh"
   },
   "devDependencies": {
     "@ai-sdk/google": "^3.0.60",
@@ -61,7 +66,7 @@
     "@mastra/core": "^1.24.1",
     "@mastra/mcp": "^1.4.2",
     "@playwright/test": "^1.58.2",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "4.1.5",
     "axe-core": "4.11.1",
     "dotenv": "^17.2.3",
     "electron": "^41.1.1",
@@ -79,7 +84,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "8.48.0",
-    "vitest": "^4.0.18"
+    "vitest": "4.1.5"
   },
   "optionalDependencies": {
     "@esbuild/linux-x64": "0.25.12",
@@ -99,7 +104,6 @@
     ],
     "files": [
       "dist/**/*",
-      "python/**/*",
       "package.json",
       "!node_modules/@rollup/rollup-linux-x64-gnu",
       "!node_modules/@esbuild"
@@ -119,7 +123,7 @@
     ],
     "publish": [
       {
-        "owner": "the-walking-agency-det",
+        "owner": "new-detroit-music-llc",
         "private": true,
         "provider": "github",
         "repo": "indiiOS-Alpha-Electron"
@@ -158,7 +162,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/the-walking-agency-det/indiiOS-Clean.git"
+    "url": "https://github.com/new-detroit-music-llc/indiiOS-Clean.git"
   },
   "dependencies": {
     "jspdf": "^4.2.1"

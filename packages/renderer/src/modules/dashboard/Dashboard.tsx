@@ -40,7 +40,7 @@ export default function Dashboard() {
                                     <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30 uppercase tracking-wider">Open</span>
                                 </div>
                                 <p className={`text-gray-300 font-medium mt-0.5 ${isAnyPhone ? 'text-xs' : 'text-sm'}`}>
-                                    Be part of the foundation. Invest in the operating system for independent artists.
+                                    Be part of the foundation. Invest in the operating system for your musical independence.
                                 </p>
                             </div>
                         </div>
@@ -71,7 +71,7 @@ export default function Dashboard() {
             {/* Tab Bar */}
             <div className={`flex-shrink-0 border-b border-white/5 flex gap-6 ${isAnyPhone ? 'px-3 gap-3' : 'px-6'}`}>
                 {([
-                    { id: 'agent', label: 'Agent Workspace', icon: Bot, activeClass: 'border-indigo-500 text-indigo-400' },
+                    { id: 'agent', label: 'Agent Workspace', icon: Bot, activeClass: 'border-dept-creative text-dept-creative' },
                     { id: 'custom', label: 'My Dashboard', icon: LayoutDashboard, activeClass: 'border-white text-white' },
                 ] as const).map(({ id, label, icon: Icon, activeClass }) => (
                     <button

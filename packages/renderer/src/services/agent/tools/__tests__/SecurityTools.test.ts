@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     check_api_status,
-    scan_content,
+    scan_for_vulnerabilities,
     rotate_credentials,
     verify_zero_touch_prod,
     check_core_dump_policy,
@@ -11,15 +11,22 @@ import {
 import { getDoc } from 'firebase/firestore';
 
 // Mock dependencies
-vi.mock('@/services/ai/FirebaseAIService', () => ({
-    serverTimestamp: vi.fn(),
-    firebaseAI: {
-        generateStructuredData: vi.fn(),
-        generateContent: vi.fn()
-    }
-}));
+vi.mock('@/services/ai/FirebaseAIService', () => {
+    const mockFirebaseAI = {
+        generateText: vi.fn().mockResolvedValue('Mock AI response'),
+        generateStructuredData: vi.fn().mockResolvedValue({ data: {} }),
+        generateImage: vi.fn().mockResolvedValue({ url: 'https://mock-image.png' }),
+        analyzeImage: vi.fn().mockResolvedValue({ analysis: {} })
+    };
+    return {
+        FirebaseAIService: class {
+            static getInstance() { return mockFirebaseAI; }
+        },
+        firebaseAI: mockFirebaseAI
+    };
+});
 
-import { firebaseAI } from '@/services/ai/FirebaseAIService';
+import { GenAI } from '@/services/ai/GenAI';
 
 vi.mock('firebase/firestore', async (importOriginal) => {
     const actual = await importOriginal();
@@ -109,7 +116,7 @@ describe('SecurityTools (Mocked)', () => {
             expect(viewerRole.count).toBe(2);
 
             // AI should NOT be called
-            expect(firebaseAI.generateStructuredData).not.toHaveBeenCalled();
+            expect(GenAI.generateStructuredData).not.toHaveBeenCalled();
         });
 
         it('should fallback to AI if Firestore returns empty/error', async () => {
@@ -124,13 +131,13 @@ describe('SecurityTools (Mocked)', () => {
                 recommendations: []
             };
 
-            vi.mocked(firebaseAI.generateStructuredData).mockResolvedValue(mockAIResponse as unknown as Awaited<ReturnType<typeof firebaseAI.generateStructuredData>>);
+            vi.mocked(GenAI.generateStructuredData).mockResolvedValue(mockAIResponse as unknown as Awaited<ReturnType<typeof GenAI.generateStructuredData>>);
 
             const result = await audit_permissions({ project_id: 'test-project' });
             const parsed = result.data;
 
             expect(parsed.status).toBe("AI Audit");
-            expect(firebaseAI.generateStructuredData).toHaveBeenCalled();
+            expect(GenAI.generateStructuredData).toHaveBeenCalled();
         });
     });
 
@@ -156,23 +163,13 @@ describe('SecurityTools (Mocked)', () => {
         });
     });
 
-    describe('scan_content', () => {
-        it('should return safe for clean content', async () => {
-            const result = await scan_content({ text: 'Hello world, this is a safe message.' });
+    describe('scan_for_vulnerabilities', () => {
+        it('should return vulnerability scan result', async () => {
+            const result = await scan_for_vulnerabilities({ scope: 'all' });
             const parsed = result.data;
-            expect(parsed.safe).toBe(true);
-            expect(parsed.risk_score).toBe(0.0);
-            expect(parsed.flagged_terms).toHaveLength(0);
-        });
-
-        it('should flag sensitive terms', async () => {
-            const result = await scan_content({ text: 'Here is my secret password.' });
-            const parsed = result.data;
-            expect(parsed.safe).toBe(false);
-            expect(parsed.risk_score).toBe(0.9);
-            expect(parsed.flagged_terms).toContain('secret');
-            expect(parsed.flagged_terms).toContain('password');
-            expect(parsed.recommendation).toBe('BLOCK_OR_REDACT');
+            expect(parsed.scope).toBe('all');
+            expect(parsed.score).toBe(1.0);
+            expect(parsed.vulnerabilities).toHaveLength(0);
         });
     });
 

@@ -133,7 +133,7 @@ export default function FoundersSection() {
           </div>
         )}
 
-        {/* Covenant terms */}
+        {/* Agreement terms */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
           {[
             {
@@ -149,11 +149,11 @@ export default function FoundersSection() {
             {
               icon: '$',
               title: 'API Costs At Cost',
-              desc: 'AI generation costs (Gemini, Vertex) are passed through at zero markup — just what Google charges.',
+              desc: 'AI generation costs (Gemini, Vertex) are passed through at no markup — just what Google charges.',
             },
             {
               icon: '⌗',
-              title: 'Covenant Hash',
+              title: 'Verification Hash',
               desc: 'Your payment generates a SHA-256 hash of your deal terms. Verify it any time. The math doesn\'t lie.',
             },
             {

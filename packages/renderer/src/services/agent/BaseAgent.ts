@@ -29,8 +29,12 @@ import { toolError } from './utils/ToolUtils';
 import { ToolPoolAssembler } from './governance/ToolPoolAssembler';
 import { AgentEventBus } from './governance/AgentEventBus';
 import { getFineTunedModel } from './fine-tuned-models';
+import { agentIdentityService, type AgentIdentityCard } from './governance/AgentIdentity';
 
 import { AgentPromptBuilder } from './builders/AgentPromptBuilder';
+import { getAgentStreamingService } from './AgentStreamingService';
+import { getPersistentMemoryService } from '@/services/memory/PersistentMemoryService';
+import { getReflectionLoop } from './ReflectionLoop';
 
 export class BaseAgent implements SpecializedAgent {
     public id: string;
@@ -56,6 +60,26 @@ export class BaseAgent implements SpecializedAgent {
     // Phase 2: Advanced loop detection to prevent stuck agents
     private loopDetector: LoopDetector = new LoopDetector();
 
+    /**
+     * Static WeakMaps for identity state — kept outside the instance
+     * so that Object.freeze (from FreezeDiagnostic) doesn't block async minting
+     * or identity card assignment.
+     */
+    private static identityMintPromises = new WeakMap<BaseAgent, Promise<AgentIdentityCard>>();
+    private static identityCards = new WeakMap<BaseAgent, AgentIdentityCard>();
+
+    /** Accessor for the cryptographic identity card (stored in static WeakMap to survive freeze) */
+    protected get identityCard(): AgentIdentityCard | null {
+        return BaseAgent.identityCards.get(this) ?? null;
+    }
+    protected set identityCard(card: AgentIdentityCard | null) {
+        if (card) {
+            BaseAgent.identityCards.set(this, card);
+        } else {
+            BaseAgent.identityCards.delete(this);
+        }
+    }
+
     constructor(config: AgentConfig) {
         this.id = config.id;
         this.name = config.name;
@@ -72,6 +96,11 @@ export class BaseAgent implements SpecializedAgent {
 
         // Store fine-tuned model ID if specified, otherwise check registry
         this.modelId = config.modelId || getFineTunedModel(config.id as ValidAgentId);
+
+        // Accept pre-minted identity card if provided
+        if (config.identityCard) {
+            this.identityCard = config.identityCard;
+        }
 
         // Populate tool schemas for validation
         this.tools.forEach(def => {
@@ -105,6 +134,16 @@ export class BaseAgent implements SpecializedAgent {
                     );
                 }
 
+                // GEAP: Record delegation provenance for audit trail
+                if (this.identityCard) {
+                    agentIdentityService.recordDelegation(
+                        this.identityCard,
+                        'delegate_task',
+                        targetAgentId,
+                        traceId
+                    );
+                }
+
                 try {
                     if (!context?.runAgent) {
                         return toolError('Agent system runner not available in context', 'INTERNAL_ERROR');
@@ -125,6 +164,17 @@ export class BaseAgent implements SpecializedAgent {
             consult_experts: async ({ consultations }: ConsultExpertsArgs, context, _toolContext?: ToolExecutionContext) => {
                 if (!Array.isArray(consultations)) {
                     return toolError('Consultations must be an array', 'INVALID_ARGS');
+                }
+
+                // GEAP: Record consultation provenance for audit trail
+                if (this.identityCard) {
+                    const targetIds = consultations.map(c => c.targetAgentId).join(',');
+                    agentIdentityService.recordDelegation(
+                        this.identityCard,
+                        'consult_experts',
+                        targetIds,
+                        context?.traceId
+                    );
                 }
 
                 try {
@@ -272,11 +322,104 @@ export class BaseAgent implements SpecializedAgent {
     }
 
     /**
+     * Stream agent response tokens in real-time via Server-Sent Events
+     * Phase 2: Streaming integration for token-by-token rendering
+     */
+    async streamingExecute(
+        task: string,
+        context?: AgentContext,
+        callbacks?: {
+            onToken?: (token: string, index: number) => void;
+            onComplete?: (response: string) => void;
+            onError?: (error: Error) => void;
+        }
+    ): Promise<void> {
+        try {
+            const streamingService = getAgentStreamingService();
+            const memoryService = getPersistentMemoryService();
+            const reflectionService = getReflectionLoop();
+
+            // Build context for streaming
+            const contextData = {
+                agentId: this.id,
+                agentName: this.name,
+                taskDescription: task,
+                userContext: context
+            };
+
+            // Start streaming
+            await streamingService.stream(
+                task,
+                this.id,
+                context?.userId || 'unknown',
+                contextData,
+                {
+                    onToken: (token, index) => {
+                        callbacks?.onToken?.(token, index);
+                    },
+                    onComplete: async (metadata) => {
+                        const fullText = streamingService.getState().tokens.join('');
+
+                        // Store in memory (Phase 2 integration)
+                        try {
+                            await memoryService.write(
+                                'session',
+                                `agent-response-${this.id}`,
+                                { response: fullText, task, metadata },
+                                ['agent-output', this.id, task.substring(0, 50)]
+                            );
+                        } catch (err) {
+                            logger.warn('[BaseAgent] Failed to store streaming response in memory', err);
+                        }
+
+                        // Optionally evaluate with reflection (Phase 2 integration)
+                        if (fullText.length > 0) {
+                            try {
+                                await reflectionService.reflect({
+                                    originalPrompt: task,
+                                    agentOutput: fullText,
+                                    context: context as Record<string, unknown> | undefined
+                                });
+                            } catch (err) {
+                                logger.warn('[BaseAgent] Reflection evaluation skipped', err);
+                            }
+                        }
+
+                        callbacks?.onComplete?.(fullText);
+                    },
+                    onError: (error) => {
+                        callbacks?.onError?.(error);
+                    }
+                }
+            );
+        } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            callbacks?.onError?.(err);
+            logger.error('[BaseAgent] Streaming execution failed', err);
+        }
+    }
+
+    /**
      * Internal execution method (separated to support locking mechanism)
      */
     protected async _executeInternal(task: string, context?: AgentContext, onProgress?: AgentProgressCallback, signal?: AbortSignal, attachments?: { mimeType: string; base64: string }[]): Promise<AgentResponse> {
         // Lazy import AI Service to prevent circular deps during registry loading
         const { GenAI } = await import('@/services/ai/GenAI');
+
+        // GEAP Agent Identity: Mint cryptographic identity on first execution.
+        // Uses static WeakMap for deduplication — survives Object.freeze (FreezeDiagnostic).
+        if (!this.identityCard) {
+            if (!BaseAgent.identityMintPromises.has(this)) {
+                BaseAgent.identityMintPromises.set(this, agentIdentityService.mintIdentity(
+                    this.id,
+                    this.name,
+                    this.systemPrompt,
+                    this.authorizedTools,
+                    this.modelId
+                ));
+            }
+            this.identityCard = await BaseAgent.identityMintPromises.get(this)!;
+        }
 
         // Report thinking start
         onProgress?.({ type: 'thought', content: `Analyzing request: "${task.substring(0, 50)}..."` });
@@ -287,7 +430,9 @@ export class BaseAgent implements SpecializedAgent {
         const enrichedContext = {
             ...leanContext,
             orgId: context?.orgId,
-            projectId: context?.projectId
+            projectId: context?.projectId,
+            // GEAP: Inject agent identity into context for provenance tracking
+            agentIdentity: this.identityCard,
         };
 
         // Phase 2: Clear loop detector for new task execution
@@ -482,10 +627,17 @@ export class BaseAgent implements SpecializedAgent {
                 onProgress?.({ type: 'thought', content: iterations === 1 ? 'Generating response...' : 'Processing tool result...' });
 
                 // Prepare request contents
+                const { ModelArmor, getDefaultPolicy } = await import('./governance/ModelArmor');
+                const armorResult = await ModelArmor.scanInput(fullPrompt, getDefaultPolicy());
+                if (!armorResult.allowed) {
+                    executionContext.rollback();
+                    return { text: `[Blocked by Model Armor] ${armorResult.reason}`, data: null, toolCalls };
+                }
+
                 const requestContents = [{
                     role: 'user' as const,
                     parts: [
-                        { text: fullPrompt },
+                        { text: armorResult.sanitizedPrompt || fullPrompt },
                         ...(attachments || []).map(a => ({
                             inlineData: { mimeType: a.mimeType, data: a.base64 }
                         }))
@@ -707,6 +859,11 @@ export class BaseAgent implements SpecializedAgent {
                             agentId: this.id,
                             timestamp: serverTimestamp(),
                             success: typeof result === 'object' && result !== null ? (result as unknown as Record<string, unknown>).success !== false : true,
+                            // GEAP: Cryptographic provenance for tool execution audit trail
+                            ...(this.identityCard ? {
+                                agentInstanceId: this.identityCard.instanceId,
+                                agentFingerprint: this.identityCard.fingerprint,
+                            } : {}),
                         }).catch(() => { /* audit is best-effort */ });
                     }
 
@@ -734,8 +891,14 @@ export class BaseAgent implements SpecializedAgent {
                     // For most tools, we continue to let the AI process the result
                     continue;
                 } else {
-                    const finalResponse = response.text?.() || '';
+                    let finalResponse = response.text?.() || '';
                     const usage = response.usage?.();
+
+                    const { ModelArmor, getDefaultPolicy } = await import('./governance/ModelArmor');
+                    const outputCheck = await ModelArmor.scanOutput(finalResponse, getDefaultPolicy());
+                    if (outputCheck.redactedResponse) {
+                        finalResponse = outputCheck.redactedResponse;
+                    }
 
                     // Phase 3: Commit execution context changes on successful completion
                     if (executionContext.hasUncommittedChanges()) {

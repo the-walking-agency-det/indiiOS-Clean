@@ -1,19 +1,22 @@
 import { logger } from '@/utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import type { AgentMessage, AgentThought } from '@/core/store';
-// useStore removed
+import { auth } from '@/services/firebase';
 import { ContextPipeline, PipelineContext } from './components/ContextPipeline';
 import { AgentOrchestrator } from './components/AgentOrchestrator';
-import { HybridOrchestrator } from './hybrid/HybridOrchestrator';
 import { AgentExecutor } from './components/AgentExecutor';
 import { AgentContext } from './types';
 import { memoryService } from './MemoryService';
 import { agentRegistry } from './registry';
+import { livingPlanService } from './LivingPlanService';
 
 // Workflow coordinator removed for indii Conductor standard routing
 import { maestroBatchingService } from './MaestroBatchingService';
 import { GenAI } from '@/services/ai/GenAI';
 import { AI_MODELS } from '@/core/config/ai-models';
+import { agentGraphService } from './orchestration/AgentGraphService';
+import { agentGraphStateService } from './orchestration/AgentGraphStateService';
+import { AgentGraph } from './types';
 
 /**
  * AgentService is the primary entry point for agent-related operations.
@@ -24,7 +27,6 @@ export class AgentService {
     private isWarmedUp = false;
     private contextPipeline: ContextPipeline;
     private orchestrator: AgentOrchestrator;
-    private hybridOrchestrator: HybridOrchestrator;
     private executor: AgentExecutor;
     private responseCache = new Map<string, { text: string; thoughts: AgentThought[]; agentId: string }>();
 
@@ -32,7 +34,6 @@ export class AgentService {
         // Components initialized. Agents are auto-registered in AgentRegistry singleton.
         this.contextPipeline = new ContextPipeline();
         this.orchestrator = new AgentOrchestrator();
-        this.hybridOrchestrator = new HybridOrchestrator();
         this.executor = new AgentExecutor(agentRegistry);
 
         // Break circular dependencies by injecting runner into batcher and orchestration
@@ -314,49 +315,82 @@ export class AgentService {
             return;
         }
 
-        // 1. Resolve Active Agent ID if not forced
-        let agentId = forcedAgentId;
-
-        if (!agentId) {
-            const state = useStore.getState();
-            const session = state.sessions?.[state.activeSessionId || ''];
-            agentId = session?.participants?.[0] || 'generalist';
+        // 1. Resolve Orchestration Path
+        let orchestration;
+        if (forcedAgentId) {
+            orchestration = { type: 'single' as const, agentId: forcedAgentId, reasoning: 'Forced by user' };
+        } else {
+            orchestration = await this.orchestrator.determineOrchestrationPath(context, text);
         }
 
-        // 2. Delegate directly to the Agent Executor (indii Conductor handles routing natively)
+        logger.info(`[AgentService] Orchestration Path: ${orchestration.type}`, { reasoning: orchestration.reasoning });
 
-        // Update agent ID in the placeholder (Native/Agent path)
+        // 2. Route Execution
+        if (orchestration.type === 'graph' && orchestration.graph) {
+            await this.handleGraphExecutionFlow(orchestration.graph, context, text, responseId);
+            return;
+        }
+
+        if (orchestration.type === 'parallel' && orchestration.subtasks) {
+            await this.handleParallelExecutionFlow(orchestration.subtasks, context, text, responseId);
+            return;
+        }
+
+        // Default: Single Agent Execution
+        const agentId = orchestration.agentId || 'generalist';
         updateAgentMessage(responseId, { agentId });
 
         let currentStreamedText = '';
-
-        // Pass REDACTED text to the executor
-        const result = await this.executor.execute(agentId || 'generalist', text, context as PipelineContext, (event) => {
+        const result = await this.executor.execute(agentId, text, context as PipelineContext, (event) => {
             if (event.type === 'token') {
                 currentStreamedText += event.content;
                 updateAgentMessage(responseId, { text: currentStreamedText });
             }
 
             if (event.type === 'thought' || event.type === 'tool' || event.type === 'tool_result') {
-                const currentMsg = useStore.getState().agentHistory.find(m => m.id === responseId);
+                if (event.type === 'tool_result') {
+                    // Extract planId from LivingPlan tools
+                    if (event.toolName === 'propose_plan' || event.toolName === 'get_plan') {
+                        try {
+                            let content: any = event.content;
+                            if (typeof content === 'string') {
+                                try { content = JSON.parse(content); } catch (e) { /* fallback */ }
+                            }
 
-                // Firestore explicitly rejects 'undefined' values. We must sanitize.
-                const newThought: AgentThought = {
-                    id: uuidv4(),
-                    text: event.content || '', // Ensure no undefined text
-                    timestamp: Date.now(),
-                    type: event.type as AgentThought["type"], // Typed in interface
-                };
-
-                if (event.type === 'tool' || event.type === 'tool_result') {
-                    if (event.toolName) {
-                        newThought.toolName = event.toolName;
+                            const planId = content?.data?.planId || content?.planId || (typeof event.content === 'string' ? event.content.match(/"planId":\s*"([^"]+)"/)?.[1] : null);
+                            
+                            if (planId) {
+                                logger.info(`[AgentService] Detected planId: ${planId}`);
+                                // Update message metadata
+                                const currentMsg = useStore.getState().agentHistory.find(m => m.id === responseId);
+                                updateAgentMessage(responseId, {
+                                    metadata: { ...(currentMsg?.metadata || {}), planId }
+                                });
+                                
+                                // Sync to LivingPlanSlice for immediate UI reaction
+                                import('@/core/store/slices/livingPlanSlice').then(({ useLivingPlanSlice }) => {
+                                    useLivingPlanSlice.getState().setSelectedPlanId(planId);
+                                });
+                            }
+                        } catch (e) {
+                            logger.error('[AgentService] Failed to process tool_result for planId:', e);
+                        }
                     }
                 }
 
-                // AGGRESSIVE SANITIZATION: Firestore chokes on undefined.
-                const safeThought = JSON.parse(JSON.stringify(newThought));
+                const currentMsg = useStore.getState().agentHistory.find(m => m.id === responseId);
+                const newThought: AgentThought = {
+                    id: uuidv4(),
+                    text: event.content || '',
+                    timestamp: Date.now(),
+                    type: event.type as AgentThought["type"],
+                };
 
+                if (event.type === 'tool' || event.type === 'tool_result') {
+                    if (event.toolName) newThought.toolName = event.toolName;
+                }
+
+                const safeThought = JSON.parse(JSON.stringify(newThought));
                 if (currentMsg) {
                     updateAgentMessage(responseId, {
                         thoughts: [...(currentMsg.thoughts || []), safeThought]
@@ -366,14 +400,12 @@ export class AgentService {
         }, undefined, undefined, attachments);
 
         if (result && result.text) {
-            // Final update with full text and signature
             updateAgentMessage(responseId, {
                 text: result.text,
                 thoughtSignature: result.thoughtSignature
             });
 
-            // Tier 2: Index model response for semantic recall
-            const state = useStore.getState();
+            // Tier 2: Index model response
             if (state.currentProjectId && state.activeSessionId && result.text.length > 20) {
                 memoryService.saveMemory(
                     state.currentProjectId,
@@ -387,6 +419,168 @@ export class AgentService {
         } else {
             updateAgentMessage(responseId, {
                 thoughtSignature: result?.thoughtSignature
+            });
+        }
+    }
+
+    /**
+     * Handles complex multi-step execution using the AgentGraphService.
+     */
+    private async handleGraphExecutionFlow(
+        graph: AgentGraph,
+        context: AgentContext,
+        initialInput: string,
+        responseId: string
+    ): Promise<void> {
+        const { useStore } = await import('@/core/store');
+        const { 
+            updateAgentMessage, 
+            setActiveGraphDefinition, 
+            startListeningToGraphExecution 
+        } = useStore.getState();
+
+        updateAgentMessage(responseId, { 
+            agentId: 'orchestrator', 
+            text: '⛓️ **Decomposing complex request into sequential steps...**' 
+        });
+
+        // Initialize UI state for graph visualization
+        setActiveGraphDefinition(graph);
+
+        try {
+            const userId = context.userId;
+            if (!userId) throw new Error('userId is required for graph execution');
+
+            // 1. Pre-create the execution to get an ID
+            const executionState = await agentGraphService.createExecution(userId, graph);
+            const executionId = executionState.executionId;
+
+            // 2. Start listening to Firestore updates for real-time UI mapping
+            await startListeningToGraphExecution(executionId);
+
+            // 3. Execute the dynamic graph loop
+            const finalReport = await agentGraphService.executeGraph(graph, context, initialInput, executionId);
+            
+            updateAgentMessage(responseId, {
+                text: finalReport,
+                isStreaming: false
+            });
+        } catch (error: any) {
+            logger.error('[AgentService] Graph execution failed:', error);
+            updateAgentMessage(responseId, {
+                text: `❌ **Orchestration Error:** ${error.message || 'Failed to execute multi-step plan.'}`,
+                isStreaming: false
+            });
+        }
+    }
+
+    /**
+     * Retries a specific node in a graph execution.
+     */
+    async retryGraphNode(executionId: string, nodeId: string): Promise<void> {
+        const userId = auth.currentUser?.uid;
+        if (!userId) return;
+
+        const state = await agentGraphStateService.getExecution(userId, executionId);
+        if (!state || !state.graph) {
+            logger.warn(`[AgentService] Cannot retry node: Graph not found for execution ${executionId}`);
+            return;
+        }
+
+        await agentGraphService.retryNode(userId, executionId, nodeId);
+        
+        // Re-trigger the graph loop in the background if it's not running
+        this.executeGraphInBackground(executionId, userId);
+    }
+
+    /**
+     * Resets a node and its descendants to planned state.
+     */
+    async resetGraphBranch(executionId: string, nodeId: string): Promise<void> {
+        const userId = auth.currentUser?.uid;
+        if (!userId) return;
+
+        const state = await agentGraphStateService.getExecution(userId, executionId);
+        if (!state || !state.graph) {
+            logger.error(`[AgentService] Cannot reset branch: Graph not found for execution ${executionId}`);
+            return;
+        }
+
+        await agentGraphService.resetBranch(userId, executionId, nodeId, state.graph);
+        
+        // Re-trigger the graph loop
+        this.executeGraphInBackground(executionId, userId);
+    }
+
+    /**
+     * Helper to resume graph execution in the background (e.g. after retry/reset).
+     */
+    private async executeGraphInBackground(executionId: string, userId: string): Promise<void> {
+        try {
+            const state = await agentGraphStateService.getExecution(userId, executionId);
+            if (!state || !state.graph) return;
+
+            const context: AgentContext = {
+                userId,
+                activeModule: 'generalist', // Fallback or retrieve from state
+                traceId: uuidv4()
+            };
+
+            // This resumes the loop without blocking the main UI thread's response
+            agentGraphService.resumeGraph(executionId, context, state.graph).catch(err => {
+                logger.error('[AgentService] Background graph resumption failed:', err);
+            });
+        } catch (err) {
+            logger.error('[AgentService] executeGraphInBackground error:', err);
+        }
+    }
+
+
+    /**
+     * Handles parallel fan-out execution.
+     */
+    private async handleParallelExecutionFlow(
+        subtasks: Array<{ agentId: string; subtask: string }>,
+        context: AgentContext,
+        originalQuery: string,
+        responseId: string
+    ): Promise<void> {
+        const { useStore } = await import('@/core/store');
+        const { updateAgentMessage } = useStore.getState();
+
+        updateAgentMessage(responseId, { 
+            agentId: 'orchestrator', 
+            text: `🔀 **Fanning out to ${subtasks.length} agents in parallel...**` 
+        });
+
+        try {
+            const tasks = subtasks.map(s => ({
+                agentId: s.agentId,
+                description: `Parallel Task: ${s.subtask}`,
+                priority: 'MEDIUM' as const,
+                params: { prompt: s.subtask },
+                context
+            }));
+
+            const results = await maestroBatchingService.executeBatch(tasks);
+            
+            let combinedReport = `✅ **Parallel Execution Complete**\n\n`;
+            results.forEach((res, i) => {
+                const subtask = subtasks[i];
+                combinedReport += `### 🤖 ${subtask?.agentId.toUpperCase()}\n`;
+                combinedReport += `**Task**: ${subtask?.subtask}\n`;
+                combinedReport += `${res.text || res.message || 'Execution failed'}\n\n---\n\n`;
+            });
+
+            updateAgentMessage(responseId, {
+                text: combinedReport,
+                isStreaming: false
+            });
+        } catch (error: any) {
+            logger.error('[AgentService] Parallel execution failed:', error);
+            updateAgentMessage(responseId, {
+                text: `❌ **Parallel Orchestration Error:** ${error.message}`,
+                isStreaming: false
             });
         }
     }
@@ -539,6 +733,8 @@ export class AgentService {
         const { useStore } = await import('@/core/store');
         const { updateAgentMessage, agentHistory } = useStore.getState();
 
+        const pipelineContext = context as PipelineContext;
+
         // Build persona-aware system prompt from context
         // Guard against default/placeholder names that haven't been updated
         let artistName = context.userProfile?.displayName || '';
@@ -590,23 +786,37 @@ export class AgentService {
         let knowledgeContext = '';
         const state = useStore.getState();
         if (state.isKnowledgeBaseEnabled) {
-            try {
-                const { ContextPipeline } = await import('./components/ContextPipeline');
-                const pipeline = new ContextPipeline();
-                const pipelineContext = await pipeline.buildContext();
-                if (pipelineContext.memoryContext && pipelineContext.memoryContext.trim()) {
-                    knowledgeContext = `\n\nKNOWLEDGE BASE CONTEXT (from the artist's uploaded files and project data):\n${pipelineContext.memoryContext}`;
-                }
-            } catch (kbErr: unknown) {
-                logger.warn('[AgentService] Knowledge Base retrieval failed in direct chat, continuing without:', kbErr);
+            if (pipelineContext.autoRecallBlock && pipelineContext.autoRecallBlock.trim()) {
+                knowledgeContext = `\n\n${pipelineContext.autoRecallBlock}`;
+            } else if (pipelineContext.memoryContext && pipelineContext.memoryContext.trim()) {
+                knowledgeContext = `\n\nKNOWLEDGE BASE CONTEXT (from the artist's uploaded files and project data):\n${pipelineContext.memoryContext}`;
             }
         }
 
         const systemPrompt = `You are indii, a creative assistant for independent music artists and creators.${personaContext}${knowledgeContext}
 
-Be direct, creative, and helpful. You are in direct chat mode — respond conversationally without using any tools or complex orchestration.
-When answering questions, use the Knowledge Base context (if available) to provide personalized, grounded responses about the artist's projects, files, and data.
-If the user asks you to do something that requires active tools (like generating images, running automations, or managing live projects), suggest they switch to Agent mode for that task.`;
+Be direct, creative, and helpful. You are in direct chat mode — respond conversationally.
+
+TALK-TO-EXECUTE BRIDGE:
+If the user asks you to do something that requires action (like generating images, running automations, or managing projects), do NOT tell them to switch modes. Instead:
+1. Discuss the task with them briefly.
+2. Draft a "Living Plan" by outputting a JSON block at the end of your message.
+
+The JSON block MUST be wrapped in \`\`\`json and look like this:
+{
+  "livingPlan": {
+    "shape": "atomic" | "workflow" | "timeline",
+    "summary": "Short summary of the plan",
+    "goal": "The primary objective",
+    "steps": [
+      { "id": "step-1", "title": "Step title", "description": "Details", "status": "pending" }
+    ],
+    "durationDays": 1,
+    "autoApprove": false
+  }
+}
+
+The user will see this plan and can approve it to start execution.`;
 
         // Build chat history for multi-turn context (last 20 messages)
         // Note: Filter out the current message which should be the last entry
@@ -663,14 +873,43 @@ If the user asks you to do something that requires active tools (like generating
                 reader.releaseLock();
             }
 
+            // --- PLAN DETECTION ---
+            let planId: string | undefined;
+            const jsonMatch = accumulatedText.match(/```json\s*(\{[\s\S]*?"livingPlan"[\s\S]*?\})\s*```/);
+            if (jsonMatch && jsonMatch[1]) {
+                try {
+                    const parsed = JSON.parse(jsonMatch[1]);
+                    const planDraft = parsed.livingPlan;
+
+                    if (planDraft && context.projectId) {
+                        const { auth } = await import('@/services/firebase');
+                        const userId = auth.currentUser?.uid || 'unknown';
+
+                        const plan = await livingPlanService.create(
+                            userId,
+                            context.projectId,
+                            planDraft.goal || planDraft.summary,
+                            planDraft
+                        );
+                        planId = plan.id;
+                        logger.info(`[indii:Bridge] Created living plan: ${planId}`);
+                    }
+                } catch (e) {
+                    logger.warn('[indii:Bridge] Failed to parse living plan from response:', e);
+                }
+            }
+
             // Final update
+            const cleanText = accumulatedText.replace(/```json\s*(\{[\s\S]*?"livingPlan"[\s\S]*?\})\s*```/g, '').trim();
+
             updateAgentMessage(responseId, {
-                text: accumulatedText || 'No response generated.',
+                text: cleanText || 'No response generated.',
+                planId,
                 thoughts: [{
                     id: crypto.randomUUID(),
-                    text: 'Direct Chat (Fast Path)',
+                    text: planId ? 'Drafted execution plan' : 'Direct Chat (Fast Path)',
                     timestamp: Date.now(),
-                    type: 'logic',
+                    type: planId ? 'logic' : 'logic',
                     toolName: 'Direct LLM'
                 }]
             });
@@ -765,14 +1004,26 @@ If the user asks you to do something that requires active tools (like generating
         );
     }
 
+    /**
+     * Alias for runAgent to maintain compatibility with Graph Orchestration.
+     */
+    async delegateTask(agentId: string, task: string, context?: AgentContext): Promise<string> {
+        const result = await this.runAgent(agentId, task, context);
+        return result.text;
+    }
+
+    /**
+     * Entry point for executing an AgentGraph.
+     */
+    async executeGraph(graph: AgentGraph, context: AgentContext, initialInput?: string): Promise<string> {
+        return await agentGraphService.executeGraph(graph, context, initialInput);
+    }
+
     private async addSystemMessage(text: string): Promise<void> {
         const { useStore } = await import('@/core/store');
         useStore.getState().addAgentMessage({ id: uuidv4(), role: 'system', text, timestamp: Date.now() });
     }
 
-    /**
-     * Redacts sensitive information from the input text before sending it to the LLM.
-     */
     private redactPII(text: string): string {
         const creditCardRegex = /\b(?:\d[ -]*?){13,16}\b/g;
         const passwordRegex = /(password(?:\s+is)?[:\s=]+)([^\s.,;!]+)/gi;
@@ -787,6 +1038,46 @@ If the user asks you to do something that requires active tools (like generating
         });
 
         return redacted;
+    }
+
+    /**
+     * Resumes or starts execution of a Living Plan.
+     * This is called when a user approves a proposed plan or when the agent 
+     * needs to continue the loop.
+     */
+    async resumeActivePlan(planId: string): Promise<void> {
+        const { useStore } = await import('@/core/store');
+        const state = useStore.getState();
+        const projectId = state.currentProjectId;
+
+        if (!projectId) {
+            logger.error('[AgentService] Cannot resume plan: no active project');
+            return;
+        }
+
+        try {
+            // 1. Ensure the plan is in 'executing' status
+            const plan = await livingPlanService.getPlan(projectId, planId);
+            if (!plan) throw new Error('Plan not found');
+
+            if (plan.status === 'proposed' || plan.status === 'awaiting_approval') {
+                await livingPlanService.updatePlanStatus(projectId, planId, 'executing');
+            }
+
+            // 2. Trigger a message to the agent to start/continue the loop
+            // The ContextPipeline will automatically pick up the active plan XML
+            const nextStep = plan.draft.steps?.find(s => s.status === 'pending');
+            const prompt = nextStep 
+                ? `I've approved the plan. Please continue with the next step: "${nextStep.description}"`
+                : `I've approved the plan. Please continue.`;
+
+            // Explicitly route through sendMessage to ensure full context and orchestration
+            await this.sendMessage(prompt, undefined, undefined, { source: 'desktop' });
+
+        } catch (err) {
+            logger.error('[AgentService] Failed to resume plan:', err);
+            this.addSystemMessage(`❌ **Failed to resume plan:** ${err instanceof Error ? err.message : String(err)}`);
+        }
     }
 }
 

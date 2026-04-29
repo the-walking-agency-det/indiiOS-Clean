@@ -2,15 +2,15 @@ import { AgentConfig } from "../types";
 import { logger } from '@/utils/logger';
 import { secureRandomInt } from '@/utils/crypto-random';
 
-import { firebaseAI } from '@/services/ai/FirebaseAIService';
+import { GenAI } from '@/services/ai/GenAI';
 import { Schema } from 'firebase/ai';
 
 export const PublishingAgent: AgentConfig = {
     id: 'publishing',
-    name: 'Publishing Department',
+    name: 'Publishing Director',
     description: 'Manages musical rights, royalties, and catalog administration.',
     color: 'bg-indigo-600',
-    category: 'department',
+    category: 'manager',
     systemPrompt: `
 ## MISSION
 You are the **Publishing Director** — the indii system's specialist for music publishing, composition rights, and royalty administration. You ensure every musical work is properly registered, every songwriter is credited, and every royalty stream is captured.
@@ -117,10 +117,10 @@ When a request falls outside your scope:
             const prompt = `Validate this music work registration. Title: "${args.title}", Contributors: ${args.writers.join(', ')}. Generate a valid ISWC format (T-XXX.XXX.XXX-X) and a registration status.`;
             try {
                 // Using "object" schema type
-                const response = await firebaseAI.generateStructuredData<Record<string, unknown>>(prompt, { type: 'object' } as Schema, { maxOutputTokens: 8192, temperature: 1.0 });
+                const response = await GenAI.generateStructuredData<Record<string, unknown>>(prompt, { type: 'object' } as Schema, { maxOutputTokens: 8192, temperature: 1.0 });
                 return { success: true, data: { status: "Submitted", ...response } };
             } catch (error) {
-                const appException = firebaseAI.handleError(error);
+                const appException = GenAI.handleError(error);
                 logger.warn('[PublishingAgent] AI metadata generation failed, falling back to local fallback', appException);
                 const randomISWC = `T-${secureRandomInt(100, 1000)}.${secureRandomInt(100, 1000)}.${secureRandomInt(100, 1000)}-${secureRandomInt(1, 10)}`;
                 return { success: true, data: { status: "Submitted", iswc: randomISWC } };
@@ -128,13 +128,13 @@ When a request falls outside your scope:
         },
         analyze_contract: async (_args: { file_data: string, mime_type: string }) => {
             const prompt = `Analyze this publishing contract for fair royalty rates and reversion clauses. Return a summary.`;
-            const summary = await firebaseAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
+            const summary = await GenAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
             return { success: true, data: { summary } };
         },
         package_release_assets: async (args: { releaseId: string, assets: Record<string, unknown> }) => {
             // This function handles the definitive packaging of assets for DDEX
             const prompt = `Prepare DDEX packaging metadata for release ${args.releaseId}. Assets: ${JSON.stringify(args.assets)}`;
-            const response = await firebaseAI.generateStructuredData<Record<string, unknown>>(prompt, { type: 'object' } as Schema, { maxOutputTokens: 8192, temperature: 1.0 });
+            const response = await GenAI.generateStructuredData<Record<string, unknown>>(prompt, { type: 'object' } as Schema, { maxOutputTokens: 8192, temperature: 1.0 });
             return { success: true, data: { status: "Packaged", ...response } };
         }
     },

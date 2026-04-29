@@ -50,7 +50,8 @@ export type UseType =
   | 'NonInteractiveStream'
   | 'Broadcast'
   | 'Simulcast'
-  | 'UserMadeContentDelivery';
+  | 'UserMadeContentDelivery'
+  | 'PhysicalProduct';
 
 // Commercial Model Types
 export type CommercialModelType =
@@ -100,6 +101,7 @@ export interface Contributor {
 
 // Technical Details for audio resources
 export interface TechnicalDetails {
+  technicalResourceDetailsReference?: string;
   audioCodec?: 'FLAC' | 'WAV' | 'MP3' | 'AAC';
   samplingRate?: number;  // Hz (44100, 48000, 96000)
   bitDepth?: number;      // 16, 24, 32
@@ -107,6 +109,15 @@ export interface TechnicalDetails {
   duration?: string;      // ISO 8601 duration (PT3M45S)
   fileSizeInBytes?: number;
   fileName?: string;
+  filePath?: string;
+  file?: {
+    fileName: string;
+    filePath?: string;
+    hashSum?: string | {
+      hashSum: string;
+      hashSumAlgorithmType?: string;
+    };
+  };
 }
 
 // Parental Warning / Explicit content

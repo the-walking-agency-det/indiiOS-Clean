@@ -256,7 +256,7 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         cssVar: '--color-dept-distribution',
     },
     onboarding: {
-        // Onboarding uses Creative's welcoming purple
+        // Onboarding uses Creative's welcoming green
         text: 'text-dept-creative',
         bg: 'bg-dept-creative/10',
         border: 'border-dept-creative',
@@ -266,14 +266,14 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         cssVar: '--color-dept-creative',
     },
     agent: {
-        // Agent — Cyan for AI intelligence, distinct from creative purple
-        text: 'text-cyan-400',
-        bg: 'bg-cyan-500/10',
-        border: 'border-cyan-500',
-        ring: 'focus-within:ring-cyan-500/50',
-        hoverText: 'hover:text-cyan-300',
-        hoverBg: 'hover:bg-cyan-500/5',
-        cssVar: '--color-dept-social',
+        // Agent — Signature Green for AI intelligence
+        text: 'text-dept-creative',
+        bg: 'bg-dept-creative/10',
+        border: 'border-dept-creative',
+        ring: 'focus-within:ring-dept-creative/50',
+        hoverText: 'hover:text-dept-creative',
+        hoverBg: 'hover:bg-dept-creative/5',
+        cssVar: '--color-dept-creative',
     },
     distribution: {
         // Distribution - Electric Blue #2196F3: Data flow, logistics, global reach
@@ -351,12 +351,12 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         cssVar: '--color-dept-distribution',
     },
     capture: {
-        text: 'text-teal-400',
-        bg: 'bg-teal-500/10',
-        border: 'border-teal-500',
-        ring: 'focus-within:ring-teal-500/50',
-        hoverText: 'hover:text-teal-300',
-        hoverBg: 'hover:bg-teal-500/5',
+        text: 'text-dept-creative',
+        bg: 'bg-dept-creative/10',
+        border: 'border-dept-creative',
+        ring: 'focus-within:ring-dept-creative/50',
+        hoverText: 'hover:text-dept-creative',
+        hoverBg: 'hover:bg-dept-creative/5',
         cssVar: '--color-dept-creative',
     },
     memory: {
@@ -429,6 +429,16 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         hoverBg: 'hover:bg-amber-500/20',
         cssVar: '--color-dept-brand',
     },
+    'founders-portal': {
+        // Founders Portal
+        text: 'text-amber-400',
+        bg: 'bg-amber-500/10',
+        border: 'border-amber-500/30',
+        ring: 'focus-within:ring-amber-500/50',
+        hoverText: 'hover:text-amber-300',
+        hoverBg: 'hover:bg-amber-500/20',
+        cssVar: '--color-dept-brand',
+    },
     'video-popout': {
         text: 'text-gray-300',
         bg: 'bg-black',
@@ -448,8 +458,19 @@ export const moduleColors: Record<ModuleId, ModuleColor> = {
         hoverBg: 'hover:bg-dept-licensing/5',
         cssVar: '--color-dept-licensing',
     },
+    'maestro': {
+        // Maestro — Indigo for complex orchestration & harmony
+        text: 'text-indigo-400',
+        bg: 'bg-indigo-500/10',
+        border: 'border-indigo-500',
+        ring: 'focus-within:ring-indigo-500/50',
+        hoverText: 'hover:text-indigo-300',
+        hoverBg: 'hover:bg-indigo-500/5',
+        cssVar: '--color-dept-default',
+    },
 };
 
 export const getColorForModule = (moduleId: ModuleId): ModuleColor => {
     return moduleColors[moduleId] || moduleColors.dashboard;
 };
+

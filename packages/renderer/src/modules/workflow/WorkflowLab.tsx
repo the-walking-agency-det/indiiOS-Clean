@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import WorkflowEditor from './components/WorkflowEditor';
-import NodePanel from './components/NodePanel';
 import WorkflowGeneratorModal from './components/WorkflowGeneratorModal';
 import WorkflowTemplateModal from './components/WorkflowTemplateModal';
 import WorkflowLoadModal from './components/WorkflowLoadModal';
+import WorkflowNodeInspector from './components/WorkflowNodeInspector';
 import { useStore } from '../../core/store';
 import { useShallow } from 'zustand/react/shallow';
 import type { ModuleId } from '@/core/constants';
@@ -38,12 +38,13 @@ import 'driver.js/dist/driver.css';
 
 export default function WorkflowLab() {
     // Hooks must be called unconditionally before early returns
-    const { nodes, edges, setNodes, setEdges, user } = useStore(useShallow(state => ({
+    const { nodes, edges, setNodes, setEdges, user, selectedNodeId } = useStore(useShallow(state => ({
         nodes: state.nodes,
         edges: state.edges,
         setNodes: state.setNodes,
         setEdges: state.setEdges,
-        user: state.user
+        user: state.user,
+        selectedNodeId: state.selectedNodeId
     })));
     const { success: toastSuccess, error: toastError } = useToast();
     const [isRunning, setIsRunning] = useState(false);
@@ -333,6 +334,36 @@ export default function WorkflowLab() {
                         </button>
 
                         <button
+                            onClick={async () => {
+                                if (nodes.length === 0) {
+                                    toastError('No nodes to export.');
+                                    return;
+                                }
+                                try {
+                                    const { generateADKManifest } = await import('./utils/adkExport');
+                                    const adkManifest = generateADKManifest(workflowName, 'Exported from Workflow Lab', nodes, edges);
+                                    const blob = new Blob([JSON.stringify(adkManifest, null, 2)], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `${workflowName.replace(/\s+/g, '_').toLowerCase()}_adk.json`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                    toastSuccess('ADK Manifest exported successfully.');
+                                } catch (error) {
+                                    logger.error("Failed to export ADK manifest:", error);
+                                    toastError('Failed to export ADK manifest.');
+                                }
+                            }}
+                            className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-900/20"
+                        >
+                            <Cpu size={16} />
+                            Export ADK
+                        </button>
+
+                        <button
                             onClick={() => setShowTemplates(true)}
                             className="w-full py-2 px-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all border border-gray-700"
                         >
@@ -354,14 +385,19 @@ export default function WorkflowLab() {
                 {/* ── CENTER — Node Editor Canvas ────────────────────── */}
                 <div id="tour-workflow-canvas" className="flex-1 relative min-w-0">
                     <WorkflowEditor onInit={(instance) => { rfInstanceRef.current = instance; }} />
-                    <NodePanel />
                 </div>
 
                 {/* ── RIGHT PANEL — Node Library & Inspector ─────────── */}
                 <aside className="hidden lg:flex w-72 2xl:w-80 flex-col border-l border-white/5 overflow-y-auto p-3 gap-3 flex-shrink-0 bg-[#0f0f0f]">
                     <NodeLibraryPanel />
-                    <NodeInspectorPanel nodes={nodes} />
-                    <HelpDocsPanel />
+                    {selectedNodeId ? (
+                        <WorkflowNodeInspector />
+                    ) : (
+                        <>
+                            <NodeInspectorPanel nodes={nodes} />
+                            <HelpDocsPanel />
+                        </>
+                    )}
                 </aside>
 
                 {/* Generator Modal */}

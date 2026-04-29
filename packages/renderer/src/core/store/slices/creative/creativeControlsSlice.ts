@@ -1,10 +1,20 @@
 import { StateCreator } from 'zustand';
 import { HistoryItem } from '@/core/types/history';
 import { z } from 'zod';
-import { AspectRatioSchema, VideoResolutionSchema } from '@/modules/video/schemas';
+import { AspectRatioSchema, VideoResolutionSchema, VideoJobStatusSchema } from '@/modules/video/schemas';
 
 type AspectRatio = z.infer<typeof AspectRatioSchema>;
 type VideoResolution = z.infer<typeof VideoResolutionSchema>;
+export type VideoJobStatus = z.infer<typeof VideoJobStatusSchema>;
+
+export interface ActiveVideoJob {
+    id: string;
+    status: VideoJobStatus;
+    progress?: number; // 0-100
+    videoUrl?: string;
+    error?: string;
+    createdAt: number;
+}
 
 export interface SavedPrompt {
     id: string;
@@ -106,6 +116,10 @@ export interface CreativeControlsSlice {
     prompt: string;
     setPrompt: (prompt: string) => void;
 
+    isPromptBuilderOpen: boolean;
+    setPromptBuilderOpen: (open: boolean) => void;
+    togglePromptBuilder: () => void;
+
     selectedItem: HistoryItem | null;
     setSelectedItem: (item: HistoryItem | null) => void;
 
@@ -124,6 +138,12 @@ export interface CreativeControlsSlice {
 
     isGenerating: boolean;
     setIsGenerating: (isGenerating: boolean) => void;
+
+    // Background Video Jobs
+    activeVideoJobs: Record<string, ActiveVideoJob>;
+    addVideoJob: (job: ActiveVideoJob) => void;
+    updateVideoJob: (id: string, updates: Partial<ActiveVideoJob>) => void;
+    removeVideoJob: (id: string) => void;
 }
 
 /**
@@ -228,6 +248,10 @@ export function buildCreativeControlsState(
         prompt: '',
         setPrompt: (prompt) => set({ prompt }),
 
+        isPromptBuilderOpen: false,
+        setPromptBuilderOpen: (open) => set({ isPromptBuilderOpen: open }),
+        togglePromptBuilder: () => set((state) => ({ isPromptBuilderOpen: !state.isPromptBuilderOpen })),
+
         selectedItem: null,
         setSelectedItem: (item) => set({ selectedItem: item }),
 
@@ -296,5 +320,25 @@ export function buildCreativeControlsState(
 
         isGenerating: false,
         setIsGenerating: (isGenerating) => set({ isGenerating }),
+
+        activeVideoJobs: {},
+        addVideoJob: (job) => set((state) => ({
+            activeVideoJobs: { ...state.activeVideoJobs, [job.id]: job }
+        })),
+        updateVideoJob: (id, updates) => set((state) => {
+            const existingJob = state.activeVideoJobs[id];
+            if (!existingJob) return state;
+            return {
+                activeVideoJobs: {
+                    ...state.activeVideoJobs,
+                    [id]: { ...existingJob, ...updates }
+                }
+            };
+        }),
+        removeVideoJob: (id) => set((state) => {
+            const newJobs = { ...state.activeVideoJobs };
+            delete newJobs[id];
+            return { activeVideoJobs: newJobs };
+        }),
     };
 }

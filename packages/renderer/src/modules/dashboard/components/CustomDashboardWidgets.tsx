@@ -12,6 +12,7 @@ import {
     Palette,
     ShoppingBag,
     MapPin,
+    LucideIcon,
 } from 'lucide-react';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -39,7 +40,7 @@ export interface Widget {
     order: number;
 }
 
-export const WIDGET_DEFINITIONS: Record<WidgetType, { label: string; icon: React.ElementType; description: string }> = {
+export const WIDGET_DEFINITIONS: Record<WidgetType, { label: string; icon: LucideIcon; description: string }> = {
     streams_today: { label: 'Streams Today', icon: Music, description: 'Daily stream count across all DSPs' },
     revenue_mtd: { label: 'Revenue MTD', icon: DollarSign, description: 'Month-to-date royalty revenue' },
     next_release: { label: 'Next Release', icon: Calendar, description: 'Countdown to your next scheduled release' },
@@ -120,7 +121,7 @@ function StreamsTodayWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {displayValue}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">Daily stream count across all DSPs</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">Daily stream count across all DSPs</p>
             </div>
             <div className="mt-3 flex items-end gap-1 h-8">
                 {weeklyStreams.map((val, i) => (
@@ -177,7 +178,7 @@ function RevenueMTDWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {displayValue}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">{dayOfMonth} days into {monthName}</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">{dayOfMonth} days into {monthName}</p>
             </div>
             <div className="mt-3">
                 <p className="text-[10px] text-white/30">{hasGoal ? 'Target: $10,000' : 'Revenue goal not set'}</p>
@@ -220,7 +221,7 @@ function NextReleaseWidget() {
     const statusColors: Record<string, string> = {
         draft: 'bg-gray-500/10 text-gray-400',
         submitted: 'bg-blue-500/10 text-blue-400',
-        approved: 'bg-indigo-500/10 text-indigo-400',
+        approved: 'bg-emerald-500/10 text-emerald-400',
         live: 'bg-green-500/10 text-green-400',
     };
 
@@ -335,7 +336,7 @@ function AgentActivityWidget() {
     }, [userId]);
 
     const statusDot: Record<string, string> = {
-        running: 'bg-indigo-400 animate-pulse',
+        running: 'bg-emerald-400 animate-pulse',
         completed: 'bg-green-400',
         failed: 'bg-red-400',
         pending: 'bg-yellow-400',
@@ -345,13 +346,13 @@ function AgentActivityWidget() {
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                        <Bot size={12} className="text-indigo-400" />
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                        <Bot size={12} className="text-emerald-400" />
                     </div>
                     <span className="text-[10px] font-semibold text-white/50 uppercase tracking-[0.15em]">Agent Activity</span>
                 </div>
                 {activity && activity.runningCount > 0 && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 animate-pulse">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 animate-pulse">
                         {activity.runningCount} running
                     </span>
                 )}
@@ -416,7 +417,7 @@ function AudienceGrowthWidget() {
                     {newListeners}
                 </p>
                 <div className="flex items-center gap-1.5 mt-1">
-                    <p className="text-[10px] text-indigo-200/50 font-medium">New listeners this week</p>
+                    <p className="text-[10px] text-white/40 font-medium">New listeners this week</p>
                     {trend === 'up' && <span className="text-[9px] font-bold text-green-400">▲</span>}
                     {trend === 'down' && <span className="text-[9px] font-bold text-red-400">▼</span>}
                 </div>
@@ -461,7 +462,7 @@ function ActiveCampaignsWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {data?.activeCount ?? 0}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">Campaigns running now</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">Campaigns running now</p>
             </div>
             <div className="mt-3">
                 {data?.topCampaign ? (
@@ -511,7 +512,7 @@ function PendingTasksWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {data?.totalCount ?? 0}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">Tasks require your attention</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">Tasks require your attention</p>
             </div>
             <div className="mt-3 space-y-1">
                 {data && data.tasks.length > 0 ? (
@@ -561,7 +562,7 @@ function SocialEngagementWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {data?.engagementRate.formatted || '--'}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">Avg. engagement rate</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">Avg. engagement rate</p>
             </div>
             <div className="mt-3 flex items-end gap-1 h-8">
                 {weeklyEngagement.map((val, i) => (
@@ -652,7 +653,7 @@ function MerchSalesWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {data?.weeklyRevenue.formatted || '$0'}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">Sales this week</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">Sales this week</p>
             </div>
             <div className="mt-3">
                 {data?.topProduct ? (
@@ -697,7 +698,7 @@ function TourStatusWidget() {
                 <p className={`text-4xl font-semibold text-white tracking-tight ${isLoading ? 'animate-pulse opacity-50' : ''}`}>
                     {data?.upcomingShows ?? 0}
                 </p>
-                <p className="text-[10px] text-indigo-200/50 mt-1 font-medium">Upcoming shows</p>
+                <p className="text-[10px] text-white/40 mt-1 font-medium">Upcoming shows</p>
             </div>
             <div className="mt-3">
                 {data?.nextShow ? (

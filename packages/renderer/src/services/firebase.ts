@@ -49,7 +49,7 @@ export function getFirebaseAI(): AI | null {
 
     try {
         _aiInstance = getAI(app, {
-            backend: new VertexAIBackend('us-central1'),
+            backend: new VertexAIBackend(import.meta.env.VITE_VERTEX_LOCATION || 'us-central1'),
             useLimitedUseAppCheckTokens: false
         });
         logger.debug('[Firebase] Firebase AI initialized with Vertex AI backend (us-central1)');
@@ -193,7 +193,7 @@ export async function getFirebaseMessaging(): Promise<Messaging | null> {
     if (typeof window === 'undefined') return null;
 
     try {
-        const supported = await isMessagingSupported();
+        const supported = await isMessagingSupported().catch(() => false);
         if (!supported) {
             logger.debug('[Firebase] Messaging not supported in this browser — skipping FCM init.');
             return null;
@@ -202,7 +202,9 @@ export async function getFirebaseMessaging(): Promise<Messaging | null> {
         logger.debug('[Firebase] Messaging initialized successfully.');
         return _messagingInstance;
     } catch (e: unknown) {
-        logger.warn('[Firebase] Messaging init failed:', e);
+        const errMessage = e instanceof Error ? e.message : String(e);
+        // Do not pass the raw error object to logger to prevent Sentry from capturing expected unsupported browser errors
+        logger.warn(`[Firebase] Messaging init failed: ${errMessage}`);
         return null;
     }
 }

@@ -28,6 +28,7 @@ export interface CreativeHistorySlice {
     initializeHistory: () => Promise<void>;
     updateHistoryItem: (id: string, updates: Partial<HistoryItem>) => void;
     removeFromHistory: (id: string) => void;
+    removeItemFromProject: (id: string) => void;
 
     // Canvas
     canvasImages: CanvasImage[];
@@ -46,6 +47,10 @@ export interface CreativeHistorySlice {
     uploadedAudio: HistoryItem[];
     addUploadedAudio: (audio: HistoryItem) => void;
     removeUploadedAudio: (id: string) => void;
+
+    // Soft delete from project view
+    removeUploadedImageFromProject: (id: string) => void;
+    removeUploadedAudioFromProject: (id: string) => void;
 }
 
 export function buildCreativeHistoryState(
@@ -193,6 +198,11 @@ export function buildCreativeHistoryState(
                 StorageService.removeItem(id).catch((e) => { logger.error('[Store] Failed to remove item:', e); });
             });
         },
+        removeItemFromProject: (id: string) => {
+            set((state) => ({ generatedHistory: state.generatedHistory.filter(i => i.id !== id) }));
+            // Soft delete - removes from local state/project view, but leaves in master storage
+            logger.debug(`[CreativeSlice] Soft removed item ${id} from project view.`);
+        },
 
         canvasImages: [],
         selectedCanvasImageId: null,
@@ -232,6 +242,14 @@ export function buildCreativeHistoryState(
             import('@/services/StorageService').then(({ StorageService }) => {
                 StorageService.removeItem(id).catch(() => { /* Error handled silently */ });
             });
+        },
+        removeUploadedImageFromProject: (id: string) => {
+            set((state) => ({ uploadedImages: state.uploadedImages.filter(i => i.id !== id) }));
+            logger.debug(`[CreativeSlice] Soft removed uploaded image ${id} from project view.`);
+        },
+        removeUploadedAudioFromProject: (id: string) => {
+            set((state) => ({ uploadedAudio: state.uploadedAudio.filter(i => i.id !== id) }));
+            logger.debug(`[CreativeSlice] Soft removed uploaded audio ${id} from project view.`);
         },
     };
 }
