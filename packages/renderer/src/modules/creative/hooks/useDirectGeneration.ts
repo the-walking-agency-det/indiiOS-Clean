@@ -11,8 +11,8 @@ import { SequenceBlock } from '../components/SequenceTimeline';
 export function useDirectGeneration() {
     const {
         studioControls,
-        prompt,
-        setPrompt,
+        creativePrompt,
+        setCreativePrompt,
         addToHistory,
         currentProjectId,
         whiskState,
@@ -22,8 +22,8 @@ export function useDirectGeneration() {
         setVideoInputs
     } = useStore(useShallow(state => ({
         studioControls: state.studioControls,
-        prompt: state.prompt,
-        setPrompt: state.setPrompt,
+        creativePrompt: state.creativePrompt,
+        setCreativePrompt: state.setCreativePrompt,
         addToHistory: state.addToHistory,
         currentProjectId: state.currentProjectId,
         whiskState: state.whiskState,
@@ -34,19 +34,20 @@ export function useDirectGeneration() {
     })));
     const toast = useToast();
 
-    const [localPrompt, setLocalPromptState] = useState(prompt ?? '');
+    const [localPrompt, setLocalPromptState] = useState(creativePrompt ?? '');
     const [mode, setMode] = useState<'image' | 'video'>('image');
 
-    // Keep local input in sync with global prompt updates (e.g. top-nav Builder pills).
+    // Keep local input in sync with store updates (e.g. top-nav Builder pills,
+    // "reuse prompt" from Gallery, prompt-history selections).
     useEffect(() => {
-        const next = prompt ?? '';
+        const next = creativePrompt ?? '';
         setLocalPromptState(prev => (prev === next ? prev : next));
-    }, [prompt]);
+    }, [creativePrompt]);
 
     const setLocalPrompt = useCallback((value: string) => {
         setLocalPromptState(value);
-        setPrompt(value);
-    }, [setPrompt]);
+        setCreativePrompt(value);
+    }, [setCreativePrompt]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [results, setResults] = useState<HistoryItem[]>([]);
     const [sequence, setSequence] = useState<SequenceBlock[]>([]);
