@@ -2,6 +2,36 @@
 
 All notable changes to indiiOS are documented in this file.
 
+## [1.58.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.57.2...v1.58.0) (2026-04-29)
+
+
+### Features
+
+* **media:** implement crop_image tool and stub generate_thumbnail ([76af940](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/76af940e0c0a5470b4a77fcc99d7472ff1e97f53))
+
+
+### Bug Fixes
+
+* add electron/electron-log mocks to MCPClientService test, fix dev path resolution ([2c731e4](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/2c731e458be3501649df13eee29e0a33cdd7219f))
+* **ci:** add global sharp mock to firebase test setup ([7e3dc9e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/7e3dc9ef86ab8e442951bd4404deeaf1b30264d3))
+* **ci:** comprehensive firebase test mocks for sharp, v2 triggers, inngest, cors ([10b52b3](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/10b52b3f2254330c7ad877d0b265837d7e37a2a0))
+* **ci:** remove --ignore-scripts from npm ci in all workflows ([2b7f58d](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/2b7f58d3eb19b420c742abe811ef62f45439d606))
+* **ci:** remove broken submodule .agent/antigravity-awesome-skills ([69e3364](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/69e336490662f4523ea6eafce8dad0a1f9d69ba1))
+* **ci:** unblock landing build and SidebarNavigation test ([35c8e89](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/35c8e89772b359facb704211e289729c089e15be))
+* **ci:** upgrade release-please to v4, mock sharp in image_gen tests ([c78a831](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/c78a8316eaab63517afac3b35212f73a52bce4d0))
+* **renderer:** resolve FoundersPortal lint errors and RateLimiter test flakes ([5dd2281](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/5dd22817705a047cf9794ce71981a6c249f9330e))
+* resolve CI failures - pulseTick syntax, release-please config, gitignore scope ([8f03c3e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/8f03c3efbad3f19be31091c76ffe86aeceea94d0))
+
+
+### Performance
+
+* **finance:** optimize RoyaltyService to prevent N+1 query issue ([#1616](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1616)) ([887c926](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/887c926ab9592d3402fa85db780f21738862aa9a))
+
+
+### Documentation
+
+* verify autoagent routing evaluation ([#1615](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1615)) ([b53ff26](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/b53ff2619fb8fd2f33f55274c14838ae829c2119))
+
 ## [1.57.2](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.57.1...v1.57.2) (2026-04-27)
 
 
