@@ -8,7 +8,6 @@ import { auth } from '@/lib/firebase';
 import { Loader2 } from 'lucide-react';
 
 export default function SignupForm() {
-    // const router = useRouter();
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
