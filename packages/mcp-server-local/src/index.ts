@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import ffmpeg from 'fluent-ffmpeg';
 import ffprobeStatic from 'ffprobe-static';
+import pdfParse from 'pdf-parse';
 import fs from 'fs';
 import path from 'path';
 import * as dotenv from 'dotenv';
@@ -138,13 +139,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         try {
-            // Minimal placeholder logic for PDF reading if actual pdf-parse isn't fully integrated yet
-            // To ensure 100% stable execution immediately without massive dependencies
+            const fileBuffer = fs.readFileSync(filePath);
+            const pdf = await pdfParse(fileBuffer);
+
             return {
                 content: [
                     {
                         type: 'text',
-                        text: `[PDF Parsing Placeholder] Read file at ${filePath}`,
+                        text: JSON.stringify({
+                            text: pdf.text,
+                            pages: pdf.numpages,
+                            metadata: pdf.info || {},
+                            fileName: path.basename(filePath),
+                        }, null, 2),
                     },
                 ],
             };

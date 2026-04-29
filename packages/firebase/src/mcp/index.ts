@@ -4,8 +4,59 @@ import cors from 'cors';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { getFirestore, Transaction } from 'firebase-admin/firestore';
 
 const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === 'true' || process.env.NODE_ENV === 'production';
+
+// GTIN-12 check digit calculation (Luhn-like algorithm)
+function calculateGTINCheckDigit(payload: string): number {
+    const digits = payload.split('').map(Number);
+    let sum = 0;
+    for (let i = 0; i < digits.length; i++) {
+        if ((i + 1) % 2 !== 0) {
+            sum += digits[i]! * 3;
+        } else {
+            sum += digits[i]! * 1;
+        }
+    }
+    const remainder = sum % 10;
+    return remainder === 0 ? 0 : 10 - remainder;
+}
+
+// Generate GTIN-12 UPC from 11-digit sequence
+function generateUPC(payload: string): string {
+    const padded = payload.padStart(11, '0');
+    if (!/^\d{11}$/.test(padded)) {
+        throw new Error(`Invalid UPC payload: ${payload}`);
+    }
+    const checkDigit = calculateGTINCheckDigit(padded);
+    return `${padded}${checkDigit}`;
+}
+
+// Get next UPC sequence from Firestore (atomic transaction)
+async function getNextUPCSequence(): Promise<string> {
+    const db = getFirestore();
+    const seqDocRef = db.collection('system_sequences').doc('identifiers');
+
+    const sequence = await db.runTransaction(async (transaction: Transaction) => {
+        const seqDoc = await transaction.get(seqDocRef);
+
+        if (!seqDoc.exists) {
+            // Initialize with starting sequence
+            const initialSeq = 10000000000;
+            transaction.set(seqDocRef, { upc: { sequence: initialSeq } });
+            return initialSeq;
+        }
+
+        const data = seqDoc.data();
+        const upcData = data?.upc || { sequence: 10000000000 };
+        const nextSeq = upcData.sequence + 1;
+        transaction.update(seqDocRef, { 'upc.sequence': nextSeq });
+        return nextSeq;
+    });
+
+    return generateUPC(sequence.toString());
+}
 
 const app = express.default();
 app.use(cors({ origin: true }));
@@ -94,23 +145,46 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
         const { releaseTitle, artists, genre } = args;
 
-        // Mocked remote operation that would actually hit Firestore/BigQuery
-        const formattedMetadata = {
-            upc: `US-INDIIOS-${Math.floor(Math.random() * 100000)}`,
-            dspTitle: `${releaseTitle} - Single`,
-            primaryArtistString: artists.join(' & '),
-            genreCategory: genre.toUpperCase(),
-            formattedAt: new Date().toISOString(),
-        };
+        // Validate required fields
+        if (!releaseTitle || !Array.isArray(artists) || artists.length === 0 || !genre) {
+            throw new McpError(
+                ErrorCode.InvalidParams,
+                'Missing required fields: releaseTitle, artists (non-empty array), genre'
+            );
+        }
 
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: JSON.stringify(formattedMetadata, null, 2),
-                },
-            ],
-        };
+        try {
+            // Generate real UPC from Firestore sequence
+            const upc = await getNextUPCSequence();
+
+            const formattedMetadata = {
+                upc,
+                dspTitle: `${releaseTitle} - Single`,
+                primaryArtistString: artists.join(' & '),
+                genreCategory: genre.toUpperCase(),
+                formattedAt: new Date().toISOString(),
+            };
+
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: JSON.stringify(formattedMetadata, null, 2),
+                    },
+                ],
+            };
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Error formatting DSP metadata: ${errorMessage}`,
+                    },
+                ],
+                isError: true,
+            };
+        }
     }
 
     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
