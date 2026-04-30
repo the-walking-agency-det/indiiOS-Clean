@@ -30,6 +30,13 @@ import { initSentry } from '@/services/observability/SentryService';
 initSentry();
 
 
+try {
+    initSentry();
+} catch (error: unknown) {
+    logger.warn('[Startup] Sentry initialization failed (non-blocking):', error);
+}
+
+
 logger.debug("Indii OS Studio v1.2.6-manual-redeploy");
 document.title = "indiiOS - Studio (v1.2.6)";
 
