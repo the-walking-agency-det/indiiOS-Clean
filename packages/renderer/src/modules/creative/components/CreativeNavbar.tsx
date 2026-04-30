@@ -209,15 +209,6 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                 </div>
             </div>
 
-            {/* Prompt Builder Drawer */}
-            {showPromptBuilder && (
-                <PromptBuilder
-                    onAddTag={(tag) => setCreativePrompt(creativePrompt ? `${creativePrompt}, ${tag}` : tag)}
-                    currentPrompt={creativePrompt}
-                    onPromptImproved={setCreativePrompt}
-                />
-            )}
-
             {/* Brand Assets Drawer */}
             {showBrandAssets && (
                 <BrandAssetsDrawer onClose={() => setShowBrandAssets(false)} />
