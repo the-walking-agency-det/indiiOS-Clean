@@ -203,7 +203,7 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                 <PromptBuilder
                     onAddTag={(tag) => setCreativePrompt(creativePrompt ? `${creativePrompt}, ${tag}` : tag)}
                     currentPrompt={creativePrompt}
-                    onPromptImproved={setCreativePrompt}
+                    onSetPrompt={setCreativePrompt}
                 />
             )}
 
