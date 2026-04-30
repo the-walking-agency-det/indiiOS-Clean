@@ -7,6 +7,9 @@ import { WhiskService } from '@/services/WhiskService';
 import { logger } from '@/utils/logger';
 import { Ingredient } from '../components/IngredientDropZone';
 import { SequenceBlock } from '../components/SequenceTimeline';
+import { VideoGenerationJob } from '../components/veo/VideoGenerationProgress';
+import { VideoJob } from '@/types/video';
+import { VideoAspectRatioSchema } from '@/modules/video/schemas';
 
 export function useDirectGeneration() {
     const {
@@ -50,11 +53,89 @@ export function useDirectGeneration() {
     }, [setCreativePrompt]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [results, setResults] = useState<HistoryItem[]>([]);
+    const [activeJobs, setActiveJobs] = useState<VideoGenerationJob[]>([]);
     const [sequence, setSequence] = useState<SequenceBlock[]>([]);
     const [bpm, setBpm] = useState<number>(120);
 
     // Guard against double-submit while a generation is in-flight
     const generatingRef = useRef(false);
+    const unsubsRef = useRef<Record<string, () => void>>({});
+    // Ref to capture the latest projectId for use inside async subscription callbacks,
+    // preventing stale closures when the user switches projects mid-generation.
+    const currentProjectIdRef = useRef(currentProjectId);
+    useEffect(() => { currentProjectIdRef.current = currentProjectId; }, [currentProjectId]);
+
+    // Cleanup subscriptions on unmount
+    useEffect(() => {
+        return () => {
+            Object.values(unsubsRef.current).forEach(unsub => unsub());
+            unsubsRef.current = {};
+        };
+    }, []);
+
+    // Job polling/subscription loop
+    useEffect(() => {
+        activeJobs.forEach(job => {
+            if (unsubsRef.current[job.id]) return; // already subscribed
+            if (job.status === 'completed' || job.status === 'failed') return;
+
+            const unsub = VideoGeneration.subscribeToJob(job.id, (updatedJob: VideoJob | null) => {
+                if (!updatedJob) return;
+
+                setActiveJobs(prev => {
+                    const idx = prev.findIndex(j => j.id === updatedJob.id);
+                    if (idx === -1) return prev;
+
+                    const newJobs = [...prev];
+                    newJobs[idx] = {
+                        ...newJobs[idx],
+                        status: updatedJob.status as any,
+                        progress: updatedJob.progress,
+                        error: updatedJob.error
+                    } as VideoGenerationJob;
+                    return newJobs;
+                });
+
+                if (updatedJob.status === 'completed' && (updatedJob.output?.url || updatedJob.videoUrl || updatedJob.url)) {
+                    const finalUrl = updatedJob.output?.url || updatedJob.videoUrl || updatedJob.url || '';
+                    const finalItem: HistoryItem = {
+                        id: updatedJob.id,
+                        url: finalUrl,
+                        type: 'video' as const,
+                        prompt: updatedJob.prompt || job.prompt,
+                        timestamp: Date.now(),
+                        projectId: currentProjectIdRef.current,
+                        origin: 'generated' as const
+                    };
+
+                    setResults(prev => {
+                        if (prev.some(p => p.id === finalItem.id)) return prev;
+                        return [finalItem, ...prev];
+                    });
+                    addToHistory({ ...finalItem });
+                    toast.success('Video generation finished!');
+                    
+                    setTimeout(() => {
+                        setActiveJobs(prev => prev.filter(j => j.id !== updatedJob.id));
+                        if (unsubsRef.current[updatedJob.id]) {
+                            unsubsRef.current[updatedJob.id]?.();
+                            delete unsubsRef.current[updatedJob.id];
+                        }
+                    }, 3000);
+                } else if (updatedJob.status === 'failed') {
+                    setTimeout(() => {
+                        setActiveJobs(prev => prev.filter(j => j.id !== updatedJob.id));
+                        if (unsubsRef.current[updatedJob.id]) {
+                            unsubsRef.current[updatedJob.id]?.();
+                            delete unsubsRef.current[updatedJob.id];
+                        }
+                    }, 5000);
+                }
+            });
+
+            unsubsRef.current[job.id] = unsub;
+        });
+    }, [activeJobs, currentProjectId, addToHistory, toast]);
 
     const handleModeSwitch = useCallback((newMode: 'image' | 'video') => {
         if (newMode !== mode) {
@@ -89,12 +170,12 @@ export function useDirectGeneration() {
                 url: ing.dataUrl,
                 prompt: 'Uploaded Reference',
                 timestamp: Date.now(),
-                projectId: currentProjectId,
+                projectId: currentProjectIdRef.current,
                 origin: 'uploaded'
             };
         });
         setVideoInputs({ ingredients: newHistoryItems });
-    }, [setVideoInputs, currentProjectId]);
+    }, [setVideoInputs]);
 
     const handleImageGenerate = useCallback(async (finalPrompt: string) => {
         const { generateImageDirectly } = await import('@/services/ai/generators/DirectImageGenerator');
@@ -118,7 +199,7 @@ export function useDirectGeneration() {
                 type: 'image' as const,
                 prompt: localPrompt,
                 timestamp: Date.now(),
-                projectId: currentProjectId,
+                projectId: currentProjectIdRef.current,
                 origin: 'generated' as const
             }));
             
@@ -130,7 +211,7 @@ export function useDirectGeneration() {
 
             toast.success('Image generated directly successfully');
         }
-    }, [studioControls.model, studioControls.aspectRatio, localPrompt, currentProjectId, addToHistory, setSelectedItem, setViewMode, toast]);
+    }, [studioControls.model, studioControls.aspectRatio, localPrompt, addToHistory, setSelectedItem, setViewMode, toast]);
 
     const handleVideoGenerate = useCallback(async (finalPrompt: string) => {
         // ISSUE-008 FIX: Auto-downscale 4K to 1080p for video (Veo doesn't support 4K)
@@ -154,10 +235,14 @@ export function useDirectGeneration() {
 
         const ingredientsList = videoInputs?.ingredients || [];
 
+        // Validate aspect ratio against the schema; fall back to '16:9' only for truly unsupported values.
+        const validatedAspectRatio = VideoAspectRatioSchema.safeParse(studioControls.aspectRatio);
+        const effectiveAspectRatio = validatedAspectRatio.success ? validatedAspectRatio.data : '16:9';
+
         const generated = await VideoGeneration.generateVideo({
             prompt: sequencePrompt,
             resolution: effectiveResolution,
-            aspectRatio: (studioControls.aspectRatio === '16:9' || studioControls.aspectRatio === '9:16') ? studioControls.aspectRatio : '16:9',
+            aspectRatio: effectiveAspectRatio,
             duration: finalDuration,
             durationSeconds: finalDuration,
             model: studioControls.model, // Will be resolved by FirebaseAIService
@@ -183,19 +268,33 @@ export function useDirectGeneration() {
                 type: 'video' as const,
                 prompt: localPrompt,
                 timestamp: Date.now(),
-                projectId: currentProjectId,
+                projectId: currentProjectIdRef.current,
                 origin: 'generated' as const
             }));
 
-            if (newItems.every(i => !i.url)) {
-                toast.info('Video job queued. Check gallery for results.');
-            } else {
-                setResults(prev => [...newItems, ...prev]);
-                newItems.forEach(item => addToHistory({ ...item }));
+            const immediatelyReady = newItems.filter(i => i.url);
+            const queuedJobs = newItems.filter(i => !i.url);
+
+            if (immediatelyReady.length > 0) {
+                setResults(prev => [...immediatelyReady, ...prev]);
+                immediatelyReady.forEach(item => addToHistory({ ...item }));
                 toast.success('Video generated successfully');
             }
+
+            if (queuedJobs.length > 0) {
+                setActiveJobs(prev => [
+                    ...prev,
+                    ...queuedJobs.map(job => ({
+                        id: job.id,
+                        prompt: job.prompt || localPrompt,
+                        status: 'queued' as const,
+                        progress: 0
+                    }))
+                ]);
+                toast.info('Video job queued. Check gallery for results.');
+            }
         }
-    }, [studioControls, localPrompt, currentProjectId, addToHistory, toast, sequence, bpm, videoInputs?.ingredients]);
+    }, [studioControls, localPrompt, addToHistory, toast, sequence, bpm, videoInputs?.ingredients]);
 
     const handleGenerate = useCallback(async () => {
         if (!localPrompt.trim()) return;
@@ -233,12 +332,21 @@ export function useDirectGeneration() {
         }
     }, [localPrompt, mode, whiskState, toast, handleImageGenerate, handleVideoGenerate]);
 
+    const cancelJob = useCallback((jobId: string) => {
+        setActiveJobs(prev => prev.filter(j => j.id !== jobId));
+        if (unsubsRef.current[jobId]) {
+            unsubsRef.current[jobId]?.();
+            delete unsubsRef.current[jobId];
+        }
+    }, []);
+
     return {
         mode,
         localPrompt,
         setLocalPrompt,
         isGenerating,
         results,
+        activeJobs,
         handleModeSwitch,
         handleGenerate,
         mappedIngredients,
@@ -249,6 +357,7 @@ export function useDirectGeneration() {
         sequence,
         setSequence,
         bpm,
-        setBpm
+        setBpm,
+        cancelJob
     };
 }

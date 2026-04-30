@@ -1,4 +1,4 @@
-import { firebaseAI } from '@/services/ai/FirebaseAIService';
+import { GenAI } from '@/services/ai/GenAI';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { doc, getDoc } from 'firebase/firestore';
@@ -93,18 +93,6 @@ export const SecurityTools = {
         }, `Status retrieved for ${api_name} from fallback list.`);
     }),
 
-    scan_content: wrapTool('scan_content', async ({ text }: { text: string }) => {
-        const lowerText = text.toLowerCase();
-        const foundTerms = SENSITIVE_TERMS.filter(term => lowerText.includes(term));
-        const isSafe = foundTerms.length === 0;
-
-        return toolSuccess({
-            safe: isSafe,
-            risk_score: isSafe ? 0.0 : 0.9,
-            flagged_terms: foundTerms,
-            recommendation: isSafe ? 'ALLOW' : 'BLOCK_OR_REDACT'
-        }, isSafe ? "No sensitive terms found." : `Found ${foundTerms.length} sensitive terms.`);
-    }),
 
     rotate_credentials: wrapTool('rotate_credentials', async ({ service_name }: { service_name: string }) => {
         if (!window.electronAPI?.security) {
@@ -209,7 +197,7 @@ export const SecurityTools = {
         Identify potential risks (e.g., too many Admins, external guests).
         `;
 
-        const data = await firebaseAI.generateStructuredData(
+        const data = await GenAI.generateStructuredData(
             [{ text: prompt }],
             schema as Record<string, unknown>
         );
@@ -320,7 +308,6 @@ export const SecurityTools = {
 // Aliases
 export const {
     check_api_status,
-    scan_content,
     rotate_credentials,
     verify_zero_touch_prod,
     check_core_dump_policy,

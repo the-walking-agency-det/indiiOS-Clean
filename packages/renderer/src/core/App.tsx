@@ -21,6 +21,8 @@ import LoginForm from './components/auth/LoginForm';
 import { ApprovalModal } from './components/ApprovalModal';
 import { BiometricGate } from './components/auth/BiometricGate';
 import { OfflineBanner } from './components/OfflineBanner';
+import { SyncQueueIndicator } from '@/components/sync/SyncQueueIndicator';
+import { ResponsiveLayoutProvider } from '@/providers/ResponsiveLayoutProvider';
 import { ShareTargetHandler } from '@/core/components/ShareTargetHandler';
 import { ApprovalManager } from '@/components/instruments/InstrumentApprovalModal';
 import { useRemoteCommandListener } from '@/hooks/useRemoteCommandListener';
@@ -96,8 +98,13 @@ const MobileRemote = lazy(() => import('../modules/mobile-remote/MobileRemote'))
 const GrowthIntelligenceDashboard = lazy(() => import('../modules/analytics/GrowthIntelligenceDashboard'));
 const DesktopDashboard = lazy(() => import('../modules/desktop/DesktopDashboard'));
 const FoundersCheckout = lazy(() => import('../modules/founders/FoundersCheckout'));
+const FoundersPortal = lazy(() => import('../modules/founders/FoundersPortal'));
 const VideoPopout = lazy(() => import('../modules/video/editor/VideoPopout'));
 const RegistrationCenter = lazy(() => import('../modules/registration/RegistrationCenter'));
+const MaestroModule = lazy(() => import('../modules/maestro/MaestroModule'));
+
+// Lazy-load AudioVisualizer to defer Three.js initialization until component is rendered
+const AudioVisualizer = lazy(() => import('@/components/shared/AudioVisualizer').then(m => ({ default: m.AudioVisualizer })));
 
 // ============================================================================
 // Module Router - Maps module IDs to components
@@ -145,8 +152,10 @@ const MODULE_COMPONENTS: Partial<Record<ModuleId, React.LazyExoticComponent<Reac
     'analytics': GrowthIntelligenceDashboard,
     'desktop': DesktopDashboard,
     'founders-checkout': FoundersCheckout,
+    'founders-portal': FoundersPortal,
     'video-popout': VideoPopout,
     'registration': RegistrationCenter,
+    'maestro': MaestroModule,
 };
 
 // ============================================================================
@@ -404,7 +413,7 @@ function GuestGate({ onUpgrade }: { onUpgrade: () => void }) {
             </p>
             <button
                 onClick={onUpgrade}
-                className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-semibold transition-colors"
+                className="px-6 py-2.5 bg-dept-creative hover:bg-dept-creative-glow text-white rounded-lg text-sm font-semibold transition-colors"
             >
                 Create Free Account
             </button>
@@ -430,7 +439,7 @@ function ModuleRenderer({ moduleId }: ModuleRendererProps) {
             <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-400">
                 <div className="text-6xl">404</div>
                 <div className="text-xl font-semibold text-gray-300">Module not found</div>
-                <div className="text-sm text-gray-500">The page <code className="text-purple-400">/{moduleId}</code> doesn't exist.</div>
+                <div className="text-sm text-gray-500">The page <code className="text-dept-creative">/{moduleId}</code> doesn't exist.</div>
             </div>
         );
     }
@@ -450,7 +459,7 @@ function ModuleRenderer({ moduleId }: ModuleRendererProps) {
                 <div className="text-6xl">404</div>
                 <div className="text-xl font-semibold text-gray-300">Not found</div>
                 <div className="text-sm text-gray-500">
-                    <code className="text-purple-400">/{moduleId}/{subPath}</code> doesn't exist.
+                    <code className="text-dept-creative">/{moduleId}/{subPath}</code> doesn't exist.
                 </div>
             </div>
         );
@@ -529,15 +538,17 @@ export default function App() {
         // Item 276: MotionConfig reducedMotion="user" causes all Framer Motion
         // animations to respect the OS prefers-reduced-motion setting globally.
         <MotionConfig reducedMotion="user">
-            <VoiceProvider>
-                <ThemeProvider>
-                    <ToastProvider>
-                        <OfflineBanner />
+            <ResponsiveLayoutProvider>
+                <VoiceProvider>
+                    <ThemeProvider>
+                        <ToastProvider>
+                            <OfflineBanner />
+                            <SyncQueueIndicator className="fixed top-4 right-4 z-40" />
                         <SessionTimeoutOverlay />
                         {/* Skip to content link for keyboard accessibility */}
                         <a
                             href="#main-content"
-                            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-purple-600 focus:text-white focus:rounded-lg focus:shadow-lg"
+                            className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-dept-creative focus:text-white focus:rounded-lg focus:shadow-lg"
                         >
                             Skip to content
                         </a>
@@ -560,6 +571,11 @@ export default function App() {
                                         <main id="main-content" className="flex-1 flex flex-col min-w-0 bg-background relative z-0">
                                             {/* Module Ambient Background */}
                                             <ModuleAmbientBackground />
+
+                                            {/* Audio Visualizer (Background Wave Mesh) — lazy-loaded to defer Three.js init */}
+                                            <Suspense fallback={null}>
+                                                <AudioVisualizer />
+                                            </Suspense>
 
                                             {/* Mobile Header — phone only */}
                                             {showChrome && (
@@ -639,6 +655,7 @@ export default function App() {
                     </ToastProvider>
                 </ThemeProvider>
             </VoiceProvider>
+            </ResponsiveLayoutProvider>
         </MotionConfig>
     );
 }

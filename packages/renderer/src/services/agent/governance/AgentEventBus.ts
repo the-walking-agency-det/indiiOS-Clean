@@ -11,7 +11,14 @@ export type AgentEventType =
     | 'TOOL_EXECUTION_COMPLETE'
     | 'TOOL_EXECUTION_FAILED'
     | 'BUDGET_THRESHOLD_WARNING'
-    | 'CONTEXT_COMPACTION_TRIGGERED';
+    | 'CONTEXT_COMPACTION_TRIGGERED'
+    | 'MARKETING_AUTOMATION_TRIGGERED'
+    | 'GRAPH_EXECUTION_STARTED'
+    | 'GRAPH_EXECUTION_COMPLETED'
+    | 'GRAPH_EXECUTION_FAILED'
+    | 'GRAPH_NODE_STARTED'
+    | 'GRAPH_NODE_COMPLETED'
+    | 'GRAPH_NODE_FAILED';
 
 /**
  * Payload Interfaces
@@ -74,10 +81,43 @@ export class AgentEventBus {
     }
 
     /**
+     * Announces a graph execution lifecycle event
+     */
+    static emitGraphEvent(
+        type: 'GRAPH_EXECUTION_STARTED' | 'GRAPH_EXECUTION_COMPLETED' | 'GRAPH_EXECUTION_FAILED',
+        graphId: string,
+        executionId: string,
+        details?: string
+    ): void {
+        events.emit('AGENT_ACTION', {
+            agentId: 'graph-orchestrator',
+            action: type,
+            details: `Graph: ${graphId} | Exec: ${executionId}${details ? ` | ${details}` : ''}`
+        });
+    }
+
+    /**
+     * Announces a graph node execution lifecycle event
+     */
+    static emitNodeEvent(
+        type: 'GRAPH_NODE_STARTED' | 'GRAPH_NODE_COMPLETED' | 'GRAPH_NODE_FAILED',
+        graphId: string,
+        nodeId: string,
+        executionId: string,
+        details?: string
+    ): void {
+        events.emit('AGENT_ACTION', {
+            agentId: 'graph-orchestrator',
+            action: type,
+            details: `Node: ${nodeId} (Graph: ${graphId}) | Exec: ${executionId}${details ? ` | ${details}` : ''}`
+        });
+    }
+
+    /**
      * System-level agentic events
      */
     static emitSystemEvent(
-        type: 'BUDGET_THRESHOLD_WARNING' | 'CONTEXT_COMPACTION_TRIGGERED',
+        type: 'BUDGET_THRESHOLD_WARNING' | 'CONTEXT_COMPACTION_TRIGGERED' | 'MARKETING_AUTOMATION_TRIGGERED',
         details: string
     ): void {
         events.emit('SYSTEM_ALERT', {

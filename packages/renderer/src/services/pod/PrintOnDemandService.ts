@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Service layer uses dynamic types for external API responses */
 import { logger } from '@/utils/logger';
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { collection, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
@@ -22,6 +21,59 @@ import { db, auth } from '@/services/firebase';
  */
 
 import { z } from 'zod';
+
+// ============================================================================
+// External API Response Types
+// ============================================================================
+
+export interface PrintfulProductResponse {
+    id: string | number;
+    external_id?: string;
+    name: string;
+    description?: string;
+    type?: string;
+    type_name?: string;
+    retail_price?: number;
+    thumbnail_url?: string;
+    sync_variants?: PrintfulVariantResponse[];
+    variants?: PrintfulVariantResponse[];
+}
+
+export interface PrintfulVariantResponse {
+    id: string | number;
+    name: string;
+    size?: string;
+    color?: string;
+    color_code?: string;
+    retail_price?: number;
+    availability_status?: string;
+}
+
+export interface PrintfulOrderResponse {
+    id: string | number;
+    external_id?: string;
+    status: string;
+    items?: Array<{
+        [key: string]: unknown;
+    }>;
+    total: number;
+    shipping?: number;
+    address?: {
+        [key: string]: unknown;
+    };
+    costs?: {
+        subtotal?: number;
+        shipping?: number;
+        tax?: number;
+        total?: number;
+    };
+    shipments?: Array<{
+        tracking_number?: string;
+        tracking_url?: string;
+    }>;
+    created?: string;
+    updated?: string;
+}
 
 // ============================================================================
 // Types & Schemas
@@ -153,92 +205,28 @@ export interface PODProviderAdapter {
 
 class PrintfulProvider implements PODProviderAdapter {
     name: PODProvider = 'printful';
-    private apiKey: string;
-    private baseUrl = 'https://api.printful.com';
 
-    constructor(apiKey?: string) {
-        this.apiKey = apiKey || import.meta.env.VITE_PRINTFUL_API_KEY || '';
-    }
-
-    private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        if (!this.apiKey) {
-            throw new Error('Printful API key not configured. Set VITE_PRINTFUL_API_KEY in your environment.');
+    private async callFunction<T>(name: string, data?: any): Promise<T> {
+        try {
+            const { httpsCallable } = await import('firebase/functions');
+            const { functions } = await import('@/services/firebase');
+            const fn = httpsCallable(functions, `pod_${name}`);
+            const result = await fn(data);
+            return result.data as T;
+        } catch (error: any) {
+            logger.error(`[PrintfulProvider] Cloud Function pod_${name} failed:`, error);
+            throw new Error(`Printful operation failed: ${error.message}`);
         }
-
-        const maxRetries = 3;
-        let attempt = 0;
-
-        while (attempt < maxRetries) {
-            const response = await fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
-                ...options,
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                }
-            });
-
-            if (!response.ok) {
-                const { status } = response;
-                const errorBody = await response.json().catch(() => ({ message: response.statusText }));
-                const message = errorBody?.error?.message || errorBody?.message || response.statusText;
-
-                // 429 Too Many Requests & 5xx transient errors → retry with backoff
-                if (status === 429 || status === 502 || status === 503 || status === 504) {
-                    attempt++;
-                    if (attempt >= maxRetries) {
-                        const label = status === 429 ? 'Rate limited' : `Server error (${status})`;
-                        throw new Error(`Printful API ${label} after ${maxRetries} retries: ${message}`);
-                    }
-                    const waitMs = Math.min(1000 * Math.pow(2, attempt), 8000);
-                    logger.warn(`[Printful] ${status} on ${endpoint}. Retrying in ${waitMs}ms (attempt ${attempt}/${maxRetries})...`);
-                    await new Promise(resolve => setTimeout(resolve, waitMs));
-                    continue;
-                }
-
-                // 413 Payload Too Large → design file is too big
-                if (status === 413) {
-                    throw new Error(`Printful API error: Design file too large. Please reduce image size and try again. (413 Payload Too Large)`);
-                }
-
-                // 422 Unprocessable Entity → validation issue on Printful's side
-                if (status === 422) {
-                    throw new Error(`Printful API validation error (422): ${message}. Check that all required fields are present and valid.`);
-                }
-
-                // 401 Unauthorized → bad API key
-                if (status === 401) {
-                    throw new Error(`Printful API authentication failed (401): Invalid API key. Please check VITE_PRINTFUL_API_KEY.`);
-                }
-
-                // 403 Forbidden → insufficient permissions
-                if (status === 403) {
-                    throw new Error(`Printful API permission denied (403): ${message}. Check API key scope.`);
-                }
-
-                // 404 Not Found → resource doesn't exist
-                if (status === 404) {
-                    throw new Error(`Printful API resource not found (404): ${endpoint} - ${message}`);
-                }
-
-                // Generic fallback for all other 4xx/5xx
-                throw new Error(`Printful API error (${status}): ${message}`);
-            }
-
-            const data = await response.json();
-            return data.result;
-        }
-        throw new Error('Printful API request failed after retries');
     }
 
     async getProducts(): Promise<PODProduct[]> {
-        const products = await this.request<any[]>('/store/products');
+        const products = await this.callFunction<any[]>('printfulGetProducts');
         return products.map(p => this.mapProduct(p));
     }
 
     async getProduct(productId: string): Promise<PODProduct | null> {
         try {
-            const product = await this.request<any>(`/store/products/${productId}`);
+            const product = await this.callFunction<any>('printfulGetProduct', { productId });
             return this.mapProduct(product);
         } catch {
             return null;
@@ -256,17 +244,7 @@ class PrintfulProvider implements PODProviderAdapter {
     }
 
     async calculatePrice(items: PODOrderItem[]): Promise<{ subtotal: number; breakdown: { itemId: string; price: number }[] }> {
-        const result = await this.request<any>('/orders/estimate-costs', {
-            method: 'POST',
-            body: JSON.stringify({
-                items: items.map(item => ({
-                    sync_variant_id: item.variantId,
-                    quantity: item.quantity,
-                    files: [{ url: item.designUrl }]
-                }))
-            })
-        });
-
+        const result = await this.callFunction<any>('printfulCalculatePrice', { items });
         return {
             subtotal: result.costs?.subtotal || 0,
             breakdown: items.map((item, i) => ({
@@ -277,24 +255,8 @@ class PrintfulProvider implements PODProviderAdapter {
     }
 
     async getShippingRates(address: PODShippingAddress, items: PODOrderItem[]): Promise<PODShippingRate[]> {
-        const result = await this.request<any[]>('/shipping/rates', {
-            method: 'POST',
-            body: JSON.stringify({
-                recipient: {
-                    address1: address.address1,
-                    city: address.city,
-                    state_code: address.stateCode,
-                    country_code: address.countryCode,
-                    zip: address.postalCode
-                },
-                items: items.map(item => ({
-                    sync_variant_id: item.variantId,
-                    quantity: item.quantity
-                }))
-            })
-        });
-
-        return result.map(rate => ({
+        const result = await this.callFunction<any[]>('printfulGetShippingRates', { address, items });
+        return result.map((rate: any) => ({
             id: rate.id,
             name: rate.name,
             rate: parseFloat(rate.rate),
@@ -304,39 +266,13 @@ class PrintfulProvider implements PODProviderAdapter {
     }
 
     async createOrder(items: PODOrderItem[], address: PODShippingAddress, shippingMethod = 'STANDARD'): Promise<PODOrder> {
-        const result = await this.request<any>('/orders', {
-            method: 'POST',
-            body: JSON.stringify({
-                recipient: {
-                    name: address.name,
-                    company: address.company,
-                    address1: address.address1,
-                    address2: address.address2,
-                    city: address.city,
-                    state_code: address.stateCode,
-                    country_code: address.countryCode,
-                    zip: address.postalCode,
-                    phone: address.phone,
-                    email: address.email
-                },
-                items: items.map(item => ({
-                    sync_variant_id: item.variantId,
-                    quantity: item.quantity,
-                    files: [{
-                        url: item.designUrl,
-                        position: item.printArea
-                    }]
-                })),
-                shipping: shippingMethod
-            })
-        });
-
+        const result = await this.callFunction<any>('printfulCreateOrder', { items, address, shippingMethod });
         return this.mapOrder(result);
     }
 
     async getOrder(orderId: string): Promise<PODOrder | null> {
         try {
-            const result = await this.request<any>(`/orders/${orderId}`);
+            const result = await this.callFunction<any>('printfulGetOrder', { orderId });
             return this.mapOrder(result);
         } catch {
             return null;
@@ -345,7 +281,7 @@ class PrintfulProvider implements PODProviderAdapter {
 
     async cancelOrder(orderId: string): Promise<boolean> {
         try {
-            await this.request(`/orders/${orderId}`, { method: 'DELETE' });
+            await this.callFunction<any>('printfulCancelOrder', { orderId });
             return true;
         } catch {
             return false;
@@ -353,42 +289,11 @@ class PrintfulProvider implements PODProviderAdapter {
     }
 
     async generateMockup(productId: string, variantId: string, designUrl: string, printArea = 'front'): Promise<string> {
-        const result = await this.request<any>('/mockup-generator/create-task', {
-            method: 'POST',
-            body: JSON.stringify({
-                variant_ids: [parseInt(variantId)],
-                files: [{
-                    placement: printArea,
-                    image_url: designUrl
-                }]
-            })
-        });
-
-        // Poll for completion
-        const taskId = result.task_key;
-        let attempts = 0;
-        const maxAttempts = 30;
-
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const status = await this.request<any>(`/mockup-generator/task?task_key=${taskId}`);
-
-            if (status.status === 'completed') {
-                return status.mockups?.[0]?.mockup_url || '';
-            }
-
-            if (status.status === 'failed') {
-                throw new Error('Mockup generation failed');
-            }
-
-            attempts++;
-        }
-
-        throw new Error('Mockup generation timed out');
+        const result = await this.callFunction<any>('printfulGenerateMockup', { productId, variantId, designUrl, printArea });
+        return result;
     }
 
-    private mapProduct(raw: any): PODProduct {
+    private mapProduct(raw: PrintfulProductResponse): PODProduct {
         return {
             id: String(raw.id),
             externalId: String(raw.external_id || raw.id),
@@ -398,7 +303,7 @@ class PrintfulProvider implements PODProviderAdapter {
             type: raw.type_name || raw.type || 'Unknown',
             basePrice: raw.retail_price || 0,
             currency: 'USD',
-            variants: (raw.sync_variants || raw.variants || []).map((v: any) => ({
+            variants: (raw.sync_variants || raw.variants || []).map((v: PrintfulVariantResponse) => ({
                 id: String(v.id),
                 name: v.name,
                 size: v.size,
@@ -415,32 +320,35 @@ class PrintfulProvider implements PODProviderAdapter {
         };
     }
 
-    private mapOrder(raw: any): PODOrder {
+    private mapOrder(raw: PrintfulOrderResponse): PODOrder {
         return {
             id: String(raw.id),
             externalId: raw.external_id,
             provider: 'printful',
             status: this.mapOrderStatus(raw.status),
-            items: (raw.items || []).map((item: any) => ({
-                productId: String(item.sync_product_id),
-                variantId: String(item.sync_variant_id),
-                quantity: item.quantity,
-                designUrl: item.files?.[0]?.url || '',
-                printArea: item.files?.[0]?.position || 'front'
-            })),
+            items: (raw.items || []).map((item: Record<string, unknown>) => {
+                const files = item.files as Array<{ url: string; position: string }> | undefined;
+                return {
+                    productId: String(item.sync_product_id),
+                    variantId: String(item.sync_variant_id),
+                    quantity: (item.quantity as number) || 1,
+                    designUrl: files?.[0]?.url || '',
+                    printArea: files?.[0]?.position || 'front'
+                };
+            }),
             shippingAddress: {
-                name: raw.recipient?.name || '',
-                company: raw.recipient?.company,
-                address1: raw.recipient?.address1 || '',
-                address2: raw.recipient?.address2,
-                city: raw.recipient?.city || '',
-                stateCode: raw.recipient?.state_code || '',
-                countryCode: raw.recipient?.country_code || '',
-                postalCode: raw.recipient?.zip || '',
-                phone: raw.recipient?.phone,
-                email: raw.recipient?.email
+                name: (raw.address as { name?: string } | undefined)?.name || '',
+                company: (raw.address as { company?: string } | undefined)?.company,
+                address1: (raw.address as { address1?: string } | undefined)?.address1 || '',
+                address2: (raw.address as { address2?: string } | undefined)?.address2,
+                city: (raw.address as { city?: string } | undefined)?.city || '',
+                stateCode: (raw.address as { state_code?: string } | undefined)?.state_code || '',
+                countryCode: (raw.address as { country_code?: string } | undefined)?.country_code || '',
+                postalCode: (raw.address as { zip?: string } | undefined)?.zip || '',
+                phone: (raw.address as { phone?: string } | undefined)?.phone,
+                email: (raw.address as { email?: string } | undefined)?.email
             },
-            shippingMethod: raw.shipping,
+            shippingMethod: String(raw.shipping || ''),
             subtotal: raw.costs?.subtotal || 0,
             shippingCost: raw.costs?.shipping || 0,
             tax: raw.costs?.tax || 0,
@@ -448,8 +356,8 @@ class PrintfulProvider implements PODProviderAdapter {
             currency: 'USD',
             trackingNumber: raw.shipments?.[0]?.tracking_number,
             trackingUrl: raw.shipments?.[0]?.tracking_url,
-            createdAt: raw.created,
-            updatedAt: raw.updated
+            createdAt: raw.created || new Date().toISOString(),
+            updatedAt: raw.updated || new Date().toISOString()
         };
     }
 
@@ -744,11 +652,9 @@ class PrintOnDemandServiceClass {
         // Register providers
         this.registerProvider(new InternalProvider());
 
-        // Only register Printful if API key is configured
-        if (import.meta.env.VITE_PRINTFUL_API_KEY) {
-            this.registerProvider(new PrintfulProvider());
-            this.defaultProvider = 'printful';
-        }
+        // Printful provider uses Cloud Functions for secure API communication
+        this.registerProvider(new PrintfulProvider());
+        this.defaultProvider = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.MODE === 'test' ? 'internal' : 'printful';
     }
 
     registerProvider(provider: PODProviderAdapter): void {

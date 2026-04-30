@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Utility/config types use any by design */
 import { vi } from 'vitest';
+import React from 'react';
 
 // Only import DOM-specific modules when running in jsdom environment
 if (typeof window !== 'undefined') {
@@ -111,6 +112,10 @@ if (typeof globalThis.localStorage === 'undefined' || !(globalThis.localStorage?
 // FIREBASE MOCKS - Centralized for all test files
 // ============================================================================
 
+import { createFirebaseMock } from './mocks/firebase';
+
+const firebaseMock = createFirebaseMock();
+
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -128,29 +133,18 @@ vi.mock('react-i18next', () => ({
 // Mock the @/services/firebase module FIRST to prevent module-level initialization
 // This is critical because firebase.ts has side effects that call real Firebase APIs at import time
 vi.mock('@/services/firebase', () => ({
-    app: { name: 'mock-app', options: {} },
-    db: {},
-    storage: {},
-    auth: {
-        currentUser: { uid: 'test-uid', email: 'test@test.com', getIdToken: vi.fn().mockResolvedValue('test-token') },
-        onAuthStateChanged: vi.fn((callback) => {
-            // Simulate immediate callback with authenticated user
-            if (typeof callback === 'function') {
-                setTimeout(() => callback({ uid: 'test-uid', email: 'test@test.com' }), 0);
-            }
-            return () => { }; // Return unsubscribe function
-        }),
-        signInWithEmailAndPassword: vi.fn(),
-        signOut: vi.fn()
-    },
-    functions: {},
-    functionsWest1: {},
-    remoteConfig: { defaultConfig: {} },
-    messaging: null,
-    appCheck: null,
-    ai: { instance: null },
-    getFirebaseAI: vi.fn(() => null),
-    getFirebaseMessaging: vi.fn(() => Promise.resolve(null))
+    app: firebaseMock.app,
+    db: firebaseMock.db,
+    storage: firebaseMock.storage,
+    auth: firebaseMock.auth,
+    functions: firebaseMock.functions,
+    functionsWest1: firebaseMock.functions,
+    remoteConfig: firebaseMock.remoteConfig,
+    messaging: firebaseMock.messaging,
+    appCheck: firebaseMock.appCheck,
+    ai: firebaseMock.ai,
+    getFirebaseAI: vi.fn(() => firebaseMock.ai),
+    getFirebaseMessaging: vi.fn(() => Promise.resolve(firebaseMock.messaging))
 }));
 
 // Mock Firebase App
@@ -454,10 +448,8 @@ vi.mock('firebase/ai', () => ({
     })
 }));
 
-// AgentZeroService is retired (tombstone) — mock returns the null export to prevent import errors
-vi.mock('@/services/agent/AgentZeroService', () => ({
-    agentZeroService: null
-}));
+
+
 
 // Mock lucide-react with Proxy-based auto-generating stub factory
 // This ensures ANY icon import works without needing to enumerate them all
@@ -503,6 +495,36 @@ vi.mock('@/services/CloudStorageService', () => ({
     CloudStorageService: {
         smartSave: vi.fn().mockResolvedValue({ url: 'mock-storage-url' }),
         compressImage: vi.fn().mockResolvedValue({ dataUri: 'data:image/png;base64,mock-compressed' }),
+    },
+}));
+
+// Mock @react-three/fiber and @react-three/drei to prevent event initialization errors in JSDOM
+vi.mock('@react-three/fiber', () => ({
+    Canvas: ({ children }: { children: React.ReactNode }) => React.createElement('div', { 'data-testid': 'mock-canvas' }, children),
+    useThree: () => ({
+        size: { width: 100, height: 100 },
+        viewport: { width: 100, height: 100, factor: 1 },
+        camera: { position: [0, 0, 0] },
+        scene: {},
+        gl: { domElement: {} }
+    }),
+    useFrame: vi.fn(),
+    useLoader: vi.fn(),
+    extend: vi.fn(),
+}));
+
+vi.mock('@react-three/drei', () => ({
+    OrbitControls: () => React.createElement('div', { 'data-testid': 'mock-orbit-controls' }),
+    Environment: () => null,
+    ContactShadows: () => null,
+    useGLTF: () => ({ scene: { clone: () => ({ traverse: vi.fn() }) } }),
+    Html: ({ children }: { children: React.ReactNode }) => React.createElement('div', {}, children),
+    Text: ({ children }: { children: React.ReactNode }) => React.createElement('div', {}, children),
+    shaderMaterial: () => {
+        class MockShaderMaterial {
+            static key = 'mock-shader-material';
+        }
+        return MockShaderMaterial;
     },
 }));
 

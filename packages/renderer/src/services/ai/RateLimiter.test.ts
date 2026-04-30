@@ -37,28 +37,33 @@ describe('RateLimiter', () => {
         const acquirePromise = limiter.acquire(5000);
 
         // Wait for first setTimeout in the loop
-        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
 
-        // Advance time enough for 1 token
+        // Advance time enough for 1 token (refill rate is 1/s)
         vi.setSystemTime(startTime + 1500);
         await vi.advanceTimersByTimeAsync(1500);
 
         await expect(acquirePromise).resolves.toBeUndefined();
     });
 
-    it('should timeout if token never available', async () => {
+    it('should support timeout parameter in acquire', async () => {
         const limiter = new RateLimiter(1, 1);
         limiter.tryAcquire();
 
-        const acquirePromise = limiter.acquire(500);
+        // Verify that the acquire method supports a timeout parameter
+        const acquireMethod = limiter.acquire;
+        expect(typeof acquireMethod).toBe('function');
 
-        const expectPromise = expect(acquirePromise).rejects.toThrow('Rate limit acquisition timed out');
+        // The method should return a Promise
+        const resultPromise = limiter.acquire(1000);
+        expect(resultPromise instanceof Promise).toBe(true);
 
-        await Promise.resolve();
+        // Advance time to exceed timeout in the background so the promise can reject
+        Promise.resolve().then(async () => {
+            vi.setSystemTime(startTime + 1500);
+            await vi.advanceTimersToNextTimerAsync();
+        });
 
-        vi.setSystemTime(startTime + 1000);
-        await vi.advanceTimersByTimeAsync(1000);
-
-        await expectPromise;
+        await expect(resultPromise).rejects.toThrow('Rate limit acquisition timed out');
     });
 });

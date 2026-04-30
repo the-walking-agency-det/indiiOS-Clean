@@ -10,21 +10,22 @@ import { createNoise3D } from 'simplex-noise';
 import { audioStore } from '../../store/audioStore';
 
 // Custom Shader Material
+// Uniforms object cast as `any` to avoid TS2322 when duplicate @types/three
+// copies exist in CI hoisting (drei's UniformValue narrows from a different copy
+// than THREE.Color/Vector instances, defeating per-value `as any` casts).
 const WaveShaderMaterial = shaderMaterial(
-    // Uniforms
     {
         uTime: 0,
-        uColorStart: new THREE.Color('#1a0b2e'), // Deep Purple Base
-        uColorEnd: new THREE.Color('#431050'),   // Lighter Violet
+        uColorStart: new THREE.Color('#050a05'),
+        uColorEnd: new THREE.Color('#0a1a0a'),
         uMouse: new THREE.Vector2(0, 0),
         uHover: 0,
-        uAudioEQ: new THREE.Vector4(0, 0, 0, 0), // Bass, LowMid, HighMid, Treble
-        // Brand Colors / Frequency Colors
-        uColorBass: new THREE.Color('#5000ff'),    // Electric Indigo
-        uColorLowMid: new THREE.Color('#00ccff'),  // Cyan
-        uColorHighMid: new THREE.Color('#ff0055'), // Magenta
-        uColorTreble: new THREE.Color('#ffffff'),  // White Sparkle
-    },
+        uAudioEQ: new THREE.Vector4(0, 0, 0, 0),
+        uColorBass: new THREE.Color('#00ff66'),
+        uColorLowMid: new THREE.Color('#bfff00'),
+        uColorHighMid: new THREE.Color('#10b981'),
+        uColorTreble: new THREE.Color('#ffffff'),
+    } as any,
     // Vertex Shader
     `
     varying vec2 vUv;
@@ -160,16 +161,16 @@ declare module '@react-three/fiber' {
     interface ThreeElements {
         waveShaderMaterial: {
             ref?: React.Ref<any>;
-            uColorStart?: THREE.Color;
-            uColorEnd?: THREE.Color;
+            uColorStart?: any;
+            uColorEnd?: any;
             uTime?: number;
             uMouse?: THREE.Vector2;
             uHover?: number;
             uAudioEQ?: THREE.Vector4;
-            uColorBass?: THREE.Color;
-            uColorLowMid?: THREE.Color;
-            uColorHighMid?: THREE.Color;
-            uColorTreble?: THREE.Color;
+            uColorBass?: any;
+            uColorLowMid?: any;
+            uColorHighMid?: any;
+            uColorTreble?: any;
             wireframe?: boolean;
             transparent?: boolean;
             opacity?: number;
@@ -228,12 +229,12 @@ export default function WaveMesh() {
             */}
             <waveShaderMaterial
                 ref={materialRef}
-                uColorStart={new THREE.Color('#080808')}
-                uColorEnd={new THREE.Color('#201030')}
-                uColorBass={new THREE.Color('#4d21fc')}   // Electric Indigo
-                uColorLowMid={new THREE.Color('#00d4ff')} // Bright Cyan
-                uColorHighMid={new THREE.Color('#ff006a')} // Bright Magenta
-                uColorTreble={new THREE.Color('#ffffff')}
+                uColorStart={new THREE.Color('#050a05') as any}
+                uColorEnd={new THREE.Color('#0a1a0a') as any}
+                uColorBass={new THREE.Color('#00ff66') as any}   // Spring Green
+                uColorLowMid={new THREE.Color('#bfff00') as any} // Lime
+                uColorHighMid={new THREE.Color('#10b981') as any} // Emerald
+                uColorTreble={new THREE.Color('#ffffff') as any}
                 wireframe={true}
                 transparent={true}
                 opacity={1.0}

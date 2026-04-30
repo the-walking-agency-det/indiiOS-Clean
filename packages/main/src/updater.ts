@@ -108,13 +108,25 @@ export function registerUpdaterHandlers(): void {
             autoUpdater.quitAndInstall(false, true);
         }
     });
+
+    ipcMain.handle('updater:set-channel', (_event, channel: 'stable' | 'beta') => {
+        if (autoUpdater) {
+            autoUpdater.channel = channel === 'beta' ? 'beta' : 'latest';
+            autoUpdater.allowPrerelease = channel === 'beta';
+            log.info(`[Updater] Channel set to: ${channel}`);
+        }
+    });
 }
 
 function sendToRenderer(channel: string, data?: Record<string, unknown>): void {
     const windows = BrowserWindow.getAllWindows();
     for (const win of windows) {
-        if (!win.isDestroyed()) {
-            win.webContents.send(channel, data);
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+            try {
+                win.webContents.send(channel, data);
+            } catch (err) {
+                log.warn(`[Updater] Failed to send ${channel} to renderer: ${err}`);
+            }
         }
     }
 }

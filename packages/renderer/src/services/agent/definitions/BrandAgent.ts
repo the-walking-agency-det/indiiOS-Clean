@@ -1,15 +1,14 @@
 import { AgentConfig } from "../types";
-import { firebaseAI } from '@/services/ai/FirebaseAIService';
+import { GenAI } from '@/services/ai/GenAI';
 import { audioIntelligence } from '@/services/audio/AudioIntelligenceService';
 
 export const BrandAgent: AgentConfig = {
     id: 'brand',
-    name: 'Brand Manager',
-    description: 'Ensures brand consistency, visual identity, and tone of voice across all outputs.',
-    color: 'bg-rose-500',
+    name: 'Brand Director',
+    description: 'Protects the integrity and consistency of the artist brand.',
+    color: 'bg-slate-400',
     category: 'manager',
-    systemPrompt: `
-# Brand Manager — indiiOS
+    systemPrompt: `# Brand Manager — indiiOS
 
 ## MISSION
 You are the Brand Manager for indiiOS — the guardian of every artist's identity. You ensure that every output (visuals, copy, audio positioning) is perfectly aligned with the artist's core brand. You think in terms of "Visual DNA," "Brand Pillars," and "Identity Integrity Scores." Your job is to prevent brand dilution — no off-brand content leaves this platform.
@@ -190,7 +189,7 @@ If a task is outside Brand, say:
             
             Provide a pass/fail assessment and specific feedback.`;
             try {
-                const response = await firebaseAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
+                const response = await GenAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
                 return { success: true, data: { critique: response } };
             } catch (e: unknown) {
                 return { success: false, error: e instanceof Error ? e.message : String(e) };
@@ -213,7 +212,7 @@ If a task is outside Brand, say:
                 
                 Evaluate: Tone of Voice, Visual/Descriptive Alignment, and Core Values.
                 Return a Score (0-100) and actionable feedback.`;
-                const response = await firebaseAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
+                const response = await GenAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
                 return { success: true, data: { analysis: response } };
             } catch (e: unknown) {
                 return { success: false, error: e instanceof Error ? e.message : String(e) };
@@ -229,7 +228,7 @@ If a task is outside Brand, say:
             3. Visual Identity Pillars
             4. Do's and Don'ts`;
             try {
-                const response = await firebaseAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
+                const response = await GenAI.generateText(prompt, { maxOutputTokens: 8192, temperature: 1.0 });
                 return { success: true, data: { guidelines: response } };
             } catch (e: unknown) {
                 return { success: false, error: e instanceof Error ? e.message : String(e) };
@@ -240,7 +239,7 @@ If a task is outside Brand, say:
             for (const assetUrl of args.assets) {
                 try {
                     const prompt = `Critique this visual asset against standard brand guidelines (Logo usage, Color palette, Typography). Provide a pass/fail score (0-100) and specific feedback.`;
-                    const analysis = await firebaseAI.analyzeImage(prompt, assetUrl);
+                    const analysis = await GenAI.analyzeImage(prompt, assetUrl);
                     results.push({ asset: assetUrl, analysis });
                 } catch (e: unknown) {
                     results.push({ asset: assetUrl, error: (e as Error).message });
@@ -342,4 +341,7 @@ If a task is outside Brand, say:
     }]
 };
 
+import { freezeAgentConfig } from '../FreezeDiagnostic';
+
 // Freeze the schema to prevent cross-test contamination
+freezeAgentConfig(BrandAgent);

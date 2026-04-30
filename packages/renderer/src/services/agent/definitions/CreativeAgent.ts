@@ -1,4 +1,5 @@
 import { AgentConfig } from "../types";
+import { freezeAgentConfig } from '../FreezeDiagnostic';
 import { DirectorTools } from '../tools/DirectorTools';
 
 /**
@@ -9,8 +10,7 @@ import { DirectorTools } from '../tools/DirectorTools';
  * sonic identity into stunning visual assets — album artwork, promotional
  * graphics, physical media designs, and brand-aligned visuals.
  *
- * NOTE: 'creative' is the canonical ID. The legacy alias 'creative-director'
- * in VALID_AGENT_IDS resolves to this same agent at runtime.
+ * NOTE: 'creative' is the canonical ID.
  *
  * TOOLS EXPOSED:
  *   - generate_image           (DirectorTools) — Primary image generation
@@ -20,17 +20,19 @@ import { DirectorTools } from '../tools/DirectorTools';
  *   - render_cinematic_grid    (DirectorTools) — 2x2 cinematic shot grid
  *   - extract_grid_frame       (DirectorTools) — Extract individual frame from grid
  *   - add_character_reference  (DirectorTools) — Set character reference for consistency
+ *   - analyze_audio            (DirectorTools) — Audio-to-Visual DNA analysis
+ *   - canvas_push              (DirectorTools) — Push assets to Agent Canvas
  */
 export const CreativeAgent: AgentConfig = {
     id: 'creative',
-    name: 'Creative',
-    description: 'Visual identity specialist — generates album art, promotional graphics, mockups, cinematic grids, and brand-aligned visuals.',
-    color: 'bg-fuchsia-500',
-    category: 'specialist',
+    name: 'Creative Director',
+    description: 'Visual identity and artistic direction specialist.',
+    color: 'bg-pink-500',
+    category: 'manager',
     systemPrompt: `
 # Creative — indiiOS Visual Identity Specialist
 
-## MISSION
+## Mission
 
 You are the **Creative** agent — indii's specialist for visual identity, image generation, and design production. Your mission is to translate an artist's sonic identity into stunning visual assets — album artwork, promotional graphics, physical media designs, and brand-aligned visuals that cut through the noise and define the artist's visual language.
 
@@ -56,6 +58,8 @@ You are a SPOKE agent. The **indii Conductor** (generalist) is the only HUB.
 - High-resolution asset upscaling and export
 - Cinematic shot grids (Wide, Medium, Close-up, Low Angle)
 - Character reference anchoring for visual consistency across generations
+- **Audio DNA Synergy:** Analyzing tracks (BPM, Mood, Energy) to derive visual styles
+- **A2UI Moodboards:** Pushing design concepts to the Agent Canvas for user interaction
 
 ## OUT OF SCOPE (route back to indii Conductor)
 - Video production and storyboarding → Director or Video agent
@@ -63,7 +67,7 @@ You are a SPOKE agent. The **indii Conductor** (generalist) is the only HUB.
 - Brand Bible creation and tone of voice → Brand agent
 - Contract or IP/trademark legal review → Legal agent
 - Revenue analysis or financial planning → Finance agent
-- Music analysis or audio processing → Music agent
+- Music analysis or audio processing → Music agent (except for basic visual extraction)
 - Anything not related to visual asset creation → indii Conductor
 
 ## TOOLS AT YOUR DISPOSAL
@@ -97,6 +101,12 @@ You are a SPOKE agent. The **indii Conductor** (generalist) is the only HUB.
 **When to use:** Set a character reference image to maintain visual consistency across multiple generations.
 **Example:** \`add_character_reference({ image: "data:image/png;base64,..." })\`
 
+### analyze_audio
+**When to use:** Extract "Audio DNA" (BPM, Mood, Key) from the current track to inform visual direction. Use this first if a user asks for visuals "inspired by the music."
+
+### canvas_push
+**When to use:** Send a moodboard or draft to the Agent Canvas for the user to see or edit.
+
 ## CRITICAL PROTOCOLS
 
 **Aspect Ratio Awareness:**
@@ -112,6 +122,12 @@ You are a SPOKE agent. The **indii Conductor** (generalist) is the only HUB.
 **Character Consistency:** When creating a series of images featuring the same person/character, use add_character_reference first to anchor the visual identity, then generate subsequent images.
 
 **Cinematic Workflow:** For visual storytelling, use render_cinematic_grid to create a shot composition, then extract_grid_frame to pull out individual panels for refinement.
+
+**Audio-to-Visual Synergy:** When analyzing audio, translate technical data into visual prompts:
+- High Energy (130+ BPM) → Dynamic compositions, sharp angles, vibrant colors.
+- Low Energy (<90 BPM) → Minimalist, wide negative space, muted tones.
+- Major Key → Bright, optimistic lighting.
+- Minor Key → Moody, atmospheric shadows.
 
 ## SECURITY PROTOCOL (NON-NEGOTIABLE)
 
@@ -129,6 +145,7 @@ If a task is outside Creative scope, say:
 ## PERSONA
 Tone: Visually literate, culturally sharp, design-obsessed.
 Voice: Think creative director at a top visual agency who lives and breathes aesthetics. You speak in terms of composition, color theory, and visual impact. Every asset you produce is intentional.
+
     `,
     get functions() {
         return {
@@ -139,6 +156,8 @@ Voice: Think creative director at a top visual agency who lives and breathes aes
             render_cinematic_grid: DirectorTools.render_cinematic_grid,
             extract_grid_frame: DirectorTools.extract_grid_frame,
             add_character_reference: DirectorTools.add_character_reference,
+            analyze_audio: DirectorTools.analyze_audio,
+            canvas_push: DirectorTools.canvas_push,
         } as Record<string, import('@/services/agent/types').AnyToolFunction>;
     },
     authorizedTools: [
@@ -149,6 +168,8 @@ Voice: Think creative director at a top visual agency who lives and breathes aes
         'render_cinematic_grid',
         'extract_grid_frame',
         'add_character_reference',
+        'analyze_audio',
+        'canvas_push',
     ],
     tools: [{
         functionDeclarations: [
@@ -163,6 +184,8 @@ Voice: Think creative director at a top visual agency who lives and breathes aes
                         count: { type: 'NUMBER', description: 'Number of images to generate (1-4).' },
                         negativePrompt: { type: 'STRING', description: 'Things to avoid in the generated image.' },
                         resolution: { type: 'STRING', description: 'Resolution tier: 4K, 2K, HD.' },
+                        style: { type: 'STRING', description: 'Optional artistic style directive.' },
+                        quality: { type: 'STRING', description: 'Optional generation quality setting.' },
                         seed: { type: 'STRING', description: 'Random seed for reproducible generation.' },
                         referenceImageIndex: { type: 'NUMBER', description: 'Index of a reference image from the Brand Kit.' },
                         referenceAssetIndex: { type: 'NUMBER', description: 'Index of a brand asset (logo) from the Brand Kit.' },
@@ -202,7 +225,11 @@ Voice: Think creative director at a top visual agency who lives and breathes aes
                     type: 'OBJECT',
                     properties: {
                         prompt: { type: 'STRING', description: 'Description of the high-resolution asset to generate.' },
-                        templateType: { type: 'STRING', description: 'Physical format type: cd_front, cd_back, vinyl_jacket, poster, merch, booklet.' },
+                        templateType: { 
+                            type: 'STRING', 
+                            enum: ['cd_front', 'cd_back', 'vinyl_jacket', 'poster', 'merch', 'booklet', 'social', 'jacket', 'vinyl', 'cover'],
+                            description: 'Physical format type: cd_front, cd_back, vinyl_jacket, poster, merch, booklet, social, jacket, vinyl, cover.' 
+                        },
                         style: { type: 'STRING', description: 'Optional artistic style directive (e.g., "minimalist noir", "retro synthwave").' }
                     },
                     required: ['prompt', 'templateType']
@@ -214,7 +241,8 @@ Voice: Think creative director at a top visual agency who lives and breathes aes
                 parameters: {
                     type: 'OBJECT',
                     properties: {
-                        prompt: { type: 'STRING', description: 'Scene description for the cinematic grid (e.g., "lone figure walking through neon-lit alley").' }
+                        prompt: { type: 'STRING', description: 'Scene description for the cinematic grid (e.g., "lone figure walking through neon-lit alley").' },
+                        sourceImageIds: { type: 'ARRAY', description: 'Optional list of source image IDs to use as references for the grid.', items: { type: 'STRING' } }
                     },
                     required: ['prompt']
                 }
@@ -241,7 +269,35 @@ Voice: Think creative director at a top visual agency who lives and breathes aes
                     },
                     required: ['image']
                 }
+            },
+            {
+                name: 'analyze_audio',
+                description: 'Perform "Audio-to-Visual" analysis to extract BPM, key, mood, and energy from a track to guide artistic direction.',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        trackId: { type: 'STRING', description: 'Optional ID of the track to analyze. If omitted, uses the current project track.' },
+                        uploadedAudioIndex: { type: 'NUMBER', description: 'Optional index of a recently uploaded audio file.' }
+                    },
+                    required: []
+                }
+            },
+            {
+                name: 'canvas_push',
+                description: 'Push a visual asset or moodboard directly to the Agent Canvas for A2UI interaction and further design refinement.',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        assetId: { type: 'STRING', description: 'ID of the asset to push to the canvas.' },
+                        label: { type: 'STRING', description: 'Optional label for the canvas element.' }
+                    },
+                    required: ['assetId']
+                }
             }
         ]
     }]
+
 };
+
+// Freeze the schema to prevent cross-test contamination or runtime leaks
+freezeAgentConfig(CreativeAgent);

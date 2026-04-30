@@ -1,6 +1,9 @@
-// indiiOS Cloud Functions - V1.1
+// indiiOS Cloud Functions - V1.1 (with Phase 2a: v2 streaming endpoint)
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
+
+// Phase 2a: Agent Streaming (v2 - SSE support for Phase 2 orchestration)
+export { agentStreamResponse, agentStreamHealth } from './streaming/agentStream';
 import { Inngest } from "inngest";
 import { serve } from "inngest/express";
 import corsLib from "cors";
@@ -33,6 +36,9 @@ if (!process.env.GCLOUD_PROJECT) {
 
 // Initialize Firebase Admin
 admin.initializeApp();
+
+// Admin Functions
+export { setGodMode } from './functions/admin/setGodMode';
 
 // Stripe Connect Functions
 export { createStripeAccount, createTransfer } from './stripe/connect';
@@ -78,6 +84,8 @@ export { deliverScheduledPosts } from './social/deliverScheduledPosts';
 
 // Timeline Orchestrator (Progressive Campaign Engine — polls every 15 min for due milestones)
 export { pollTimelineMilestones } from './timeline/pollTimelineMilestones';
+export { pulseTick } from './orchestration/pulseTick';
+export { onMilestoneScheduled } from './timeline/onMilestoneScheduled';
 
 // Email OAuth Token Manager (Gmail / Outlook — server-side token exchange & refresh)
 export { emailExchangeToken, emailRefreshToken, emailRevokeToken } from './email/tokenManager';
@@ -97,6 +105,9 @@ export { processRelayCommand } from './relay/relayCommandProcessor';
 // Telegram Bot Adapter — Phase 2 Multi-Channel (bridges Telegram → Firestore relay)
 export { telegramWebhook } from './relay/telegramWebhook';
 export { generateTelegramLinkCode, getTelegramLinkStatus } from './relay/telegramLink';
+
+// App Releases (Founder Delivery)
+export { generateReleaseDownloadUrl } from './releases/generateDownloadUrl';
 
 // App Check enforcement flag — controls whether Firebase App Check tokens are validated.
 // PRODUCTION ENABLEMENT (Item 247):
@@ -1464,3 +1475,4 @@ export * from './mcp';
 
 // Agent Orchestration State Machine
 export * from './orchestration';
+export * from './pod/printful';
