@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { ScreenControl } from '@/services/screen/ScreenControlService';
 import {
     Sparkles, Image as ImageIcon, Video, MonitorPlay, MessageSquare,
-    Palette, Clock, FlaskConical, Wand2, Rocket, Settings2
+    Palette, Clock, FlaskConical, Wand2, Rocket
 } from 'lucide-react';
 import PromptBuilder from './PromptBuilder';
 import DaisyChainControls from './DaisyChainControls';
 import { useToast } from '@/core/context/ToastContext';
 import BrandAssetsDrawer from './BrandAssetsDrawer';
 import PromptHistoryDrawer from './PromptHistoryDrawer';
-import StudioSettingsPanel from './StudioSettingsPanel';
 import FrameSelectionModal from '../../video/components/FrameSelectionModal';
 
 interface CreativeNavbarProps extends React.HTMLAttributes<HTMLDivElement> { }
@@ -47,7 +47,6 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
     const [showBrandAssets, setShowBrandAssets] = useState(false);
     const [showPromptHistory, setShowPromptHistory] = useState(false);
     const [showFrameModal, setShowFrameModal] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
     const [frameModalTarget, setFrameModalTarget] = useState<'firstFrame' | 'lastFrame'>('firstFrame');
 
     const tabs = [
@@ -64,8 +63,14 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                 {/* Left: Branding & Tabs */}
                 <div className="flex items-center gap-2 md:gap-3 min-w-0">
                     <div className="flex items-center gap-2 text-gray-400 shrink-0">
-                        <Palette size={15} className="text-purple-400" />
-                        <h1 className="text-xs font-bold text-gray-300 tracking-tight hidden sm:block">Studio</h1>
+                        {generationMode === 'video' ? (
+                            <Video size={15} className="text-blue-400" />
+                        ) : (
+                            <Palette size={15} className="text-purple-400" />
+                        )}
+                        <h1 className="text-xs font-bold text-gray-300 tracking-tight hidden sm:block">
+                            {generationMode === 'video' ? 'Video Producer' : 'Studio'}
+                        </h1>
                     </div>
 
                     <div className="h-3.5 w-px bg-white/8 mx-0.5" />
@@ -136,20 +141,6 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                         />
                     )}
 
-                    <div className="h-3.5 w-px bg-white/8 mx-0.5" />
-
-                    {/* Studio Settings Toggle */}
-                    <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        data-testid="settings-btn"
-                        className={`flex items-center gap-1 px-2 py-1 rounded-md border transition-all text-[9px] font-semibold uppercase tracking-wide
-                            ${showSettings
-                                ? 'bg-purple-500/15 border-purple-500/30 text-purple-300'
-                                : 'bg-white/3 border-white/6 text-gray-500 hover:text-gray-300 hover:bg-white/6'}`}
-                    >
-                        <Settings2 size={10} />
-                        <span className="hidden lg:inline">Settings</span>
-                    </button>
 
                     {/* Andromeda Mode Toggle */}
                     <button
@@ -198,14 +189,24 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                 </div>
             </div>
 
-            {/* Prompt Builder Drawer */}
-            {showPromptBuilder && (
-                <PromptBuilder
-                    onAddTag={(tag) => setCreativePrompt(creativePrompt ? `${creativePrompt}, ${tag}` : tag)}
-                    currentPrompt={creativePrompt}
-                    onPromptImproved={setCreativePrompt}
-                />
-            )}
+            {/* Prompt Builder — Full-width horizontal overlay below navbar */}
+            <AnimatePresence>
+                {showPromptBuilder && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className="relative z-50 bg-[#0a0a0c]/98 backdrop-blur-xl border-b border-white/10 shadow-xl"
+                    >
+                        <PromptBuilder
+                            onAddTag={(tag) => setCreativePrompt(creativePrompt ? `${creativePrompt}, ${tag}` : tag)}
+                            currentPrompt={creativePrompt}
+                            onSetPrompt={setCreativePrompt}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Brand Assets Drawer */}
             {showBrandAssets && (
@@ -217,10 +218,6 @@ export default function CreativeNavbar(props: CreativeNavbarProps) {
                 <PromptHistoryDrawer onClose={() => setShowPromptHistory(false)} />
             )}
 
-            {/* Studio Settings Panel */}
-            {showSettings && (
-                <StudioSettingsPanel onClose={() => setShowSettings(false)} />
-            )}
 
             <FrameSelectionModal
                 isOpen={showFrameModal}

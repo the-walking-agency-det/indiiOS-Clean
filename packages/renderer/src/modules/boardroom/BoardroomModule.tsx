@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/core/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -7,7 +8,8 @@ import { BoardroomTable } from './components/BoardroomTable';
 import { BoardroomConversationPanel } from './components/BoardroomConversationPanel';
 import { useMobile } from '@/hooks/useMobile';
 
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Users, Layers } from 'lucide-react';
+import { LivingPlansTracker } from './components/LivingPlansTracker';
 
 /**
  * BoardroomModule — The virtual multi-agent boardroom.
@@ -37,28 +39,33 @@ export function BoardroomModule() {
 
     const { isAnyPhone } = useMobile();
 
+    const activeCount = activeAgents?.length || 0;
+    const [isTrackerOpen, setIsTrackerOpen] = React.useState(false);
+
     if (!isBoardroomMode) return null;
 
-    const activeCount = activeAgents.length;
+    if (typeof document === 'undefined') return null;
 
-    return (
+    return createPortal(
         <AnimatePresence>
             <motion.div
                 key="boardroom-canvas"
+                data-testid="boardroom-module"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-0 z-40 bg-bg-dark flex flex-col"
+                className="fixed inset-0 z-[99999] bg-bg-dark flex flex-col"
             >
                 {/* Top Bar */}
                 <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 shrink-0">
                     <button
                         onClick={() => setBoardroomMode(false)}
-                        className="flex items-center justify-center w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all border border-white/10"
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all border border-white/10"
                         title="Exit Boardroom"
+                        aria-label="Back to Studio"
                     >
-                        <ArrowLeft size={18} />
+                        <ArrowLeft size={16} />
+                        <span className="text-xs font-bold uppercase tracking-wider">Back to Studio</span>
                     </button>
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
@@ -71,6 +78,16 @@ export function BoardroomModule() {
                             </span>
                         )}
                     </div>
+                    <div className="flex-1" />
+                    <button 
+                        onClick={() => setIsTrackerOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-all border border-cyan-500/20 mr-2"
+                        title="View Active Plans"
+                        aria-label="Living Plans"
+                    >
+                        <Layers size={16} />
+                        <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Living Plans</span>
+                    </button>
                 </div>
 
                 {/* Split-Panel Content */}
@@ -104,8 +121,9 @@ export function BoardroomModule() {
                     </motion.div>
                 </div>
 
-
+                <LivingPlansTracker isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} />
             </motion.div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }

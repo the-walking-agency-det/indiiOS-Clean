@@ -47,102 +47,7 @@ export default function DirectGenerationTab() {
 
     return (
         <div className="flex flex-col h-full w-full bg-background text-foreground">
-            {/* Top Bar: Prompt & Controls */}
-            <div className="flex-none p-4 border-b border-white/10 bg-background/50 backdrop-blur-md flex flex-col gap-4">
-                <div className="flex items-center gap-4 justify-center max-w-4xl mx-auto w-full">
-                    {/* Mode Switch */}
-                    <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 shrink-0 relative">
-                        <button
-                            onClick={() => handleModeSwitch('image')}
-                            data-testid="direct-image-mode-btn"
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${mode === 'image'
-                                ? 'bg-gradient-to-r from-dept-creative/30 to-dept-creative/20 text-white shadow-[0_0_12px_rgba(var(--color-dept-creative-rgb),0.3)] border border-dept-creative/40 font-bold'
-                                : 'text-gray-500 hover:text-gray-300'
-                                }`}
-                        >
-                            <ImageIcon size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider">Image</span>
-                        </button>
-                        <button
-                            onClick={() => handleModeSwitch('video')}
-                            data-testid="direct-video-mode-btn"
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${mode === 'video'
-                                ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/20 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-500/40 font-bold'
-                                : 'text-gray-500 hover:text-gray-300'
-                                }`}
-                        >
-                            <Video size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider">Video</span>
-                        </button>
-                    </div>
-
-                    {/* Prompt Input */}
-                    <div className="flex-1 flex flex-col gap-2">
-                        <VideoPromptBuilder
-                            mode={mode}
-                            prompt={localPrompt}
-                            onChange={setLocalPrompt}
-                            onGenerate={handleGenerate}
-                            disabled={isGenerating}
-                        >
-                            <button
-                                onClick={togglePromptBuilder}
-                                data-testid="toggle-prompt-builder"
-                                className="p-1.5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
-                                title={isPromptBuilderOpen ? 'Hide Prompt Builder' : 'Show Prompt Builder'}
-                                aria-label={isPromptBuilderOpen ? 'Hide Prompt Builder' : 'Show Prompt Builder'}
-                                aria-expanded={isPromptBuilderOpen}
-                            >
-                                {isPromptBuilderOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                            </button>
-                            <span className="text-[10px] text-muted-foreground uppercase font-mono px-2 border-r border-white/5">
-                                {studioControls.model.toUpperCase()}
-                            </span>
-                            <button
-                                onClick={handleGenerate}
-                                data-testid="direct-generate-btn"
-                                disabled={isGenerating || !localPrompt.trim()}
-                                className="bg-foreground text-background p-1.5 rounded-lg hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                {isGenerating ? (
-                                    <>
-                                        <Loader2 size={16} className="animate-spin" />
-                                        <span className="sr-only">Generating...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Send size={16} />
-                                        <span className="sr-only">Generate</span>
-                                    </>
-                                )}
-                            </button>
-                        </VideoPromptBuilder>
-
-                        {hasWhiskModifiers && (
-                            <div className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg mt-1">
-                                <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Final Synthesized Prompt</p>
-                                <p className="text-xs text-gray-400 italic line-clamp-3">{synthesizedPrompt}</p>
-                            </div>
-                        )}
-
-                        {mode === 'video' && (
-                            <VeoSettingsPanel isOpen={isPromptBuilderOpen} />
-                        )}
-                    </div>
-                </div>
-
-                {mode === 'video' && (
-                    <div className="max-w-4xl mx-auto w-full">
-                        <IngredientDropZone 
-                            ingredients={mappedIngredients} 
-                            onChange={handleIngredientsChange} 
-                            mode="reference" 
-                        />
-                    </div>
-                )}
-            </div>
-
-            {/* Main Content: Results Grid */}
+            {/* Main Content: Results Grid (fills the space) */}
             <div className="flex-1 overflow-y-auto p-6">
                 {results.length === 0 && activeJobs.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-600 gap-4">
@@ -216,7 +121,7 @@ export default function DirectGenerationTab() {
                 )}
             </div>
 
-            {/* Bottom Action Bar */}
+            {/* Bottom Action Bar (shown after results exist) */}
             <AnimatePresence>
                 {results.length > 0 && (
                     <motion.div
@@ -260,6 +165,102 @@ export default function DirectGenerationTab() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Bottom Prompt Input Bar — pinned to the bottom, standard chat-input pattern */}
+            <div className="flex-none border-t border-white/10 bg-background/80 backdrop-blur-xl p-4">
+                <div className="flex items-center gap-4 justify-center max-w-4xl mx-auto w-full">
+                    {/* Mode Switch */}
+                    <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 shrink-0 relative">
+                        <button
+                            onClick={() => handleModeSwitch('image')}
+                            data-testid="direct-image-mode-btn"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${mode === 'image'
+                                ? 'bg-gradient-to-r from-dept-creative/30 to-dept-creative/20 text-white shadow-[0_0_12px_rgba(var(--color-dept-creative-rgb),0.3)] border border-dept-creative/40 font-bold'
+                                : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                        >
+                            <ImageIcon size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Image</span>
+                        </button>
+                        <button
+                            onClick={() => handleModeSwitch('video')}
+                            data-testid="direct-video-mode-btn"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 ${mode === 'video'
+                                ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/20 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)] border border-purple-500/40 font-bold'
+                                : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                        >
+                            <Video size={18} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Video</span>
+                        </button>
+                    </div>
+
+                    {/* Prompt Input */}
+                    <div className="flex-1 flex flex-col gap-2">
+                        <VideoPromptBuilder
+                            mode={mode}
+                            prompt={localPrompt}
+                            onChange={setLocalPrompt}
+                            onGenerate={handleGenerate}
+                            disabled={isGenerating}
+                        >
+                            <button
+                                onClick={togglePromptBuilder}
+                                data-testid="toggle-prompt-builder"
+                                className="p-1.5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                                title={isPromptBuilderOpen ? 'Hide Prompt Builder' : 'Show Prompt Builder'}
+                                aria-label={isPromptBuilderOpen ? 'Hide Prompt Builder' : 'Show Prompt Builder'}
+                                aria-expanded={isPromptBuilderOpen}
+                            >
+                                {isPromptBuilderOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                            <span className="text-[10px] text-muted-foreground uppercase font-mono px-2 border-r border-white/5">
+                                {studioControls.model.toUpperCase()}
+                            </span>
+                            <button
+                                onClick={handleGenerate}
+                                data-testid="direct-generate-btn"
+                                disabled={isGenerating}
+                                title={`Generate ${mode === 'image' ? 'Image' : 'Video'}`}
+                                className="bg-foreground text-background py-1.5 px-3 flex items-center gap-2 rounded-lg hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span className="text-xs font-bold uppercase hidden sm:inline">Generating</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={16} />
+                                        <span className="text-xs font-bold uppercase hidden sm:inline">Generate</span>
+                                    </>
+                                )}
+                            </button>
+                        </VideoPromptBuilder>
+
+                        {hasWhiskModifiers && (
+                            <div className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg mt-1">
+                                <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Final Synthesized Prompt</p>
+                                <p className="text-xs text-gray-400 italic line-clamp-3">{synthesizedPrompt}</p>
+                            </div>
+                        )}
+
+                        {mode === 'video' && (
+                            <VeoSettingsPanel isOpen={isPromptBuilderOpen} />
+                        )}
+                    </div>
+                </div>
+
+                {mode === 'video' && (
+                    <div className="max-w-4xl mx-auto w-full mt-3">
+                        <IngredientDropZone 
+                            ingredients={mappedIngredients} 
+                            onChange={handleIngredientsChange} 
+                            mode="reference" 
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

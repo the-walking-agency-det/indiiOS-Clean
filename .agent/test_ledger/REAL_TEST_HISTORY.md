@@ -96,3 +96,76 @@
 - [ ] Mobile responsive
 - [ ] Keyboard shortcuts
 - [ ] Drag-and-drop file upload
+
+---
+
+## 2026-05-02 - Detroit Producer - Deep-Interaction Core Phases Stress Test
+- **Modules Tested:** Dashboard, Brand Manager, Creative Director, Video Workflow
+- **Duration:** ~10 minutes
+- **Findings:** 1 issue filed (0 HIGH, 0 MEDIUM, 1 LOW). ISSUE-015 successfully verified as FIXED.
+- **Key Issues:**
+  - ISSUE-016: Persistent "Drop files here" overlay in Creative Director
+- **Coverage Delta:**
+  - ✅ Regression test: 3D SceneBuilder Stability (ISSUE-015)
+  - ✅ First test: Brand Manager Identity Bio editing and AI Chat
+  - ✅ First test: Video mode camera motion and aspect ratio dropdowns
+  - ✅ First test: Drag-and-drop from gallery to Sequence Architect
+- **UX Score:** 30/30
+- **Issues Filed:** ISSUE-016
+
+## 2026-05-02 - Detroit Producer - Creative Director Edge Case Testing
+- **Modules Tested:** Creative Director, Boardroom
+- **Duration:** 4 minutes
+- **Findings:** 3 HIGH, 1 MEDIUM
+- **Key Issues:** Prompt state loss on mode toggle, Boardroom trap, Z-index bleeding.
+- **Coverage Delta:** State persistence and character references tested thoroughly.
+- **UX Score:** 18/30
+
+## 2026-05-02 - Detroit Producer - Universal Deep-Interaction Stress Test
+- **Modules Tested:** Dashboard, Brand Manager, Creative Director, Boardroom
+- **Duration:** 17 minutes
+- **Findings:** 2 CRITICAL, 1 HIGH, 1 MEDIUM
+- **Key Issues:** Global state lost on reload, Vite resolution failure on reload, UI lag on tabs.
+- **UX Score:** NO-GO for Demo
+
+## 2026-05-02 - Detroit Producer - Brand Interview Logic Test
+- **Modules Tested:** Brand Manager (Brand Interview)
+- **Duration:** 5 minutes
+- **Findings:** 1 HIGH
+- **Key Issues:** AI returns empty bubbles due to Firebase permission-denied / empty responses.
+- **Coverage Delta:** Validated function call extraction (failed gracefully but exposed backend error).
+- **UX Score:** 15/30
+
+## 2026-05-03 - Detroit Producer - Primary Goal & Career Stage Verification
+- **Modules Tested:** Brand Manager (Identity Core, Visual DNA, Release Manifest, Brand Health, Brand Interview), Creative Director (navigation persistence), Marketing Department, Road Manager
+- **Duration:** ~10 minutes
+- **Findings:** 0 new issues. 2 pre-existing regressions confirmed still open (ISSUE-022, ISSUE-025).
+- **Key Issues:**
+  - ✅ Primary Goal selector: functional, persistent, AI-wired
+  - ✅ Career Stage selector: functional, persistent, AI-wired
+  - ⚠️ ISSUE-022 (Brand Interview tab lag): still present
+  - ⚠️ ISSUE-025 (Brand Interview empty bubbles): still present
+- **Coverage Delta:**
+  - ✅ First test: Primary Goal dropdown selection + persistence across navigation
+  - ✅ First test: Career Stage change + persistence across navigation
+  - ✅ First test: Marketing Department (Campaign Generator, EPK Generator)
+  - ✅ First test: Road Manager (Tour Planning, Tech Rider, Hospitality Rider)
+  - ✅ Regression: Brand Interview tab rendering
+- **UX Score:** 27/30
+
+---
+
+## 2026-05-03 - Detroit Producer - Recent Fixes Regression Test
+- **Modules Tested:** Creative Director, Boardroom, Brand Manager
+- **Duration:** 3 minutes
+- **Findings:** 1 HIGH regression remaining.
+- **Key Issues:**
+  - ✅ ISSUE-017 (Boardroom Z-Index Bleed): FIXED
+  - ✅ ISSUE-018 (Direct Generation Prompt Persistence): FIXED
+  - ✅ ISSUE-020 (Boardroom Trap): FIXED
+  - 🔴 ISSUE-028 (Brand Manager State Persistence): OPEN (Local-first logic needs further work to sync component inputs)
+- **Coverage Delta:**
+  - ✅ Regression: Creative Director Image/Video Mode Toggle Prompt Persistence
+  - ✅ Regression: Boardroom Overlay Hierarchy and Exit Button
+  - ✅ Regression: Brand Manager Identity Core field entry followed by Hard Reload
+- **UX Score:** 28/30

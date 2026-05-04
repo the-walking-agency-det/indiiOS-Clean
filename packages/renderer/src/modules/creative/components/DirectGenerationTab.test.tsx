@@ -85,6 +85,7 @@ describe('DirectGenerationTab', () => {
         whiskState: {},
         setSelectedItem: vi.fn(),
         setViewMode: vi.fn(),
+        generationMode: 'image',
         setGenerationMode: vi.fn()
     };
 
@@ -101,6 +102,11 @@ describe('DirectGenerationTab', () => {
 
         // generateImageDirectly returns an array of URL strings (data URIs in production)
         mockGenerateImageDirectly.mockReturnValue(generationPromise);
+
+        (useStore as unknown as import("vitest").Mock).mockReturnValue({
+            ...mockStore,
+            creativePrompt: 'A cute cat'
+        });
 
         render(<DirectGenerationTab />);
 
@@ -127,11 +133,18 @@ describe('DirectGenerationTab', () => {
         });
 
         expect(screen.getByAltText('A cute cat')).toBeInTheDocument();
-        expect(mockToast.success).toHaveBeenCalledWith('Image generated directly successfully');
+        await waitFor(() => {
+            expect(mockToast.success).toHaveBeenCalledWith('Image generated directly successfully');
+        });
     });
 
     it('handles generation error correctly', async () => {
         mockGenerateImageDirectly.mockRejectedValue(new Error('API Error'));
+
+        (useStore as unknown as import("vitest").Mock).mockReturnValue({
+            ...mockStore,
+            creativePrompt: 'A crash test'
+        });
 
         render(<DirectGenerationTab />);
 

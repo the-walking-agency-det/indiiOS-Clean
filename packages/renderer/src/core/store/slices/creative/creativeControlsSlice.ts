@@ -36,7 +36,7 @@ export type TargetMedia = 'image' | 'video' | 'both';
 
 export interface WhiskItem {
     id: string;
-    type: 'text' | 'image';
+    type: 'text' | 'image' | 'video';
     content: string; // user text or original image data/url
     aiCaption?: string; // Generated caption for images
     checked: boolean;
@@ -74,6 +74,19 @@ export interface CreativeControlsSlice {
         personGeneration: 'allow_adult' | 'dont_allow' | 'allow_all';
         isTransitionMode: boolean;
         isAndromedaMode: boolean;
+
+        // ── Nano Banana API Extensions ─────────────────────────────────────
+
+        /** API-native image resolution: 0.5K (NB2 only), 1K, 2K, 4K. Uppercase K required. */
+        imageSize: '0.5K' | '1K' | '2K' | '4K';
+        /** Number of images to generate per prompt (1-4). */
+        batchCount: number;
+        /** Image Search grounding — NB2 (3.1 Flash) exclusive. Requires useGrounding=true. */
+        useImageSearch: boolean;
+        /** Output format: image only or interleaved text + image narration. */
+        responseFormat: 'image_only' | 'image_and_text';
+        /** Whether to include the model's thinking/reasoning in the response. */
+        includeThoughts: boolean;
     };
     setStudioControls: (controls: Partial<CreativeControlsSlice['studioControls']>) => void;
     enableCoverArtMode: () => void;
@@ -84,6 +97,10 @@ export interface CreativeControlsSlice {
     // Mode & Inputs
     generationMode: 'image' | 'video';
     setGenerationMode: (mode: 'image' | 'video') => void;
+
+    // Persistence flag
+    isSessionPersistent: boolean;
+    setSessionPersistent: (persistent: boolean) => void;
 
     activeReferenceImage: HistoryItem | null;
     setActiveReferenceImage: (img: HistoryItem | null) => void;
@@ -188,7 +205,13 @@ export function buildCreativeControlsState(
             useGrounding: false,
             personGeneration: 'allow_adult',
             isTransitionMode: false,
-            isAndromedaMode: false
+            isAndromedaMode: false,
+            // Nano Banana API defaults
+            imageSize: '2K',
+            batchCount: 1,
+            useImageSearch: false,
+            responseFormat: 'image_only',
+            includeThoughts: false,
         },
         setStudioControls: (controls) => set((state) => ({ studioControls: { ...state.studioControls, ...controls } })),
         enableCoverArtMode: () => set((state) => ({
@@ -220,6 +243,9 @@ export function buildCreativeControlsState(
 
         generationMode: 'image',
         setGenerationMode: (mode) => set({ generationMode: mode }),
+
+        isSessionPersistent: true,
+        setSessionPersistent: (persistent) => set({ isSessionPersistent: persistent }),
 
         activeReferenceImage: null,
         setActiveReferenceImage: (img) => set({ activeReferenceImage: img }),

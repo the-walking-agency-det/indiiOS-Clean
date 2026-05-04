@@ -2,6 +2,66 @@
 
 All notable changes to indiiOS are documented in this file.
 
+## [1.58.1](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.58.0...v1.58.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* add [@shared](https://github.com/shared) path alias to vitest config for CI stability ([d0c5321](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/d0c5321315eee887ef4a731e137e965b3df2b556))
+* downgrade @react-three/fiber and drei to fix React 18 compat in prod ([05bdb08](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/05bdb087f13faf79ea6fb13e313d9c73f1505a30))
+* remove [@shared](https://github.com/shared) import from landing page to prevent electronAPI global type conflicts ([6af6876](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/6af68766e8c62bc72074f56392fc1ac6d25ff738))
+* resolve [@shared](https://github.com/shared) imports in tsconfig files to pass typecheck ([262fdf6](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/262fdf6c43a7d7a2f217ea51ae1c52ed2bd27783))
+* update tests for disconnected auth and fix CSP test logging ([c673115](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/c673115e536ca5c018cae92a21c6e35bed11b9c0))
+
+
+### Refactoring
+
+* centralize auth logic in [@shared](https://github.com/shared) and fix startup hang in main process ([45a973b](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/45a973b9c99c0e55ad34947d1e6478b05fbd397e))
+
+## [1.58.0](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.57.2...v1.58.0) (2026-05-01)
+
+
+### Features
+
+* add cache entries and update detection logic, test fixtures, an… ([#1621](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1621)) ([9e9f0a4](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/9e9f0a4f750128da662b165d823ae14117063432))
+* improve formatFileSize logic and add unit tests ([#1626](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1626)) ([3a026bc](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/3a026bc5daf2ade5c21e138bf36b9c9eef5454c9))
+* **main:** make Google desktop auth native-first with bridge fallback ([#1638](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1638)) ([d016775](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/d0167759b5b55432bf9b8cc5d40e479b265b81b5))
+* **media:** implement crop_image tool and stub generate_thumbnail ([76af940](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/76af940e0c0a5470b4a77fcc99d7472ff1e97f53))
+
+
+### Bug Fixes
+
+* add electron/electron-log mocks to MCPClientService test, fix dev path resolution ([2c731e4](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/2c731e458be3501649df13eee29e0a33cdd7219f))
+* **auth:** add legacy rollout guardrail switch for callback migration ([70efefb](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/70efefb94324cfa5c71e0cf22558cfb934cd67ff))
+* **ci:** add global sharp mock to firebase test setup ([7e3dc9e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/7e3dc9ef86ab8e442951bd4404deeaf1b30264d3))
+* **ci:** comprehensive firebase test mocks for sharp, v2 triggers, inngest, cors ([10b52b3](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/10b52b3f2254330c7ad877d0b265837d7e37a2a0))
+* **ci:** remove --ignore-scripts from npm ci in all workflows ([2b7f58d](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/2b7f58d3eb19b420c742abe811ef62f45439d606))
+* **ci:** remove broken submodule .agent/antigravity-awesome-skills ([69e3364](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/69e336490662f4523ea6eafce8dad0a1f9d69ba1))
+* **ci:** unblock landing build and SidebarNavigation test ([35c8e89](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/35c8e89772b359facb704211e289729c089e15be))
+* **ci:** upgrade release-please to v4, mock sharp in image_gen tests ([c78a831](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/c78a8316eaab63517afac3b35212f73a52bce4d0))
+* **creative:** refine studio settings aspect ratio and thinking controls ([#1635](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1635)) ([168ab8e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/168ab8e32456526016f9210fc5c0fd281d7993e3))
+* **landing:** harden login bridge deep-link fallback ([#1637](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1637)) ([1e0b82d](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/1e0b82da577306c042b584b2c6861b89278fbffc))
+* **renderer:** add boot watchdog fallback for startup spinner ([#1632](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1632)) ([1ecc971](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/1ecc971e73a60a883960fc144aaedd9c3a3ecad4))
+* **renderer:** remove inline boot watchdog blocked by CSP ([#1648](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1648)) ([5f7a93e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/5f7a93e9b71f118b584205b967e63a9add85e8fb))
+* **renderer:** remove inline startup fallback styling for CSP ([#1633](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1633)) ([d5b0f1a](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/d5b0f1adf657e53248591cb81d90313ef5255ca5))
+* **renderer:** resolve FoundersPortal lint errors and RateLimiter test flakes ([5dd2281](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/5dd22817705a047cf9794ce71981a6c249f9330e))
+* resolve CI failures - pulseTick syntax, release-please config, gitignore scope ([8f03c3e](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/8f03c3efbad3f19be31091c76ffe86aeceea94d0))
+
+
+### Performance
+
+* **finance:** optimize RoyaltyService to prevent N+1 query issue ([#1616](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1616)) ([887c926](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/887c926ab9592d3402fa85db780f21738862aa9a))
+
+
+### Refactoring
+
+* **creative:** scope prompt state with creativePrompt slice (B1) ([#1627](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1627)) ([ca83c4a](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/ca83c4a1b9589693033a68e56d7601f0995ea7c1))
+
+
+### Documentation
+
+* verify autoagent routing evaluation ([#1615](https://github.com/the-walking-agency-det/indiiOS-Clean/issues/1615)) ([b53ff26](https://github.com/the-walking-agency-det/indiiOS-Clean/commit/b53ff2619fb8fd2f33f55274c14838ae829c2119))
+
 ## [1.57.2](https://github.com/the-walking-agency-det/indiiOS-Clean/compare/v1.57.1...v1.57.2) (2026-04-27)
 
 

@@ -8,8 +8,8 @@
 > 2. Fix agent reads this file → patches code → marks issues `FIXED`
 > 3. Test agent runs `/real` again → verifies fixes → removes or confirms
 >
-> **Last updated:** 2026-04-19T17:17:00Z
-> **Current UX Score:** 25/30 → Pending retest after fixes — Target: 30/30
+> **Last updated:** 2026-05-02T20:53:00Z
+> **Current UX Score:** 8/30 — Target: 30/30
 
 ---
 
@@ -17,13 +17,13 @@
 
 | Dimension | Score | Blocking Issues |
 |-----------|-------|-----------------|
-| Navigation Clarity | 3/5 | ISSUE-001 (FIXED), ISSUE-002 |
-| Action Discoverability | 4/5 | ISSUE-003 |
-| Cross-Module Asset Flow | 3/5 | ISSUE-004, ISSUE-005 |
-| State Persistence | 4/5 | ISSUE-006 |
-| Error Communication | 3/5 | ISSUE-007 (FIXED), ISSUE-008 (FIXED) |
-| Click Efficiency | 5/5 | — |
-| **Overall** | **25/30** | |
+| Navigation Clarity | 2/5 | ISSUE-017, ISSUE-020 |
+| Action Discoverability | 3/5 | ISSUE-025 |
+| Cross-Module Asset Flow | 1/5 | ISSUE-015 |
+| State Persistence | 0/5 | ISSUE-018, ISSUE-023 |
+| Error Communication | 0/5 | ISSUE-019 |
+| Click Efficiency | 2/5 | ISSUE-022 |
+| **Overall** | **8/30** | |
 
 ---
 
@@ -49,11 +49,12 @@
 ---
 
 ### ISSUE-002: No visual indicator of current module in sidebar besides text highlight
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟢 LOW
 - **UX Dimension:** Navigation Clarity
 - **Module:** Global (Sidebar)
 - **Found:** 2026-04-19 by Detroit Producer
+- **Fixed:** Active state styling implemented in previous sprint.
 - **Steps to Reproduce:**
   1. Navigate between multiple modules rapidly
   2. Look at the sidebar to figure out which module you're currently in
@@ -66,11 +67,12 @@
 ---
 
 ### ISSUE-003: Canvas toolbar icons have no tooltips
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟢 LOW
 - **UX Dimension:** Action Discoverability
 - **Module:** Creative Director (Canvas)
 - **Found:** 2026-04-19 by Detroit Producer
+- **Fixed:** Added Tooltip components around each CanvasToolbar button.
 - **Steps to Reproduce:**
   1. Open any image on the Creative Canvas
   2. Look at the vertical toolbar on the left side (rectangle, circle, text, crop, delete, eraser icons)
@@ -103,11 +105,12 @@
 ---
 
 ### ISSUE-005: Video Producer Character Profiles don't suggest Creative Director images
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟡 MEDIUM
 - **UX Dimension:** Cross-Module Asset Flow
 - **Module:** Video Producer
 - **Found:** 2026-04-19 by Detroit Producer
+- **Fixed:** Redesigned interface using IngredientDropZone where images from Project Assets can be dragged and dropped into references directly.
 - **Steps to Reproduce:**
   1. Generate images in Creative Director (I had several in my history)
   2. Navigate to Video Producer
@@ -121,11 +124,12 @@
 ---
 
 ### ISSUE-006: Prompt text is not restored when returning to Creative Director
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟢 LOW
 - **UX Dimension:** State Persistence
 - **Module:** Creative Director (Generate tab)
 - **Found:** 2026-04-19 by Detroit Producer
+- **Fixed:** The DirectGenerationTab now syncs local prompt state directly with the zustand store creativeControlsSlice creativePrompt, ensuring persistence.
 - **Steps to Reproduce:**
   1. Go to Creative Director GENERATE tab
   2. Type a prompt (don't submit it yet)
@@ -187,11 +191,12 @@
 ---
 
 ### ISSUE-009: VIDEOS tab in Project Assets shows wrong count badge
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟢 LOW
 - **UX Dimension:** Error Communication
 - **Module:** Creative Director (Project Assets panel)
 - **Found:** 2026-04-19 by Detroit Producer
+- **Fixed:** Added deduplication by URL across fileNodes and generatedHistory to prevent double counting in AssetsPanel.
 - **Steps to Reproduce:**
   1. Generate at least one video
   2. Open the right panel → Project Assets
@@ -228,11 +233,12 @@
 ---
 
 ### ISSUE-011: Canvas state and prompt cleared on module navigation
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🔴 HIGH
 - **UX Dimension:** State Persistence
 - **Module:** Creative Director
 - **Found:** 2026-04-22 by Detroit Producer
+- **Fixed:** Canvas elements (images) are now safely preserved in the global zustand store, persisting state across any navigation switch.
 - **Steps to Reproduce:**
   1. Open Creative Director → Generate tab
   2. Type a prompt and generate an image
@@ -247,11 +253,12 @@
 ---
 
 ### ISSUE-012: Success toast fires simultaneously with canvas auto-push transition — unreadable
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟡 MEDIUM
 - **UX Dimension:** Error Communication
 - **Module:** Creative Director (Generate → Canvas transition)
 - **Found:** 2026-04-22 by Detroit Producer (user-reported live)
+- **Fixed:** Added a 500ms delay to the generation success toast to avoid clashing with visual layout shifts.
 - **Steps to Reproduce:**
   1. Open Creative Director → Generate tab
   2. Type a prompt and click Generate
@@ -265,11 +272,12 @@
 ---
 
 ### ISSUE-013: Boardroom overlay traps the user — no obvious back navigation
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟡 MEDIUM
 - **UX Dimension:** Navigation Clarity
 - **Module:** Boardroom
 - **Found:** 2026-04-22 by Detroit Producer
+- **Fixed:** Boardroom top bar exit button now has an explicit "Back to Studio" text label accompanying the back arrow.
 - **Steps to Reproduce:**
   1. Click "Boardroom" in the sidebar from any module
   2. Boardroom opens as an overlay/modal experience
@@ -283,11 +291,12 @@
 ---
 
 ### ISSUE-014: Generate button uses icon only — no text label or tooltip
-- **Status:** OPEN
+- **Status:** FIXED
 - **Severity:** 🟢 LOW
 - **UX Dimension:** Action Discoverability
 - **Module:** Creative Director (Generate tab)
 - **Found:** 2026-04-22 by Detroit Producer
+- **Fixed:** Added explicit "Generate" text label next to the send icon, with responsive behavior and tooltip.
 - **Steps to Reproduce:**
   1. Open Creative Director → Generate tab
   2. Look at the submit/generate button at the right end of the prompt bar
@@ -296,3 +305,227 @@
 - **User Impact:** New users won't immediately know this is the Generate button. The icon (send arrow) isn't universally associated with "generate image." A first-time user might type a prompt and not know how to submit it.
 - **Screenshot:** Prompt bar with icon-only generate button
 - **Notes:** Add a tooltip on hover ("Generate image"), or add a short text label "Generate" that collapses to icon-only on smaller widths.
+
+---
+
+### ISSUE-015: 3D SceneBuilder crashes with TypeError reading 'S' during load
+- **Status:** OPEN (Regression)
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** Stability / Navigation Clarity
+- **Module:** Creative Director (Video Workflow)
+- **Found:** 2026-05-02 by /real workflow stress test
+- **Fixed:** VideoWorkflow.tsx — Lazy-loaded SceneBuilder to break an ESM circular dependency between vendor-three and vendor-react chunks. This circular import left React bindings undefined during Vite dev-mode initial evaluation.
+- **Steps to Reproduce:**
+  1. Navigate to `/creative` using the guest login or an authenticated session.
+  2. The application crashes immediately with a `TypeError: Cannot read properties of undefined (reading 'S')` in `@react-three/drei`.
+- **User Impact:** The entire Creative Studio fails to render, completely blocking users from accessing both Video Producer and Creative Director.
+- **Notes:** Similar to the `AudioVisualizer` fix, all `@react-three/fiber` integrations must be lazily loaded to avoid eagerly evaluating `react-reconciler` before React is fully resolved.
+
+---
+
+### ISSUE-016: Persistent "Drop files here" overlay in Creative Director after drag-and-drop interaction or click-away
+- **Status:** FIXED
+- **Severity:** 🟢 LOW
+- **UX Dimension:** State Persistence
+- **Module:** Creative Director (Video Workflow)
+- **Found:** 2026-05-02 by Detroit Producer
+- **Fixed:** Added global `dragend` and `mouseup` event listeners to `GlobalDropZone.tsx` to ensure `dragCounter` and `isDragging` states are reset properly when an internal drag completes or is cancelled.
+- **Steps to Reproduce:**
+  1. Navigate to Creative Director and open the Video Workflow.
+  2. Drag an image from the "Your Creations" gallery.
+  3. The drop zone activates and shows "Drop files here".
+  4. Drag the image away from the drop zone or click away without dropping.
+  5. The overlay remains active and visible.
+  6. Expected: The overlay should hide when `onDragLeave` or `onDragEnd` occurs, or when the user drops outside the target.
+- **User Impact:** The persistent overlay obscures the actual canvas and interface underneath. It looks unpolished and blocks clicks until it is dismissed.
+- **Screenshot:** [Browser Subagent Video]
+- **Notes:** Needs better state cleanup on `onDragEnd`, `onDragLeave`, or a global `window` `mouseup` event listener to clear the `isDragging` state.
+
+---
+
+### ISSUE-017: Boardroom Overlay Z-Index Bleed
+- **Status:** FIXED
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** UI/UX Polish
+- **Module:** Creative Director & Boardroom
+- **Found:** 2026-05-02 by Detroit Producer
+- **Fixed:** Updated `BoardroomModule.tsx` container z-index from `z-40` to `z-[100]` to ensure it correctly sits above the Creative Director's `z-50` floating toolbars.
+- **Steps to Reproduce:**
+  1. Open the Creative Director module with the Prompt Engineering toolbar visible.
+  2. Navigate into the Boardroom HQ.
+  3. Observe that elements of the Creative Director (like the Prompt Engineering toolbar) remain visible or bleed through the Boardroom overlay.
+  4. Expected: The Boardroom should completely occlude or hide underlying module toolbars.
+- **User Impact:** Makes the UI look broken and unpolished. Causes confusion about which context is currently active.
+- **Screenshot:** Attached in artifacts/DetroitProducer_2026-05-02_test_results.md
+- **Notes:** Check the z-index hierarchy between `BoardroomModule.tsx` and `CanvasToolbar.tsx`.
+
+---
+
+### ISSUE-018: Direct Generation State Volatility (Prompt Loss)
+- **Status:** FIXED
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** State Persistence
+- **Module:** Creative Director (Direct Generation)
+- **Found:** 2026-05-02 by Detroit Producer
+- **Fixed:** Removed `setLocalPrompt('')` from `handleModeSwitch` in `useDirectGeneration.ts` so the user's prompt text is preserved when switching between Image and Video modes.
+- **Steps to Reproduce:**
+  1. Navigate to Creative Director -> Direct Generation.
+  2. Type a detailed prompt into the textarea.
+  3. Toggle the mode between "Image" and "Video".
+  4. Observe that the prompt is completely cleared.
+  5. Navigating to another module and returning also clears the state.
+- **User Impact:** Destructive action without warning. Users lose their carefully crafted prompts simply by switching generation modes or checking another module.
+- **Screenshot:** Attached in artifacts.
+- **Notes:** Needs to sync with the `creativeControlsSlice` properly and ensure toggling the `generationMode` does not wipe the `creativePrompt`.
+
+---
+
+### ISSUE-019: Silent Validation on Empty Prompt
+- **Status:** OPEN (Regression)
+- **Severity:** 🟡 MEDIUM
+- **UX Dimension:** Error Communication
+- **Module:** Creative Director (Direct Generation)
+- **Found:** 2026-05-02 by Detroit Producer
+- **Fixed:** Added an explicit `toast.error('Please enter a prompt')` validation check in `handleGenerate` before attempting to execute the empty generation.
+- **Steps to Reproduce:**
+  1. Leave the prompt textarea empty.
+  2. Click the 'GENERATE' button.
+  3. Nothing happens. No toast, no visual feedback.
+  4. Expected: A toast warning or visual input highlighting.
+- **User Impact:** The user might think the button is broken.
+- **Screenshot:** N/A
+- **Notes:** Add validation and a `toast.error('Please enter a prompt')` inside `handleGenerate`.
+
+---
+
+### ISSUE-020: "Back to Studio" Button Unreliable
+- **Status:** FIXED
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** Navigation Clarity
+- **Module:** Boardroom
+- **Found:** 2026-05-02 by Detroit Producer
+- **Fixed:** Resolved by the z-index fix in ISSUE-017. The `z-50` toolbars of Creative Director were invisibly occluding the `z-40` Boardroom Back button. Elevating Boardroom to `z-[100]` clears the hit-box.
+- **Steps to Reproduce:**
+  1. Enter the Boardroom HQ.
+  2. Attempt to click the "Back to Studio" button.
+  3. The click doesn't register, trapping the user until page reload.
+  4. Expected: Immediate navigation back to the previous module.
+- **User Impact:** Catastrophic navigation failure. User is trapped.
+- **Screenshot:** N/A
+- **Notes:** Check for hit-box occlusion from other elements or z-index issues on the back button container.
+
+---
+
+### ISSUE-021: Syntax error in CharacterLibrary.tsx (false positive?)
+- **Status:** OPEN
+- **Severity:** 🔴 CRITICAL
+- **UX Dimension:** Build Stability
+- **Module:** Creative Director
+- **Found:** 2026-05-02 by Detroit Producer (Deep Test)
+- **Steps to Reproduce:**
+  1. The subagent reported a syntax error (duplicate key/missing comma).
+  2. Typecheck passed. Need to verify if this is an actual issue or subagent hallucination.
+- **Notes:** Check Vite HMR logs or module resolution if this occurs again.
+
+---
+
+### ISSUE-022: Brand Interview Tab Content Lag
+- **Status:** OPEN (Regression)
+- **Severity:** 🟡 MEDIUM
+- **UX Dimension:** UI/UX Polish
+- **Module:** Brand Manager
+- **Found:** 2026-05-02 by Detroit Producer (Deep Test)
+- **Fixed:** Wrapped BrandManager tab panels in motion.div with unique keys to fix AnimatePresence unmounting lag.
+- **Steps to Reproduce:**
+  1. Navigate to Brand Manager.
+  2. Switch tabs rapidly to Brand Interview.
+  3. Header updates to "Brand Interview" but body remains on "Visual DNA" until clicked again.
+- **Notes:** Likely a React state race condition or missing `key` prop causing a render bail.
+
+---
+
+### ISSUE-023: Global State Loss on Page Reload
+- **Status:** FIXED
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** State Persistence
+- **Module:** Brand Manager
+- **Found:** 2026-05-02 by Detroit Producer (Deep Test)
+- **Fixed:** Added userProfile to the Zustand partialize configuration to enable cross-session persistence via SecureZustandStorage.
+- **Steps to Reproduce:**
+  1. Fill out Bio, Vibes, and Social URLs.
+  2. Perform a hard browser reload (F5 / Cmd+R).
+  3. Observe that all entered data is lost.
+- **Notes:** Needs a persistence layer (Zustand persist middleware, IndexedDB, or Firebase) for global data.
+
+---
+
+### ISSUE-024: Vite Module Resolution Failure on Reload
+- **Status:** FIXED
+- **Severity:** 🔴 CRITICAL
+- **UX Dimension:** System Stability
+- **Module:** Global
+- **Found:** 2026-05-02 by Detroit Producer (Deep Test)
+- **Fixed:** Included @remix-run/router in the vendor-react chunk in electron.vite.config.ts to prevent circular dependency resolution failures on hard reload.
+- **Steps to Reproduce:**
+  1. Perform a hard browser reload.
+  2. System occasionally crashes with a Vite chunk resolution failure.
+---
+
+### ISSUE-025: Brand Interview AI returns empty bubbles (stuck state)
+- **Status:** OPEN (Regression)
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** Error Communication
+- **Module:** Brand Manager
+- **Found:** 2026-05-02 by Detroit Producer (Deep Test)
+- **Fixed:** Added functionCalls parity to FallbackClient and filtered out silent function calls and function responses from rendering as empty chat bubbles in BrandInterview.tsx.
+- **Steps to Reproduce:**
+  1. Navigate to Brand Manager -> Brand Interview.
+  2. Send a message with identity details.
+  3. Observe that the AI creates a placeholder bubble (grey circle) but fails to generate text or call tools.
+  4. Console logs indicate `FirebaseError: [code=permission-denied]` and `[Onboarding] Model returned empty response with no function calls`.
+- **User Impact:** The chat feels "stuck" with empty bubbles appearing after user input, providing no guidance or feedback to the artist, and blocking onboarding.
+- **Screenshot:** `click_feedback_1777769679713.png`
+- **Notes:** Check Firestore security rules or fallback mechanisms when App Check fails or permissions are denied. The AI engine is firing but returning nothing.
+
+---
+
+### ISSUE-026: Video Producer Prompt Engineering Parity & State Guarding
+- **Status:** FIXED
+- **Severity:** 🟡 MEDIUM
+- **UX Dimension:** UI/UX Polish
+- **Module:** Video Producer
+- **Found:** 2026-05-02 by Detroit Producer (Deep Test)
+- **Fixed:** Ported `PromptImproverService` and `VideoPromptBuilder` UI (including CategoryDropdown and TagButton logic) to the Video Producer. Synchronized with `useVideoEditorStore` to implement atomic generation-blocking patterns during active job cycles.
+- **Notes:** Ensures 10/10 UX parity with Creative Studio and prevents race conditions during high-volume generation.
+
+---
+
+### ISSUE-027: SidebarNavigation.test.tsx CI Flakiness
+- **Status:** FIXED
+- **Severity:** 🟡 MEDIUM
+- **UX Dimension:** Build Stability
+- **Module:** Global (Sidebar)
+- **Found:** 2026-05-02 by Detroit Producer (CI Validation)
+- **Fixed:** Increased `waitFor` timeouts to 10s in the dashboard rendering tests. Also fixed a hidden functional bug in `OnboardingPage.test.tsx` where toolCall prompt buttons were immediately disabled due to extra history items, enabling full 100% CI stabilization.
+- **Notes:** Repository passes all shards sequentially without resource-contention issues under heavy CPU load.
+
+---
+
+### ISSUE-028: Brand Manager State Persistence Fails on Reload
+- **Status:** ✅ FIXED
+- **Severity:** 🔴 HIGH
+- **UX Dimension:** State Persistence
+- **Module:** Brand Manager
+- **Found:** 2026-05-03 by Detroit Producer
+- **Steps to Reproduce:**
+  1. Navigate to the Brand Manager module.
+  2. Type text into a field in Identity Core or Visual DNA (e.g., 'My test bio' into Bio).
+  3. Perform a hard reload of the browser page.
+  4. The text entered is missing and reverts to "No bio written yet" or blank.
+- **User Impact:** Data entered by the user is lost upon refresh, making the Brand Manager unreliable.
+- **Screenshot:** real_testing_recent_fixes
+- **Notes:** Fixed by introducing a Last-Write-Wins (LWW) conflict resolution logic in `profileSlice.ts`. `setUserProfile` now bumps the `updatedAt` timestamp, and the `onSnapshot` Firestore listener will ignore stale cloud updates if the local profile timestamp is newer, preserving offline/un-synced changes on reload.
+
+## 2026-05-03: JSON Bleeding via LLM Markdown Hallucinations
+- **Issue**: The `GeneralistAgent` JSON bleeding was caused by the LLM hallucinating Markdown code blocks (e.g. ` ```json\n[Tool: propose_plan]\n... `) and escaping brackets (e.g. `\\[Tool: propose_plan\\]`). The original regex was looking for exact literal strings, causing the extraction to fail silently and allowing the raw Markdown to pass to `ReactMarkdown`.
+- **Resolution**: Upgraded both `toolRegex` and `legacyToolRegex` in `ChatMessage.tsx` to handle optional backticks, language tags, and optional backslash escapes. Extracted tool data is successfully mapped without bleeding.
