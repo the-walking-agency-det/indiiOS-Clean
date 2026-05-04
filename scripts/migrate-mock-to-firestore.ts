@@ -164,9 +164,16 @@ async function migrateSamplePlatforms() {
     const batch = db.batch();
     let skipped = 0;
 
-    for (const platform of SAMPLE_PLATFORMS) {
-        const ref = db.collection('sample_platforms').doc(platform.id);
-        const existing = await ref.get();
+    const refs = SAMPLE_PLATFORMS.map(platform => db.collection('sample_platforms').doc(platform.id));
+
+    // Use db.getAll to fetch all documents in a single batched network request to fix N+1 issue
+    const existingDocs = await db.getAll(...refs);
+
+    for (let i = 0; i < existingDocs.length; i++) {
+        const existing = existingDocs[i];
+        const platform = SAMPLE_PLATFORMS[i];
+        const ref = refs[i];
+
         if (existing.exists) {
             console.log(`   ⏭️  Skipping ${platform.id} (already exists)`);
             skipped++;
