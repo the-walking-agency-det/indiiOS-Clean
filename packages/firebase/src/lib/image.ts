@@ -105,8 +105,8 @@ export const GenerateImageRequestSchema = z.object({
     /** Model tier to use. Default: "fast" */
     model: ModelTierEnum.nullish().default("fast"),
 
-    /** Output resolution. Must be uppercase. Default: "1K" */
-    imageSize: ImageSizeEnum.nullish().default("1K"),
+    /** Output resolution. Must be lowercase. Default: "1k" */
+    imageSize: ImageSizeEnum.nullish().default("1k"),
 
     // --- Gemini 3 Advanced Configuration ---
 

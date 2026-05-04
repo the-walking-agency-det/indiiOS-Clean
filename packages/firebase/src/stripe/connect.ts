@@ -15,6 +15,9 @@ export const createStripeAccount = onCall(
         }
 
         const { artistId } = request.data as { artistId: string };
+        if (request.auth.uid !== artistId) {
+            throw new HttpsError('permission-denied', 'Cannot create Stripe account for another artist.');
+        }
         // Stripe instance is pre-configured and exported from ./config.ts
 
         try {
@@ -57,6 +60,10 @@ export const createTransfer = onCall(
     async (request) => {
         if (!request.auth) {
             throw new HttpsError('unauthenticated', 'User must be signed in.');
+        }
+
+        if (!request.auth.token['admin']) {
+            throw new HttpsError('permission-denied', 'Insufficient privileges.');
         }
 
         const { amount, destinationId, currency = 'usd' } = request.data as { amount: number; destinationId: string; currency?: string };

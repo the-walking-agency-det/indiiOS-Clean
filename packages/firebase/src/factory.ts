@@ -11,7 +11,7 @@
  *   import { defineCallable, defineScheduled, defineHttps, HttpsError } from '../factory';
  *
  *   export const myFunction = defineCallable(
- *       { region: 'us-west1', memory: '1GB', secrets: [mySecret] },
+ *       { region: 'us-west1', memory: '1GiB', secrets: [mySecret] },
  *       async (request) => {
  *           if (!request.auth) throw new HttpsError('unauthenticated', '...');
  *           const data = request.data as MyType;
@@ -38,6 +38,7 @@ import {
     type CallableOptions,
     type HttpsOptions,
 } from 'firebase-functions/v2/https';
+import type { SecretParam } from 'firebase-functions/params';
 
 import {
     onSchedule,
@@ -78,7 +79,7 @@ export interface FunctionOptions {
     /** CPU allocation. Default: 1 */
     cpu?: number | 'gcf_gen1';
     /** Secret references */
-    secrets?: (string | { name: string })[];
+    secrets?: (string | SecretParam)[];
     /** Whether to enforce App Check. Default: false */
     enforceAppCheck?: boolean;
     /** Concurrency per instance. Default: 80 */
@@ -119,7 +120,7 @@ function mapOptions(opts: FunctionOptions): CallableOptions {
         minInstances: opts.minInstances,
         maxInstances: opts.maxInstances,
         cpu: opts.cpu,
-        secrets: opts.secrets as string[],
+        secrets: opts.secrets as any,
         enforceAppCheck: opts.enforceAppCheck,
         concurrency: opts.concurrency,
         ingress: opts.ingress,
@@ -182,7 +183,7 @@ export function defineScheduled(
 ) {
     const scheduleOptions: ScheduleOptions = {
         schedule,
-        region: (options.region as string) || 'us-central1',
+        region: options.region || 'us-central1',
         memory: options.memory,
         timeoutSeconds: options.timeoutSeconds,
     };
@@ -206,7 +207,7 @@ export function defineFirestoreTrigger(
 ) {
     const docOptions: DocumentOptions = {
         document: documentPath,
-        region: (options.region as string) || 'us-central1',
+        region: options.region || 'us-central1',
         memory: options.memory,
         timeoutSeconds: options.timeoutSeconds,
     };
@@ -233,7 +234,7 @@ export function defineStorageTrigger(
 ) {
     const storageOpts = {
         bucket,
-        region: (options.region as string) || 'us-central1',
+        region: options.region || 'us-central1',
         memory: options.memory,
         timeoutSeconds: options.timeoutSeconds,
     };

@@ -20,11 +20,21 @@ export function LivingPlansTracker({ isOpen, onClose }: LivingPlansTrackerProps)
     const toast = useToast();
 
     useEffect(() => {
-        if (!isOpen || !currentProjectId) return;
+        if (!isOpen || !currentProjectId) {
+            setTimeout(() => {
+                setPlans([]);
+                setLoading(false);
+            }, 0);
+            return;
+        }
         
         let isMounted = true;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setLoading(true);
+        setTimeout(() => {
+            if (isMounted) {
+                setLoading(true);
+                setPlans([]);
+            }
+        }, 0);
         livingPlanService.getPlansForProject(currentProjectId).then(data => {
             if (isMounted) {
                 // Sort by newest first
@@ -33,7 +43,10 @@ export function LivingPlansTracker({ isOpen, onClose }: LivingPlansTrackerProps)
             }
         }).catch(err => {
             logger.error('Failed to load living plans:', err);
-            if (isMounted) setLoading(false);
+            if (isMounted) {
+                setPlans([]);
+                setLoading(false);
+            }
         });
 
         return () => { isMounted = false; };
