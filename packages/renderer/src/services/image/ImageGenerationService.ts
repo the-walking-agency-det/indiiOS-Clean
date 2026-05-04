@@ -188,8 +188,8 @@ export class ImageGenerationService {
 
         const mapped = RESOLUTION_MAP[resolution] || RESOLUTION_MAP[resolution.toLowerCase()];
         if (!mapped) {
-            logger.warn(`[ImageGen] Unknown resolution "${resolution}", defaulting to 1K`);
-            return '1K';
+            logger.warn(`[ImageGen] Unknown resolution "${resolution}", defaulting to 1k`);
+            return '1k';
         }
         return mapped;
     }
