@@ -441,8 +441,8 @@ export class ImageGenerationService {
                 metadataPersistenceService.save('image', {
                     prompt: options.prompt,
                     aspectRatio: options.aspectRatio || '1:1',
-                    resolution: options.resolution,
-                    imageSize: options.imageSize,
+                    resolution: options.resolution || '1k',
+                    imageSize: options.imageSize || '1k',
                     model: options.model || 'fast',
                     sourceType: 'generation',
                     isCoverArt: options.isCoverArt || false,
