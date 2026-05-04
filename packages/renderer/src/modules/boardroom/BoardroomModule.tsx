@@ -39,7 +39,7 @@ export function BoardroomModule() {
 
     const { isAnyPhone } = useMobile();
 
-    const activeCount = activeAgents.length;
+    const activeCount = activeAgents?.length || 0;
     const [isTrackerOpen, setIsTrackerOpen] = React.useState(false);
 
     if (!isBoardroomMode) return null;
