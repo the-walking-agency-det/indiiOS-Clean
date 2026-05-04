@@ -46,8 +46,8 @@ export interface ImageGenerationOptions {
 
     // --- Gemini 3 Advanced Configuration ---
 
-    /** Output resolution: "512" | "1K" | "2K" | "4K" (uppercase required by API) */
-    imageSize?: '512' | '1K' | '2K' | '4K';
+    /** Output resolution: "512" | "1k" | "2k" | "4k" */
+    imageSize?: '512' | '1k' | '2k' | '4k';
 
     /** Thinking level (Flash only — Pro always thinks). */
     thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
@@ -174,16 +174,16 @@ export class ImageGenerationService {
         if (!resolution) return undefined;
 
         const RESOLUTION_MAP: Record<string, string> = {
-            '720p':  '1K',
-            '1080p': '2K',
-            '4k':    '4K',
+            '720p':  '1k',
+            '1080p': '2k',
+            '4k':    '4k',
             // Direct passthrough for already-correct values
             '512':   '512',
-            '1k':    '1K',
-            '1K':    '1K',
-            '2k':    '2K',
-            '2K':    '2K',
-            '4K':    '4K',
+            '1k':    '1k',
+            '1K':    '1k',
+            '2k':    '2k',
+            '2K':    '2k',
+            '4K':    '4k',
         };
 
         const mapped = RESOLUTION_MAP[resolution] || RESOLUTION_MAP[resolution.toLowerCase()];
