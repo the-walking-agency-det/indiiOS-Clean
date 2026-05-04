@@ -164,15 +164,19 @@ async function migrateSamplePlatforms() {
     const batch = db.batch();
     let skipped = 0;
 
-    for (const platform of SAMPLE_PLATFORMS) {
-        const ref = db.collection('sample_platforms').doc(platform.id);
-        const existing = await ref.get();
-        if (existing.exists) {
+    // Optimization: Fetch all documents in a single network request to prevent N+1 query issue
+    const refs = SAMPLE_PLATFORMS.map(platform => db.collection('sample_platforms').doc(platform.id));
+    const existings = await db.getAll(...refs);
+
+    for (let i = 0; i < SAMPLE_PLATFORMS.length; i++) {
+        const platform = SAMPLE_PLATFORMS[i];
+        const existing = existings[i];
+        if (existing && existing.exists) {
             console.log(`   ⏭️  Skipping ${platform.id} (already exists)`);
             skipped++;
             continue;
         }
-        batch.set(ref, {
+        batch.set(refs[i], {
             ...platform,
             createdAt: new Date(),
             updatedAt: new Date()
