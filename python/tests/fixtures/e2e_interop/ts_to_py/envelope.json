@@ -1,0 +1,12 @@
+{
+  "id": "msg_1777944808090_dgs6jam6nde",
+  "encrypted": {
+    "ciphertext": "AAACAHmS5uLGy0kp3IVVWpy7oV5w2y9q0rJ48tMHD5pwJPl+l1uv0tx5P8FRoPg+pfIzvQuWDSbbkOcSRi5Cl1He+vOSm/AiOWCVUjuMyS1bxy3s7JWWgw9eoBq0hopAQSl1ttJnfdQCuoc8rJqpPtI5YdpfVsEErSTx9lI2Ii9zbe3/ZDKouYsv4VyElIn2ROZwJF2Ykn67zEUJi/94iqiubcXSt8HwPXeKPEo0TQ4f96k6h+1yZUbrNb6o6yVt90m5FDHC6ATBPwCNwoc9NKgCG/DJUDDAOmIvC3Cqgtp593oMjOEqFQQKpl6Lt7WbqECPRrKSGgztduFoQQ81H75p35fHIM2iUrMX/ghYjtSw2HyRwg5EpHji9oBWGA97WOwUk8RC1cSm8zHXLmYoTDAasItR0uN91LyvTiSKtUWugWrH2YEH6DoZgWlgBz8/JeGQHwVIPB3ZgvJey0WwJLc41LyOtrLoyHS3pXTHDt4PiO9/eb1Hnac5N5CK7uxbGrnVrE9gJIjiACPQv8o+vLddDzhczbhZU2EOwmj6M0BNV816vKttCLW90FqhiIebuLJZytRdIAv4jm7+eDqDyC3bJ62C935TciRYIomBNP4QyIlnWukJqnUsM7RwEhpqIEcu5kNpAEeBLIaWdEzAPCxaPIoUI6MSB0tEHSJsKEBbEAiZ8AgYd6mjtfPBQk3j42UeB+9X9sI8kGRUiSpTcpAIVjtQiAK+v0FxFJlA+JwO+x5oZWrkca7FiaLGopSXMqqHQ6caa5tlvXo1IfnYWdiX8W0PsT4fTSMpziw=",
+    "iv": "lh4i5F5HFzgI+uQe",
+    "algorithm": "RSA-OAEP+AES-GCM",
+    "timestamp": 1777944808090,
+    "senderId": "ts-sender",
+    "recipientId": "py-recipient"
+  },
+  "signature": ""
+}

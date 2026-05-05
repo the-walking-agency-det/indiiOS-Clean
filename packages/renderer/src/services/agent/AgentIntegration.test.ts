@@ -109,7 +109,11 @@ vi.mock('@/services/ai/GenAI', () => ({
             }
         }),
         generateContentStream: vi.fn(),
-        generateSpeech: vi.fn()
+        generateSpeech: vi.fn(),
+        // Stubbed because triggerAutorater fires post-completion through the
+        // MultiTurnAutorater. Returning null short-circuits the autorater's
+        // happy path so it doesn't try to write to Firestore from these tests.
+        generateStructuredData: vi.fn().mockResolvedValue(null)
     }
 }));
 
@@ -140,6 +144,45 @@ vi.mock('@/services/MembershipService', () => ({
         getCurrentTier: vi.fn().mockResolvedValue('free')
     }
 }));
+
+// Mock agentRegistry to avoid dynamic imports hanging in CI
+vi.mock('./registry', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./registry')>();
+    return {
+        ...actual,
+        agentRegistry: {
+            ...actual.agentRegistry,
+            getAsync: vi.fn().mockImplementation(async (id: string) => {
+                if (id === 'marketing') {
+                    return {
+                        id,
+                        name: 'Mock Agent',
+                        description: 'Mock Description',
+                        execute: vi.fn().mockImplementation(async (text, attachments, context, responseId) => {
+                            useStore.getState().addAgentMessage({
+                                id: responseId || 'mock-id',
+                                role: 'model',
+                                text: 'I have analyzed the market data.',
+                                timestamp: Date.now(),
+                                isStreaming: false,
+                                thoughts: []
+                            });
+                            return {
+                                text: 'I have analyzed the market data.',
+                                confidence: 0.9,
+                                toolsUsed: []
+                            };
+                        })
+                    };
+                }
+                // Fallback to real dynamic import for generalist or others
+                return actual.agentRegistry.getAsync(id);
+            }),
+            getAll: vi.fn().mockReturnValue([{ id: 'marketing', name: 'Marketing', description: 'desc' }]),
+            warmup: vi.fn().mockResolvedValue(undefined)
+        }
+    };
+});
 
 // Mock VideoGenerationService to prevent accidental API calls
 vi.mock('@/services/video/VideoGenerationService', () => ({
