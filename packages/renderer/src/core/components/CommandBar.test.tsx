@@ -139,6 +139,7 @@ const useTestStore = create<TestStoreState>((set) => ({
     isAgentProcessing: false,
     isBoardroomMode: false,
     canvasItems: [],
+    canvasItems: [{ id: "test" }],
 }));
 
 // Mock the useStore hook to use our real test store
@@ -173,6 +174,7 @@ describe('CommandBar', () => {
             isCommandBarCollapsed: false,
             isBoardroomMode: false,
             canvasItems: [],
+            canvasItems: [{ id: '1' }],
         });
 
         // Spy on methods we want to assert
