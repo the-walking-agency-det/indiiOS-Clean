@@ -190,9 +190,13 @@ export class AgentService {
                 // Main execution logic wrapped in a race with timeout
                 await Promise.race([
                     this.executeFlow(redactedText, attachments, context, responseId, forcedAgentId).then(() => {
+                        const currentState = useStore.getState();
+                        const resultMsg = isBoardroomMode 
+                            ? currentState.boardroomMessages.find(m => m.id === responseId)
+                            : currentState.agentHistory.find(m => m.id === responseId);
+
                         // After success, populate cache if not a generation request
                         if (!isGenerationRequest) {
-                            const resultMsg = useStore.getState().agentHistory.find(m => m.id === responseId);
                             if (resultMsg && resultMsg.text) {
                                 this.responseCache.set(cacheKey, {
                                     text: resultMsg.text,
@@ -200,6 +204,16 @@ export class AgentService {
                                     agentId: resultMsg.agentId || 'generalist'
                                 });
                             }
+                        }
+
+                        // Trigger Autorater for feedback and fine-tuning registration
+                        if (resultMsg && auth.currentUser) {
+                            this.triggerAutorater(
+                                auth.currentUser.uid, 
+                                resultMsg.agentId || 'generalist', 
+                                responseId, 
+                                isBoardroomMode
+                            ).catch(e => logger.warn('[AgentService] Autorater execution error:', e));
                         }
                     }).finally(() => {
                         if (timeoutHandle) clearTimeout(timeoutHandle);
@@ -304,7 +318,7 @@ export class AgentService {
         // all boardroom messages into the regular chat flow (causing empty responses).
         if (isBoardroomMode) {
             logger.debug('[AgentService] Routing to boardroom multi-dispatch flow');
-            await this.handleBoardroomMultiDispatchFlow(text, attachments, context, responseId);
+            await this.handleBoardroomSwarmFlow(text, attachments, context, responseId);
             return;
         }
 
@@ -588,7 +602,7 @@ export class AgentService {
     /**
      * Boardroom Multi-Dispatch Flow: Dispatches the user's prompt to all active agents simultaneously.
      */
-    private async handleBoardroomMultiDispatchFlow(
+    private async handleBoardroomSwarmFlow(
         text: string,
         attachments: { mimeType: string; base64: string }[] | undefined,
         context: AgentContext,
@@ -598,7 +612,7 @@ export class AgentService {
         const state = useStore.getState();
         const activeAgents = state.activeAgents && state.activeAgents.length > 0 ? state.activeAgents : [];
         const referencedAssets = state.referencedAssets || [];
-        logger.debug('[AgentService] Boardroom dispatch:', { agentCount: activeAgents.length, agents: activeAgents });
+        logger.debug('[AgentService] Boardroom swarm dispatch:', { agentCount: activeAgents.length, agents: activeAgents });
 
         if (activeAgents.length === 0) {
             logger.warn('[AgentService] Boardroom: No active agents seated');
@@ -610,24 +624,24 @@ export class AgentService {
             return;
         }
 
-        // Inject asset context into the prompt
         let assetContext = '';
         if (referencedAssets.length > 0) {
             assetContext = '\n\n[BOARDROOM REFERENCED ASSETS]\n' + referencedAssets.map(a => `- ${a.name} (${a.type}): ${a.value}`).join('\n');
         }
 
-        const enhancedText = text + assetContext + '\n\n[SYSTEM]: You are in a Boardroom meeting with other agents. Only respond from your specific department\'s perspective. Extract and execute any tasks relevant to your domain.';
+        let accumulatedContext = '';
 
-        const dispatchPromises = activeAgents.map(async (agentId, index) => {
-            // Re-use the initial placeholder for the first agent, create new ones for the rest
+        for (let index = 0; index < activeAgents.length; index++) {
+            const agentId = activeAgents[index];
+            if (!agentId) continue;
             const resId = index === 0 ? initialResponseId : uuidv4();
 
             if (index > 0) {
                 useStore.getState().addBoardroomMessage({
                     id: resId,
                     role: 'model',
-                    text: '*(Reviewing request...)*',
-                    timestamp: Date.now() + index, // slight offset to maintain order
+                    text: '*(Reviewing previous discussion...)*',
+                    timestamp: Date.now() + index,
                     isStreaming: true,
                     thoughts: [],
                     agentId: agentId
@@ -638,8 +652,12 @@ export class AgentService {
 
             let currentStreamedText = '';
 
+            const enhancedText = text + assetContext + 
+                '\n\n[SYSTEM]: You are in a Boardroom meeting. Swarm Protocol active. Respond from your specific department\'s perspective.' +
+                (accumulatedContext ? `\n\n[PREVIOUS AGENT RESPONSES]:\n${accumulatedContext}` : '');
+
             try {
-                logger.debug(`[AgentService] Boardroom: executing agent ${agentId}`);
+                logger.debug(`[AgentService] Boardroom: sequentially executing agent ${agentId}`);
                 const result = await this.executor.execute(
                     agentId,
                     enhancedText,
@@ -647,11 +665,9 @@ export class AgentService {
                     (event) => {
                         if (event.type === 'token') {
                             currentStreamedText += event.content;
-
                             useStore.getState().updateBoardroomMessage(resId, { text: currentStreamedText });
                         }
                         if (event.type === 'thought' || event.type === 'tool' || event.type === 'tool_result') {
-
                             const currentMsg = useStore.getState().boardroomMessages.find(m => m.id === resId);
                             const newThought: AgentThought = {
                                 id: uuidv4(),
@@ -677,6 +693,9 @@ export class AgentService {
 
                 logger.debug(`[AgentService] Boardroom: agent ${agentId} responded (${result?.text?.length || 0} chars)`);
 
+                if (result?.text) {
+                    accumulatedContext += `\n[${agentId.toUpperCase()}]: ${result.text}`;
+                }
                 let planId: string | undefined = undefined;
                 if (result && result.toolCalls && result.toolCalls.length > 0) {
                     for (const tc of result.toolCalls) {
@@ -694,8 +713,6 @@ export class AgentService {
                         isStreaming: false
                     });
                 } else {
-                    logger.warn(`[AgentService] Boardroom: No result.text for ${agentId}, using streamed text (${currentStreamedText.length} chars)`);
-                    // If we streamed text but result.text is empty, USE the streamed text
                     if (currentStreamedText.length > 0) {
                         useStore.getState().updateBoardroomMessage(resId, {
                             text: currentStreamedText,
@@ -714,21 +731,19 @@ export class AgentService {
                     }
                 }
             } catch (err) {
-                logger.error(`[AgentService] Boardroom dispatch failed for agent ${agentId}:`, err);
+                logger.error(`[AgentService] Boardroom Swarm dispatch failed for agent ${agentId}:`, err);
                 useStore.getState().updateBoardroomMessage(resId, {
                     text: `❌ **Error:** ${(err as Error).message || 'Request failed.'}`,
                     isStreaming: false,
                     thoughts: [{
                         id: uuidv4(),
-                        text: 'Execution failed in boardroom dispatch',
+                        text: 'Execution failed in boardroom swarm dispatch',
                         timestamp: Date.now(),
                         type: 'error'
                     }]
                 });
             }
-        });
-
-        await Promise.allSettled(dispatchPromises);
+        }
     }
 
     /**
@@ -1089,6 +1104,44 @@ The user will see this plan and can approve it to start execution.`;
         } catch (err) {
             logger.error('[AgentService] Failed to resume plan:', err);
             this.addSystemMessage(`❌ **Failed to resume plan:** ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+
+    /**
+     * Executes the MultiTurnAutorater post-completion to evaluate the conversation quality.
+     * High-quality traces will automatically be registered for future fine-tuning.
+     */
+    private async triggerAutorater(userId: string, agentId: string, traceId: string, isBoardroomMode: boolean): Promise<void> {
+        try {
+            const { useStore } = await import('@/core/store');
+            const state = useStore.getState();
+            const history = isBoardroomMode ? state.boardroomMessages : state.agentHistory;
+            
+            // Extract the last 10 messages for context evaluation
+            const recentMessages = history
+                .slice(-10)
+                .map(m => ({
+                    role: (m.role === 'user' || m.role === 'model' || m.role === 'system') ? m.role : 'system',
+                    content: m.text || ''
+                }));
+
+            const { MultiTurnAutorater } = await import('./governance/MultiTurnAutorater');
+            
+            // Fire-and-forget evaluation to not block the user interface
+            await MultiTurnAutorater.evaluateAndRegister(
+                userId,
+                agentId as any,
+                traceId,
+                recentMessages,
+                "Fulfill the user's creative and technical requests efficiently without looping.",
+                [
+                    "Adhere strictly to the requested schema or output format",
+                    "Do not ask unnecessary clarifying questions if context is sufficient",
+                    "Use tools correctly and interpret tool outputs properly"
+                ]
+            );
+        } catch (e) {
+            logger.warn('[AgentService] Post-completion autorater failed:', e);
         }
     }
 }

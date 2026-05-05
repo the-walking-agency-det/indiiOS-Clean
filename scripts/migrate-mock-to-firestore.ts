@@ -138,6 +138,13 @@ async function migrateMerchandiseCatalog() {
     const batch = db.batch();
     let skipped = 0;
 
+    const refs = MERCHANDISE_CATALOG.map(p => db.collection('merchandise_catalog').doc(p.id));
+    const snapshots = refs.length > 0 ? await db.getAll(...refs) : [];
+    const existingIds = new Set(snapshots.filter(snap => snap.exists).map(snap => snap.id));
+
+    const now = new Date();
+    for (const product of MERCHANDISE_CATALOG) {
+        if (existingIds.has(product.id)) {
     const now = new Date();
     const refs = MERCHANDISE_CATALOG.map(product => db.collection('merchandise_catalog').doc(product.id));
     const snapshots = await Promise.all(refs.map(ref => ref.get()));
@@ -149,6 +156,8 @@ async function migrateMerchandiseCatalog() {
             skipped++;
             continue;
         }
+        const ref = db.collection('merchandise_catalog').doc(product.id);
+        batch.set(ref, {
 
         batch.set(refs[i], {
             ...product,
@@ -178,6 +187,21 @@ async function migrateSamplePlatforms() {
         const existing = snapshots[i];
 
         if (existing.exists) {
+    const refs = SAMPLE_PLATFORMS.map(p => db.collection('sample_platforms').doc(p.id));
+    const snapshots = refs.length > 0 ? await db.getAll(...refs) : [];
+    const existingIds = new Set(snapshots.filter(snap => snap.exists).map(snap => snap.id));
+
+    const now = new Date();
+    for (const platform of SAMPLE_PLATFORMS) {
+        if (existingIds.has(platform.id)) {
+    // Optimization: Fetch all documents in a single network request to prevent N+1 query issue
+    const refs = SAMPLE_PLATFORMS.map(platform => db.collection('sample_platforms').doc(platform.id));
+    const existings = await db.getAll(...refs);
+
+    for (let i = 0; i < SAMPLE_PLATFORMS.length; i++) {
+        const platform = SAMPLE_PLATFORMS[i];
+        const existing = existings[i];
+        if (existing && existing.exists) {
     const now = new Date();
     const refs = SAMPLE_PLATFORMS.map(platform => db.collection('sample_platforms').doc(platform.id));
     const snapshots = await Promise.all(refs.map(ref => ref.get()));
@@ -189,6 +213,8 @@ async function migrateSamplePlatforms() {
             skipped++;
             continue;
         }
+        const ref = db.collection('sample_platforms').doc(platform.id);
+        batch.set(ref, {
 
         batch.set(refs[i], {
             ...platform,
@@ -208,6 +234,13 @@ async function migrateApiInventory() {
     const batch = db.batch();
     let skipped = 0;
 
+    const refs = API_INVENTORY.map(a => db.collection('api_inventory').doc(a.id));
+    const snapshots = refs.length > 0 ? await db.getAll(...refs) : [];
+    const existingIds = new Set(snapshots.filter(snap => snap.exists).map(snap => snap.id));
+
+    const now = new Date();
+    for (const api of API_INVENTORY) {
+        if (existingIds.has(api.id)) {
     const now = new Date();
     const refs = API_INVENTORY.map(api => db.collection('api_inventory').doc(api.id));
     const snapshots = await Promise.all(refs.map(ref => ref.get()));
@@ -219,6 +252,8 @@ async function migrateApiInventory() {
             skipped++;
             continue;
         }
+        const ref = db.collection('api_inventory').doc(api.id);
+        batch.set(ref, {
 
         batch.set(refs[i], {
             ...api,
