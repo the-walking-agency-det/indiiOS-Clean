@@ -138,18 +138,22 @@ async function migrateMerchandiseCatalog() {
     const batch = db.batch();
     let skipped = 0;
 
+    const refs = MERCHANDISE_CATALOG.map(p => db.collection('merchandise_catalog').doc(p.id));
+    const snapshots = refs.length > 0 ? await db.getAll(...refs) : [];
+    const existingIds = new Set(snapshots.filter(snap => snap.exists).map(snap => snap.id));
+
+    const now = new Date();
     for (const product of MERCHANDISE_CATALOG) {
-        const ref = db.collection('merchandise_catalog').doc(product.id);
-        const existing = await ref.get();
-        if (existing.exists) {
+        if (existingIds.has(product.id)) {
             console.log(`   ⏭️  Skipping ${product.id} (already exists)`);
             skipped++;
             continue;
         }
+        const ref = db.collection('merchandise_catalog').doc(product.id);
         batch.set(ref, {
             ...product,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: now,
+            updatedAt: now
         });
     }
 
@@ -164,18 +168,22 @@ async function migrateSamplePlatforms() {
     const batch = db.batch();
     let skipped = 0;
 
+    const refs = SAMPLE_PLATFORMS.map(p => db.collection('sample_platforms').doc(p.id));
+    const snapshots = refs.length > 0 ? await db.getAll(...refs) : [];
+    const existingIds = new Set(snapshots.filter(snap => snap.exists).map(snap => snap.id));
+
+    const now = new Date();
     for (const platform of SAMPLE_PLATFORMS) {
-        const ref = db.collection('sample_platforms').doc(platform.id);
-        const existing = await ref.get();
-        if (existing.exists) {
+        if (existingIds.has(platform.id)) {
             console.log(`   ⏭️  Skipping ${platform.id} (already exists)`);
             skipped++;
             continue;
         }
+        const ref = db.collection('sample_platforms').doc(platform.id);
         batch.set(ref, {
             ...platform,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: now,
+            updatedAt: now
         });
     }
 
@@ -190,18 +198,22 @@ async function migrateApiInventory() {
     const batch = db.batch();
     let skipped = 0;
 
+    const refs = API_INVENTORY.map(a => db.collection('api_inventory').doc(a.id));
+    const snapshots = refs.length > 0 ? await db.getAll(...refs) : [];
+    const existingIds = new Set(snapshots.filter(snap => snap.exists).map(snap => snap.id));
+
+    const now = new Date();
     for (const api of API_INVENTORY) {
-        const ref = db.collection('api_inventory').doc(api.id);
-        const existing = await ref.get();
-        if (existing.exists) {
+        if (existingIds.has(api.id)) {
             console.log(`   ⏭️  Skipping ${api.id} (already exists)`);
             skipped++;
             continue;
         }
+        const ref = db.collection('api_inventory').doc(api.id);
         batch.set(ref, {
             ...api,
-            lastChecked: new Date(),
-            createdAt: new Date()
+            lastChecked: now,
+            createdAt: now
         });
     }
 
