@@ -1,8 +1,31 @@
 # Error Ledger
 
+## 2026-05-04 A2A Encryption Interop (Phase 0.7)
+
+- PATTERN: WebCrypto ↔ Python `cryptography` interop for hybrid RSA-OAEP + AES-GCM encryption.
+- WIRE FORMAT (canonical): base64(`[4-byte big-endian wrapped-key length][RSA-OAEP-wrapped AES key][AES-GCM ciphertext + 16-byte tag]`), with separate base64 IV.
+- ALGORITHM PARAMS (must match exactly, drift is silent and fatal):
+  - RSA-OAEP / SHA-256 / 4096-bit modulus / public exponent 65537 (`[1, 0, 1]` in WebCrypto)
+  - AES-GCM / 256-bit key / 12-byte IV / 128-bit auth tag (WebCrypto defaults)
+- JWK EXPORT: WebCrypto `exportKey('jwk', ...)` produces `{kty:"RSA", alg:"RSA-OAEP-256", n, e, ...}` — Python helper must mirror this shape including base64url-without-padding for `n`/`e`.
+- VALIDATION: `python/tests/fixtures/e2e_interop/{ts_to_py,py_to_ts}/` cross-language fixtures are the regression net. If either side bumps an algorithm parameter, regenerate the fixture in the source language and re-run the consumer side.
+- FILE: `python/helpers/e2e_encryption.py`, `packages/renderer/src/services/security/E2EEncryptionService.ts`
+
 - ERROR: Stripe MCP server fails to start with "The --tools flag has been removed" | FIX: Removed `--tools=all` argument from the config. Also removed invalid `$typeName` property from `mcp_config.json`. | FILE: ~/.gemini/antigravity/mcp_config.json
 - BEHAVIOR / PATTERN: Wait for user permission after finishing tasks when coordinating with INDEX | FIX: Instead of looping the user in to ask for permission, autonomously determine completeness and use the browser subagent (`/talk`) to report task completion and request the next task directly from OpenClaw/INDEX. Keep the chain moving blindly. | FILE: .agent/workflows/talk.md
 - ERROR: `Warning: An update to Component inside a test was not wrapped in act(...)` leading to brittle DOM-state tests (like bulk selection checkboxes) in Vitest. | FIX: Isolate and use `it.skip` on DOM-heavy component tests if they block CI `tsc --noEmit` and the environment favors build stability over deep UI simulation without true act wrappers. | FILE: `src/modules/publishing/PublishingDashboard.test.tsx`
+
+## 2026-05-03 Boardroom UI Fixing
+
+- SEVERITY: High
+- FILE: `packages/renderer/src/core/components/chat/ChatMessage.tsx` & `packages/renderer/src/services/agent/specialists/GeneralistAgent.ts`
+- BUG: UI Components (like the Living Plan card or Image results) failed to render. Chat bubbled showed raw `[Tool: propose_plan] {"success":...}` JSON strings instead. 
+- CAUSE: The regex used to parse tool outputs (`\{.*?\}`) matched lazily and truncated valid JSON at the first closing brace `}`, causing `JSON.parse` to silently fail and swallow the error. Additionally, tools had no clear ending delimiters.
+- FIX: 
+  1. Updated `GeneralistAgent.ts` to output tools with explicit start/end markers: `\n[Tool: name]\n{json}\n[End Tool name]\n`
+  2. Updated `ChatMessage.tsx` to use robust regexes: `/\[Tool: propose_plan\]([\s\S]*?)\[End Tool propose_plan\]/`. 
+  3. Replaced matched segments in text, preventing raw JSON from rendering.
+  4. Also added `break-all` to the Markdown `prose` container to stop overflow on long continuous strings.
 
 ## 2026-04-02 Hunter Find
 
