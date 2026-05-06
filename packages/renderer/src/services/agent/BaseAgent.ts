@@ -30,6 +30,7 @@ import { ToolPoolAssembler } from './governance/ToolPoolAssembler';
 import { AgentEventBus } from './governance/AgentEventBus';
 import { getFineTunedModel } from './fine-tuned-models';
 import { agentIdentityService, type AgentIdentityCard } from './governance/AgentIdentity';
+import { getDepartmentOf, isHead, sameDepartment } from './departments';
 
 import { AgentPromptBuilder } from './builders/AgentPromptBuilder';
 import { getAgentStreamingService } from './AgentStreamingService';
@@ -134,8 +135,32 @@ export class BaseAgent implements SpecializedAgent {
                     );
                 }
 
-                // Swarm Seating Awareness: Enforce that only seated agents can be delegated to in Boardroom Mode
+                // Conversation Mode scope enforcement (Phase 1: hierarchical agent system).
+                // Three modes — direct (no delegation), department (intra-dept only),
+                // boardroom (heads only, must be seated). See docs/plans/hierarchical-agents.
                 const ctxRecord = context as Record<string, any>;
+                const mode = ctxRecord?.conversationMode as ('direct' | 'department' | 'boardroom' | undefined);
+
+                if (mode === 'direct') {
+                    logger.warn(`[BaseAgent] Direct-mode delegation blocked: ${this.id} -> ${targetAgentId}`);
+                    return toolError(
+                        `Delegation is disabled in Direct mode. The user is having a private 1:1 conversation with you. Answer from your own expertise or tell them to switch to Department or Boardroom mode if cross-agent work is needed.`,
+                        'DIRECT_MODE_NO_DELEGATION'
+                    );
+                }
+
+                if (mode === 'department') {
+                    if (!sameDepartment(this.id, targetAgentId)) {
+                        const myDept = getDepartmentOf(this.id);
+                        logger.warn(`[BaseAgent] Department-scope violation: ${this.id} (${myDept?.id}) -> ${targetAgentId}`);
+                        return toolError(
+                            `Cross-department delegation is blocked in Department mode. You may only delegate within '${myDept?.id ?? 'unknown'}'. Cross-department work belongs in Boardroom mode where heads can convene.`,
+                            'DEPARTMENT_SCOPE_VIOLATION'
+                        );
+                    }
+                }
+
+                // Swarm Seating Awareness: Enforce that only seated agents can be delegated to in Boardroom Mode
                 if (ctxRecord?.isBoardroomMode && ctxRecord?.seatedAgents) {
                     const seatedAgents = ctxRecord.seatedAgents as string[];
                     if (!seatedAgents.includes(targetAgentId)) {
@@ -143,6 +168,14 @@ export class BaseAgent implements SpecializedAgent {
                         return toolError(
                             `Cannot delegate to '${targetAgentId}'. This agent is not currently seated at the boardroom table. You must ask the user to invite them to the boardroom if you need their expertise.`,
                             'BOARDROOM_SEATING_VIOLATION'
+                        );
+                    }
+                    // Tier enforcement: workers cannot be seated, only department heads.
+                    if (!isHead(targetAgentId)) {
+                        logger.warn(`[BaseAgent] Boardroom tier violation: '${targetAgentId}' is a worker, not a department head.`);
+                        return toolError(
+                            `Cannot delegate to '${targetAgentId}'. Only department heads sit in the Boardroom. Workers operate inside their own department in Department mode.`,
+                            'BOARDROOM_TIER_VIOLATION'
                         );
                     }
                 }
@@ -190,8 +223,32 @@ export class BaseAgent implements SpecializedAgent {
                     );
                 }
 
-                // Swarm Seating Awareness: Enforce that only seated agents can be consulted in Boardroom Mode
+                // Conversation Mode scope enforcement (Phase 1: hierarchical agent system).
                 const ctxRecord = context as Record<string, any>;
+                const mode = ctxRecord?.conversationMode as ('direct' | 'department' | 'boardroom' | undefined);
+
+                if (mode === 'direct') {
+                    logger.warn(`[BaseAgent] Direct-mode consult blocked from ${this.id}`);
+                    return toolError(
+                        `Consulting other agents is disabled in Direct mode. Tell the user to switch to Department or Boardroom mode for multi-agent work.`,
+                        'DIRECT_MODE_NO_DELEGATION'
+                    );
+                }
+
+                if (mode === 'department') {
+                    const offDept = consultations.filter(c => !sameDepartment(this.id, c.targetAgentId));
+                    if (offDept.length > 0) {
+                        const offIds = offDept.map(u => u.targetAgentId).join(', ');
+                        const myDept = getDepartmentOf(this.id);
+                        logger.warn(`[BaseAgent] Department-scope violation in consult_experts: ${this.id} -> [${offIds}]`);
+                        return toolError(
+                            `Cannot consult [${offIds}] in Department mode. They are outside '${myDept?.id ?? 'unknown'}'. Cross-department consultation belongs in Boardroom mode.`,
+                            'DEPARTMENT_SCOPE_VIOLATION'
+                        );
+                    }
+                }
+
+                // Swarm Seating Awareness: Enforce that only seated agents can be consulted in Boardroom Mode
                 if (ctxRecord?.isBoardroomMode && ctxRecord?.seatedAgents) {
                     const seatedAgents = ctxRecord.seatedAgents as string[];
                     const unseated = consultations.filter(c => !seatedAgents.includes(c.targetAgentId));
@@ -201,6 +258,15 @@ export class BaseAgent implements SpecializedAgent {
                         return toolError(
                             `Cannot consult [${unseatedIds}]. These agents are not currently seated at the boardroom table. You can only consult experts that have been invited by the user.`,
                             'BOARDROOM_SEATING_VIOLATION'
+                        );
+                    }
+                    const workerTargets = consultations.filter(c => !isHead(c.targetAgentId));
+                    if (workerTargets.length > 0) {
+                        const workerIds = workerTargets.map(w => w.targetAgentId).join(', ');
+                        logger.warn(`[BaseAgent] Boardroom tier violation in consult_experts: workers [${workerIds}] cannot be seated.`);
+                        return toolError(
+                            `Cannot consult [${workerIds}]. Only department heads sit in the Boardroom. Workers operate inside their own department in Department mode.`,
+                            'BOARDROOM_TIER_VIOLATION'
                         );
                     }
                 }

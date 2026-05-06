@@ -208,7 +208,7 @@ describe('👁️ Pixel: CommandBar Interaction States', () => {
     it('Scenario 1: Verifies "Processing" state disables input and shows stop button', async () => {
         render(<CommandBar />);
 
-        const input = screen.getByPlaceholderText(/Launch a campaign/i) as HTMLTextAreaElement;
+        const input = screen.getByPlaceholderText(/Message dashboard/i) as HTMLTextAreaElement;
         const submitBtn = screen.getByTestId('command-bar-run-btn');
 
         // 1. Enter text
@@ -236,7 +236,7 @@ describe('👁️ Pixel: CommandBar Interaction States', () => {
 
         render(<CommandBar />);
 
-        const input = screen.getByPlaceholderText(/Launch a campaign/i);
+        const input = screen.getByPlaceholderText(/Message dashboard/i);
         const submitBtn = screen.getByTestId('command-bar-run-btn');
 
         fireEvent.change(input, { target: { value: 'Bad request' } });
@@ -253,7 +253,7 @@ describe('👁️ Pixel: CommandBar Interaction States', () => {
     it('Scenario 3: Optimistic UI - input clears immediately upon send', async () => {
         render(<CommandBar />);
 
-        const input = screen.getByPlaceholderText(/Launch a campaign/i) as HTMLTextAreaElement;
+        const input = screen.getByPlaceholderText(/Message dashboard/i) as HTMLTextAreaElement;
         const submitBtn = screen.getByTestId('command-bar-run-btn');
 
         fireEvent.change(input, { target: { value: 'Fast clear' } });

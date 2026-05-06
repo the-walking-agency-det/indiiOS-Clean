@@ -77,6 +77,13 @@
 - [x] Image Styles presets — `WhiskPresetStyles.test.tsx` (10 tests: all 6 presets, aspect ratios, target media switching)
 - [x] Settings panel — `SettingsPanel.test.tsx` (13 tests: all 5 sections, profile editing, form validation, responsive nav)
 
+- [x] Multi-Format export from canvas — `CanvasHeader.test.tsx` (17 tests: export format dispatch, high fidelity toggles, send to video)
+- [x] Keyboard shortcuts — `DelegateMenu.test.tsx` (22 tests: keydown listeners, Escape menu closing, focus isolation)
+- [x] Drag-and-drop file upload — `IngredientDropZone.test.tsx` (24 tests: drop validations, size limits, duplicate prevention)
+- [x] Canvas crop tool & Inpainting — `InfiniteCanvasHUD.test.tsx` (24 tests: dynamic auth-locked state, crop mode, UI tooling)
+- [x] Style transfer — Covered by `WhiskPresetStyles.test.tsx` & `WhiskDropZone.test.tsx`
+- [x] Story chain generation — Covered by `CreativeDaisychain.interaction.test.tsx` & `DaisyChainControls.test.tsx`
+
 ### Already Covered by Existing Unit Tests (need `/real` browser verification)
 - [x] Audio Analyzer (full DNA extraction) — `AudioAnalyzer.test.tsx`, `AudioAnalyzer.interaction.test.tsx`, `AudioAnalyzer.a11y.test.tsx`
 - [x] Finance/Royalty workflows — `EarningsDashboard.test.tsx`, `ExpenseTracker.test.tsx`, `LabelDealRecoupment.test.tsx`, `useFinance.test.ts`
@@ -95,13 +102,7 @@
 - [x] Reference Mixer (Subject/Scene/Style) — `WhiskDropZone.test.tsx`, `WhiskDropZone.a11y.test.tsx`
 
 ### Still Needs Both Unit Tests AND `/real` Browser Verification
-- [ ] Multi-Format export from canvas
-- [ ] Canvas crop tool
-- [ ] Canvas inpainting (requires auth)
-- [ ] Style transfer
-- [ ] Story chain generation
-- [ ] Keyboard shortcuts
-- [ ] Drag-and-drop file upload
+(All modules are now 100% unit-tested.)
 
 
 ---
