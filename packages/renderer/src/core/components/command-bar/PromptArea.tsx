@@ -56,7 +56,6 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         isKnowledgeBaseEnabled,
         setKnowledgeBaseEnabled,
         setCommandBarCollapsed,
-        isBoardroomMode,
         conversationMode,
         setConversationMode,
         stopAgent,
@@ -76,7 +75,6 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         isKnowledgeBaseEnabled: state.isKnowledgeBaseEnabled,
         setKnowledgeBaseEnabled: state.setKnowledgeBaseEnabled,
         setCommandBarCollapsed: state.setCommandBarCollapsed,
-        isBoardroomMode: state.isBoardroomMode,
         conversationMode: state.conversationMode,
         setConversationMode: state.setConversationMode,
         stopAgent: state.stopAgent,
@@ -90,9 +88,11 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
         if (conversationMode === 'boardroom') {
             if (chatChannel !== 'indii') setChatChannel('indii');
         } else {
-            if (chatChannel !== 'agent') setChatChannel('agent');
+            if (currentModule !== 'dashboard' && currentModule !== 'select-org' && chatChannel === 'indii') {
+                setChatChannel('agent');
+            }
         }
-    }, [conversationMode, chatChannel, setChatChannel]);
+    }, [conversationMode, currentModule, chatChannel, setChatChannel]);
 
     const isIndiiMode = chatChannel === 'indii';
     const colors = getColorForModule(currentModule);
@@ -253,7 +253,7 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
             // On mobile Agent Dashboard, chat is displayed inline — don't open a ChatOverlay on top
             // In Boardroom mode, messages route to boardroomMessages — DON'T open the right panel
             const isOnAgentModule = currentModule === 'agent';
-            if (!isOnAgentModule && !isBoardroomMode) {
+            if (!isOnAgentModule && !isBoardroom) {
                 if (!isRightPanelOpen) {
                     toggleRightPanel();
                 }
@@ -279,7 +279,7 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
             logger.error("PromptArea: Fatal crash", fatalError);
             setIsProcessing(false);
         }
-    }, [commandBarInput, commandBarAttachments, isRightPanelOpen, toggleRightPanel, currentModule, knownAgentIds, processAttachments, toast, isProcessing, isIndiiMode, isBoardroomMode, setCommandBarInput, setCommandBarAttachments]);
+    }, [commandBarInput, commandBarAttachments, isRightPanelOpen, toggleRightPanel, currentModule, knownAgentIds, processAttachments, toast, isProcessing, isIndiiMode, isBoardroom, setCommandBarInput, setCommandBarAttachments]);
 
     const actionButtonBase = "flex items-center justify-center rounded-xl transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
     const submitButtonBase = "flex items-center justify-center transition-all shadow-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none text-white";
@@ -460,7 +460,7 @@ export const PromptArea = memo(({ className, isDocked }: PromptAreaProps) => {
                         </div>
 
                         {/* Collapse/Detach controls — hidden in boardroom (locked to right, always expanded) */}
-                        {!isDocked && !isMobile && !isBoardroomMode && (
+                        {!isDocked && !isMobile && !isBoardroom && (
                             <div className="flex items-center gap-1 border-l border-white/10 px-2 mr-1">
                                 <PromptInputAction tooltip="Collapse Chat">
                                     <button

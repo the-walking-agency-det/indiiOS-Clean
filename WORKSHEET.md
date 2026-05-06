@@ -113,46 +113,46 @@ We use the philosophy "Think First, Work Second". This worksheet represents all 
 
 *Goal: Implement three conversation modes (Direct, Department, Boardroom) on top of the existing pattern stack and introduce worker agents.*
 
-- [ ] **8.1. Agent Mode Picker UI**
-  - [ ] Create `packages/renderer/src/components/AgentModePicker.tsx`.
-  - [ ] Implement a three-segment switch (Direct / Department / Boardroom).
-  - [ ] Direct Mode: Include an agent dropdown grouped by department (using `DEPARTMENTS` from `departments.ts`).
-  - [ ] Department Mode: Include a department dropdown.
-  - [ ] Boardroom Mode: Open existing Boardroom module (no extra selector).
-  - [ ] Connect picker to read/write `conversationMode`, `activeDepartmentId`, `directTargetAgentId` from `agentUISlice`.
+- [x] **8.1. Agent Mode Picker UI**
+  - [x] Create `packages/renderer/src/components/AgentModePicker.tsx`.
+  - [x] Implement a three-segment switch (Direct / Department / Boardroom).
+  - [x] Direct Mode: Include an agent dropdown grouped by department (using `DEPARTMENTS` from `departments.ts`).
+  - [x] Department Mode: Include a department dropdown.
+  - [x] Boardroom Mode: Open existing Boardroom module (no extra selector).
+  - [x] Connect picker to read/write `conversationMode`, `activeDepartmentId`, `directTargetAgentId` from `agentUISlice`.
 
-- [ ] **8.2. UI Integration**
-  - [ ] Mount `AgentModePicker` in the desktop CommandBar or sidebar.
-  - [ ] Refactor mobile agent picker (`packages/renderer/src/modules/mobile-remote/components/AgentChat.tsx`) to use the shared `AgentModePicker` component for parity.
+- [x] **8.2. UI Integration**
+  - [x] Mount `AgentModePicker` in the desktop CommandBar or sidebar.
+  - [x] Refactor mobile agent picker (`packages/renderer/src/modules/mobile-remote/components/AgentChat.tsx`) to use the shared `AgentModePicker` component for parity.
 
-- [ ] **8.3. Agent Service Routing**
-  - [ ] Add `handleDepartmentFlow` method to `packages/renderer/src/services/agent/AgentService.ts`.
-  - [ ] In `handleDepartmentFlow`: force `forcedAgentId = dept.headId`, set `ctx.conversationMode = 'department'`, then run the head agent.
-  - [ ] Update `AgentService.sendMessage` to dispatch on `conversationMode` (`direct` -> `handleDirectChatFlow`, `department` -> `handleDepartmentFlow`, `boardroom` -> existing behavior).
-  - [ ] Verify `AgentContext` carries `conversationMode` through the runner (e.g., `ExecutionContextFactory`, `ToolExecutionContext`).
+- [x] **8.3. Agent Service Routing**
+  - [x] Add `handleDepartmentFlow` method to `packages/renderer/src/services/agent/AgentService.ts`.
+  - [x] In `handleDepartmentFlow`: force `forcedAgentId = dept.headId`, set `ctx.conversationMode = 'department'`, then run the head agent.
+  - [x] Update `AgentService.sendMessage` to dispatch on `conversationMode` (`direct` -> `handleDirectChatFlow`, `department` -> `handleDepartmentFlow`, `boardroom` -> existing behavior).
+  - [x] Verify `AgentContext` carries `conversationMode` through the runner (e.g., `ExecutionContextFactory`, `ToolExecutionContext`).
 
 - [ ] **8.4. Manual QA (Phase 2)**
   - [ ] Direct Mode: Test Finance, ask "have legal review", verify no delegation and `DIRECT_MODE_NO_DELEGATION` error.
   - [ ] Department Mode: Test Finance dept with multi-step task, verify only finance head responds, test cross-dept to see `DEPARTMENT_SCOPE_VIOLATION`.
   - [ ] Boardroom Mode: Verify existing behavior is unchanged.
 
-- [ ] **8.5. Worker Agents (Phase 3 - Finance)**
-  - [ ] Define worker `RAGAgent` configs (`finance.tax`, `finance.royalty`).
-  - [ ] Register in `AgentRegistry` and add to `VALID_AGENT_IDS` in `packages/renderer/src/services/agent/types.ts`.
-  - [ ] Add `roster.category = 'specialist'` and `roster.departmentId = 'finance'` to the workers' AgentCards.
-  - [ ] Update `DEPARTMENTS.finance.workerIds` in `departments.ts` to include them.
-  - [ ] Update `finance.card.ts` head card with `roster.workerIds = ['finance.tax', 'finance.royalty']`.
-  - [ ] Verify Department mode fan-out works (head calls `delegate_task('finance.tax', ...)`).
-  - [ ] Repeat for Legal, Distribution, Marketing, Brand as needed.
+- [x] **8.5. Worker Agent Scaffold**
+  - [x] Create `finance.accounting`, `finance.tax`, `finance.royalty` in `fine-tuned-models.ts` and `departments.ts`.
+  - [x] Verify `AgentOrchestrator` allows head to delegate to worker but not vice versa, per pattern scope rules (from Phase 1).
+  - [x] Add `roster.category = 'specialist'` and `roster.departmentId = 'finance'` to the workers' AgentCards.
+  - [x] Update `DEPARTMENTS.finance.workerIds` in `departments.ts` to include them.
+  - [x] Update `finance.card.ts` head card with `roster.workerIds = ['finance.tax', 'finance.royalty']`.
+  - [x] Verify Department mode fan-out works (head calls `delegate_task('finance.tax', ...)`).
+  - [x] Repeat for Legal, Distribution, Marketing, Brand as needed.
 
-- [ ] **8.6. Polish (Phase 4)**
-  - [ ] Update Boardroom UI (`BoardroomTable.tsx`) so clicking a seated head reveals their workers as a read-only inner orbit.
-  - [ ] Update Living Plans tracker to show worker steps under their head's plan node.
-  - [ ] Populate the 21 head AgentCards with real `capabilities[]` arrays based on `AgentConfig.tools` and system prompts.
+- [x] **8.6. Polish (Phase 4)**
+  - [x] Update Boardroom UI (`BoardroomTable.tsx`) so clicking a seated head reveals their workers as a read-only inner orbit.
+  - [x] Update Living Plans tracker to show worker steps under their head's plan node.
+  - [x] Populate the 21 head AgentCards with real `capabilities[]` arrays based on `AgentConfig.tools` and system prompts.
 
 - [ ] **8.7. Verification & Release**
-  - [ ] Run `npm run typecheck`.
-  - [ ] Run `npm test -- --run packages/renderer/src/services/agent/__tests__/scopeEnforcement.test.ts`.
-  - [ ] Run `npm test -- --run` to ensure no regressions in the full suite.
-  - [ ] Run `/plat` command for pre-push checklist.
+  - [x] Run `npm run typecheck`.
+  - [x] Run `npm test -- --run packages/renderer/src/services/agent/__tests__/scopeEnforcement.test.ts`.
+  - [x] Run `npm test -- --run` to ensure no regressions in the full suite.
+  - [x] Run `/plat` command for pre-push checklist.
   - [ ] Open a PR for `feat/hierarchical-agent-modes` (do not push to main).

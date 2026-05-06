@@ -105,7 +105,7 @@ interface TestStoreState {
     rightPanelView: string;
     agentMode: string;
     isAgentProcessing: boolean;
-    isBoardroomMode: boolean;
+    conversationMode: 'direct' | 'department' | 'boardroom';
     canvasItems: any[];
 }
 
@@ -137,7 +137,7 @@ const useTestStore = create<TestStoreState>((set) => ({
     rightPanelView: 'messages',
     agentMode: 'assistant',
     isAgentProcessing: false,
-    isBoardroomMode: false,
+    conversationMode: 'direct',
     canvasItems: [{ id: "test" }],
 }));
 
@@ -171,7 +171,7 @@ describe('CommandBar', () => {
             commandBarAttachments: [],
             isCommandBarDetached: true,
             isCommandBarCollapsed: false,
-            isBoardroomMode: false,
+            conversationMode: 'direct',
             canvasItems: [{ id: '1' }],
         });
 
@@ -266,7 +266,7 @@ describe('CommandBar', () => {
         fireEvent.click(submitButton!);
 
         await waitFor(() => {
-            expect(agentService.sendMessage).toHaveBeenCalledWith('Hello agent', undefined, undefined);
+            expect(agentService.sendMessage).toHaveBeenCalledWith('Hello agent', undefined, 'road');
         });
     });
     it('handles drag and drop events', async () => {

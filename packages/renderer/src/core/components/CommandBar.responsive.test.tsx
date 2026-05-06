@@ -145,7 +145,7 @@ describe('📱 Viewport: CommandBar Responsiveness', () => {
                 isAgentProcessing: false,
                 canvasItems: [{ id: 'mock-item' }],
                 isAgentOpen: false,
-                isBoardroomMode: false,
+                conversationMode: 'direct',
             });
         });
 

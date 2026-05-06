@@ -22,6 +22,7 @@ import { ConversationMode } from '@/core/store/slices/agent/agentUISlice';
 import { auth } from '@/services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { logger } from '@/utils/logger';
+import { cn } from '@/lib/utils';
 
 // Available specialist agents for routing
 // Agent IDs MUST match the keys in AGENT_PROMPTS (packages/firebase/src/relay/agentPrompts.ts).

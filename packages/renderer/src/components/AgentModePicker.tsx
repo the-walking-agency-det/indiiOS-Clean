@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '@/core/store';
 import { DEPARTMENTS } from '@/services/agent/departments';
 import { VALID_AGENT_IDS } from '@/services/agent/types';
+type ConversationMode = 'direct' | 'department' | 'boardroom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, User, LayoutGrid, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';

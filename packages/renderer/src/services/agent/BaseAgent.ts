@@ -161,7 +161,7 @@ export class BaseAgent implements SpecializedAgent {
                 }
 
                 // Swarm Seating Awareness: Enforce that only seated agents can be delegated to in Boardroom Mode
-                if (ctxRecord?.isBoardroomMode && ctxRecord?.seatedAgents) {
+                if (ctxRecord?.conversationMode === 'boardroom' && ctxRecord?.seatedAgents) {
                     const seatedAgents = ctxRecord.seatedAgents as string[];
                     if (!seatedAgents.includes(targetAgentId)) {
                         logger.warn(`[BaseAgent] Boardroom seating violation: Agent '${targetAgentId}' is not seated at the table.`);
@@ -249,7 +249,7 @@ export class BaseAgent implements SpecializedAgent {
                 }
 
                 // Swarm Seating Awareness: Enforce that only seated agents can be consulted in Boardroom Mode
-                if (ctxRecord?.isBoardroomMode && ctxRecord?.seatedAgents) {
+                if (ctxRecord?.conversationMode === 'boardroom' && ctxRecord?.seatedAgents) {
                     const seatedAgents = ctxRecord.seatedAgents as string[];
                     const unseated = consultations.filter(c => !seatedAgents.includes(c.targetAgentId));
                     if (unseated.length > 0) {
@@ -612,7 +612,7 @@ export class BaseAgent implements SpecializedAgent {
         // BOARDROOM: Seating Manifest Injection
         let boardroomSection = '';
         const ctxRecord = context as Record<string, any>;
-        if (ctxRecord?.isBoardroomMode === true) {
+        if (ctxRecord?.conversationMode === 'boardroom') {
             const { agentRegistry } = await import('./registry');
             const seated = ctxRecord.seatedAgents || [];
             const seatedNames = seated.map((id: string) => agentRegistry.get(id)?.name || id).join(', ');

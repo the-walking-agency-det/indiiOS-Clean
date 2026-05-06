@@ -328,7 +328,7 @@ describe('IngredientDropZone — Drag-and-Drop File Upload', () => {
         render(<IngredientDropZone ingredients={ingredients} onChange={onChange} mode="reference" />);
 
         const removeButtons = screen.getAllByRole('button', { name: /Remove asset/i });
-        fireEvent.click(removeButtons[1]); // Remove second item
+        fireEvent.click(removeButtons[1]!); // Remove second item
 
         expect(onChange).toHaveBeenCalledWith([ingredients[0]]);
     });
@@ -339,7 +339,7 @@ describe('IngredientDropZone — Drag-and-Drop File Upload', () => {
         const { container } = renderDropZone();
         const zone = screen.getByRole('button');
         const fileInput = container.querySelector('input[type="file"]')!;
-        const clickSpy = vi.spyOn(fileInput, 'click');
+        const clickSpy = vi.spyOn(fileInput as HTMLInputElement, 'click');
 
         fireEvent.keyDown(zone, { key: 'Enter' });
         expect(clickSpy).toHaveBeenCalled();
@@ -349,7 +349,7 @@ describe('IngredientDropZone — Drag-and-Drop File Upload', () => {
         const { container } = renderDropZone();
         const zone = screen.getByRole('button');
         const fileInput = container.querySelector('input[type="file"]')!;
-        const clickSpy = vi.spyOn(fileInput, 'click');
+        const clickSpy = vi.spyOn(fileInput as HTMLInputElement, 'click');
 
         fireEvent.keyDown(zone, { key: ' ' });
         expect(clickSpy).toHaveBeenCalled();

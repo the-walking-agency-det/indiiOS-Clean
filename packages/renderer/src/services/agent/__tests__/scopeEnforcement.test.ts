@@ -24,8 +24,8 @@ describe('Department registry — Phase 1 hierarchical agent system', () => {
             expect(heads).toEqual(expectedHeads.sort());
         });
 
-        it('Phase 1 ships zero workers (population is incremental, Phase 3)', () => {
-            expect(listWorkerIds()).toHaveLength(0);
+        it('Phase 1 ships zero workers, Phase 3 population begins with finance workers', () => {
+            expect(listWorkerIds()).toHaveLength(3);
         });
 
         it('every department has exactly one head matching its id', () => {
@@ -50,17 +50,9 @@ describe('Department registry — Phase 1 hierarchical agent system', () => {
         });
 
         it('isWorker reflects DEPARTMENTS.workerIds membership', () => {
-            // No workers exist in Phase 1
-            expect(isWorker('finance.tax')).toBe(false);
-            // Add a synthetic worker locally to validate the helper
-            DEPARTMENTS.finance.workerIds.push('finance.tax');
-            try {
-                expect(isWorker('finance.tax')).toBe(true);
-                expect(isWorkerOf('finance.tax', 'finance')).toBe(true);
-                expect(isWorkerOf('finance.tax', 'legal')).toBe(false);
-            } finally {
-                DEPARTMENTS.finance.workerIds.pop();
-            }
+            expect(isWorker('finance.tax')).toBe(true);
+            expect(isWorkerOf('finance.tax', 'finance')).toBe(true);
+            expect(isWorkerOf('finance.tax', 'legal')).toBe(false);
         });
     });
 
@@ -71,12 +63,7 @@ describe('Department registry — Phase 1 hierarchical agent system', () => {
         });
 
         it('returns the department for a registered worker', () => {
-            DEPARTMENTS.finance.workerIds.push('finance.royalty');
-            try {
-                expect(getDepartmentOf('finance.royalty')?.id).toBe('finance');
-            } finally {
-                DEPARTMENTS.finance.workerIds.pop();
-            }
+            expect(getDepartmentOf('finance.royalty')?.id).toBe('finance');
         });
 
         it('returns null for unknown agent ids', () => {
@@ -93,32 +80,32 @@ describe('Department registry — Phase 1 hierarchical agent system', () => {
         });
 
         it('a head and its own worker ARE the same department', () => {
-            DEPARTMENTS.legal.workerIds.push('legal.contracts');
+            DEPARTMENTS.legal!.workerIds.push('legal.contracts');
             try {
                 expect(sameDepartment('legal', 'legal.contracts')).toBe(true);
                 expect(sameDepartment('legal.contracts', 'legal')).toBe(true);
             } finally {
-                DEPARTMENTS.legal.workerIds.pop();
+                DEPARTMENTS.legal!.workerIds.pop();
             }
         });
 
         it('two workers in the same department ARE the same department', () => {
-            DEPARTMENTS.finance.workerIds.push('finance.tax', 'finance.royalty');
+            DEPARTMENTS.finance!.workerIds.push('finance.tax', 'finance.royalty');
             try {
                 expect(sameDepartment('finance.tax', 'finance.royalty')).toBe(true);
             } finally {
-                DEPARTMENTS.finance.workerIds.length = 0;
+                DEPARTMENTS.finance!.workerIds.length = 0;
             }
         });
 
         it('workers from different departments are NOT the same department', () => {
-            DEPARTMENTS.finance.workerIds.push('finance.tax');
-            DEPARTMENTS.legal.workerIds.push('legal.contracts');
+            DEPARTMENTS.finance!.workerIds.push('finance.tax');
+            DEPARTMENTS.legal!.workerIds.push('legal.contracts');
             try {
                 expect(sameDepartment('finance.tax', 'legal.contracts')).toBe(false);
             } finally {
-                DEPARTMENTS.finance.workerIds.length = 0;
-                DEPARTMENTS.legal.workerIds.length = 0;
+                DEPARTMENTS.finance!.workerIds.length = 0;
+                DEPARTMENTS.legal!.workerIds.length = 0;
             }
         });
 
@@ -130,12 +117,12 @@ describe('Department registry — Phase 1 hierarchical agent system', () => {
 
     describe('Boardroom tier enforcement (drives BOARDROOM_TIER_VIOLATION)', () => {
         it('only heads can be seated; workers must be rejected', () => {
-            DEPARTMENTS.finance.workerIds.push('finance.tax');
+            DEPARTMENTS.finance!.workerIds.push('finance.tax');
             try {
                 expect(isHead('finance')).toBe(true);
                 expect(isHead('finance.tax')).toBe(false); // worker → BOARDROOM_TIER_VIOLATION
             } finally {
-                DEPARTMENTS.finance.workerIds.length = 0;
+                DEPARTMENTS.finance!.workerIds.length = 0;
             }
         });
     });

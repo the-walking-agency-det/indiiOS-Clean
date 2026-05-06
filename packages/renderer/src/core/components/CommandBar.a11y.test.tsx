@@ -160,7 +160,7 @@ describe('CommandBar Accessibility', () => {
                 isAgentProcessing: false,
                 canvasItems: [{ id: 'mock-item' }],
                 isAgentOpen: false,
-                isBoardroomMode: false,
+                conversationMode: 'direct',
             });
         });
     });

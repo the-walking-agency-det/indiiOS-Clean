@@ -20,7 +20,7 @@ export interface Department {
 }
 
 export const DEPARTMENTS: Record<string, Department> = {
-    finance:      { id: 'finance',      headId: 'finance',      workerIds: [], displayName: 'Finance' },
+    finance:      { id: 'finance',      headId: 'finance',      workerIds: ['finance.accounting', 'finance.tax', 'finance.royalty'], displayName: 'Finance' },
     legal:        { id: 'legal',        headId: 'legal',        workerIds: [], displayName: 'Legal' },
     distribution: { id: 'distribution', headId: 'distribution', workerIds: [], displayName: 'Distribution' },
     marketing:    { id: 'marketing',    headId: 'marketing',    workerIds: [], displayName: 'Marketing' },

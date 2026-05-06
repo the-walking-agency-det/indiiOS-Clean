@@ -58,7 +58,7 @@ export class DistributionSyncService {
         );
 
         // E2E Mock Bypass: skip real Firestore listeners
-        if (typeof window !== 'undefined' && (window.FIREBASE_E2E_MOCK || localStorage.getItem('FIREBASE_E2E_MOCK'))) {
+        if (typeof window !== 'undefined' && ((window as any).FIREBASE_E2E_MOCK || localStorage.getItem('FIREBASE_E2E_MOCK'))) {
             setTimeout(() => onUpdate([]), 0);
             return () => { };
         }
@@ -79,7 +79,7 @@ export class DistributionSyncService {
      */
     static async fetchReleases(orgId: string): Promise<DashboardRelease[]> {
         // E2E Mock Bypass: skip real Firestore fetches
-        if (typeof window !== 'undefined' && (window.FIREBASE_E2E_MOCK || localStorage.getItem('FIREBASE_E2E_MOCK'))) {
+        if (typeof window !== 'undefined' && ((window as any).FIREBASE_E2E_MOCK || localStorage.getItem('FIREBASE_E2E_MOCK'))) {
             return [];
         }
 

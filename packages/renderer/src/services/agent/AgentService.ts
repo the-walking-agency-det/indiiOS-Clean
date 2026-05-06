@@ -104,7 +104,7 @@ export class AgentService {
         };
         const { useStore } = await import('@/core/store');
         const state = useStore.getState();
-        const isBoardroomMode = state.isBoardroomMode;
+        const isBoardroomMode = state.conversationMode === 'boardroom';
         logger.debug('[AgentService] sendMessage routing:', { isBoardroomMode });
 
         if (isBoardroomMode) {
@@ -700,6 +700,7 @@ export class AgentService {
         const { useStore } = await import('@/core/store');
         const state = useStore.getState();
         const activeAgents = state.activeAgents && state.activeAgents.length > 0 ? state.activeAgents : [];
+        context.seatedAgents = activeAgents;
         const referencedAssets = state.referencedAssets || [];
         logger.debug('[AgentService] Boardroom swarm dispatch:', { agentCount: activeAgents.length, agents: activeAgents });
 
@@ -1153,7 +1154,7 @@ The user will see this plan and can approve it to start execution.`;
         const { useStore } = await import('@/core/store');
         const state = useStore.getState();
         const msg = { id: uuidv4(), role: 'system' as const, text, timestamp: Date.now() };
-        if (state.isBoardroomMode) {
+        if (state.conversationMode === 'boardroom') {
             state.addBoardroomMessage(msg);
         } else {
             state.addAgentMessage(msg);
@@ -1223,7 +1224,7 @@ The user will see this plan and can approve it to start execution.`;
     async dispatchToolCall(agentId: string, toolName: string, args: Record<string, any>, responseId: string): Promise<void> {
         const { useStore } = await import('@/core/store');
         const state = useStore.getState();
-        const isBoardroomMode = state.isBoardroomMode;
+        const isBoardroomMode = state.conversationMode === 'boardroom';
 
         try {
             logger.info(`[AgentService] Dispatching direct tool call ${toolName} to agent ${agentId}`);
