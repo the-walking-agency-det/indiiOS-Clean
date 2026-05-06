@@ -5,21 +5,49 @@ import { VALID_AGENT_IDS } from '@/services/agent/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, User, LayoutGrid, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
 
 /**
  * AgentModePicker — Three-mode hybrid hierarchical agent selector.
  * Allows switching between Boardroom (All Heads), Department (Vertical Swarm),
  * and Direct (Solo Agent) modes.
  */
-export function AgentModePicker({ className }: { className?: string }) {
-    const {
-        conversationMode,
-        activeDepartmentId,
-        directTargetAgentId,
-        setConversationMode,
-        setActiveDepartmentId,
-        setDirectTargetAgentId
-    } = useStore();
+interface AgentModePickerProps {
+    className?: string;
+    mode?: ConversationMode;
+    onModeChange?: (mode: ConversationMode) => void;
+    departmentId?: string | null;
+    onDepartmentChange?: (deptId: string | null) => void;
+    agentId?: string | null;
+    onAgentChange?: (agentId: string | null) => void;
+}
+
+export function AgentModePicker({ 
+    className,
+    mode: controlledMode,
+    onModeChange,
+    departmentId: controlledDeptId,
+    onDepartmentChange,
+    agentId: controlledAgentId,
+    onAgentChange
+}: AgentModePickerProps) {
+    const store = useStore(useShallow(state => ({
+        conversationMode: state.conversationMode,
+        activeDepartmentId: state.activeDepartmentId,
+        directTargetAgentId: state.directTargetAgentId,
+        setConversationMode: state.setConversationMode,
+        setActiveDepartmentId: state.setActiveDepartmentId,
+        setDirectTargetAgentId: state.setDirectTargetAgentId,
+    })));
+
+    // Use controlled props if provided, otherwise fallback to store
+    const conversationMode = controlledMode ?? store.conversationMode;
+    const activeDepartmentId = controlledDeptId ?? store.activeDepartmentId;
+    const directTargetAgentId = controlledAgentId ?? store.directTargetAgentId;
+
+    const setConversationMode = onModeChange ?? store.setConversationMode;
+    const setActiveDepartmentId = onDepartmentChange ?? store.setActiveDepartmentId;
+    const setDirectTargetAgentId = onAgentChange ?? store.setDirectTargetAgentId;
 
     const modes = [
         { id: 'boardroom', label: 'Boardroom', icon: LayoutGrid, desc: 'Multi-dept swarm' },
@@ -69,7 +97,7 @@ export function AgentModePicker({ className }: { className?: string }) {
                         className="px-1 pb-1"
                     >
                         <div className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-1.5 ml-1">Select Department</div>
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto custom-scrollbar pr-1">
                             {Object.values(DEPARTMENTS).map((dept) => {
                                 const isSelected = activeDepartmentId === dept.id;
                                 return (
@@ -107,8 +135,13 @@ export function AgentModePicker({ className }: { className?: string }) {
                         <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                             <div className="flex flex-col gap-3">
                                 {Object.values(DEPARTMENTS).map((dept) => {
-                                    // Combine head and workers for this dept
-                                    const agentsInDept = [dept.headId, ...dept.workerIds];
+                                    // Combine head and workers for this dept, and filter by VALID_AGENT_IDS to be safe
+                                    const agentsInDept = [dept.headId, ...dept.workerIds].filter(id => 
+                                        (VALID_AGENT_IDS as readonly string[]).includes(id)
+                                    );
+                                    
+                                    if (agentsInDept.length === 0) return null;
+
                                     return (
                                         <div key={dept.id} className="flex flex-col gap-1">
                                             <div className="text-[8px] font-bold text-blue-400/50 uppercase tracking-wider mb-1 px-1">{dept.displayName}</div>

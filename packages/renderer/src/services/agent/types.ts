@@ -192,6 +192,7 @@ export interface AgentContext {
     userAlignmentRules?: string[]; // Injected strategic alignment rules
     ragCorpus?: string;
     activeModule?: string;
+    conversationMode?: 'direct' | 'department' | 'boardroom';
     userProfile?: UserProfile;
     distributor?: DistributorInfo;
     traceId?: string;
